@@ -410,7 +410,7 @@ function parseCSVText(text) {
     const date        = new Date(dateStr + 'T00:00:00');
     days.push({ date, dateStr, cost, costBureau, costTotal,
                 revenue, conv, profit, checkouts, upsellRate, pedidos, pedidosUpsell,
-                cac: (conv>0 && cost>0)?+(cost/conv).toFixed(2):null });
+                cac: (conv>0 && costTotal>0)?+(costTotal/conv).toFixed(2):null });
   }
   return days.sort((a,b) => a.dateStr.localeCompare(b.dateStr));
 }
@@ -492,7 +492,7 @@ function totals() {
   const checkouts  = filtered.reduce((s,d)=>s+(d.checkouts||0),   0)*convMul;
   const convRate   = checkouts > 0 ? (conv / checkouts * 100) : MONTHLY.convRate;
   return { rev, cost, costBureau, costTotal, conv, pft,
-           cac:conv>0?cost/conv:0, roas:cost>0?rev/cost:0,
+           cac:conv>0&&costTotal>0?+(costTotal/conv).toFixed(2):0, roas:costTotal>0?+(rev/costTotal).toFixed(2):0,
            margin:rev>0?pft/rev:0, ticket:TICKET, convRate, upsell };
 }
 function campTotals() {
@@ -531,7 +531,7 @@ function buildKPIs(T) {
     { id:'ct',label:'Custo Total',         value:fmtR(T.costTotal),      sub:'ads + bureau',        color:'red',    dir:'neutral', badge:'custos',  spark:filtered.map(d=>d.costTotal||0), sc:'#dc2626' },
     { id:'p', label:'Lucro Bruto',         value:fmtR(T.pft),            sub:'receita − ads − bureau', color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(d=>d.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626' },
     { id:'m', label:'Margem',              value:fmtN(T.margin*100,1)+'%', sub:'contribuição real',  color:T.margin>=.22?'green':'amber', dir:T.margin>=.22?'up':'neutral', badge:T.margin>=.22?'saudável':'atenção', spark:filtered.map(d=>d.revenue>0?((d.profit||0)/d.revenue)*100:0), sc:'#16a34a' },
-    { id:'ro',label:'ROAS',                value:fmtN(T.roas,2,'')+'×',  sub:'retorno s/ ads',      color:T.roas>=1.5?'green':'amber', dir:T.roas>=1.5?'up':'neutral', badge:T.roas>=1.5?'bom':'atenção', spark:filtered.map(d=>d.cost>0?d.revenue/d.cost:0), sc:'#2563eb' },
+    { id:'ro',label:'ROAS',                value:fmtN(T.roas,2,'')+'×',  sub:'retorno s/ investimento',      color:T.roas>=1.5?'green':'amber', dir:T.roas>=1.5?'up':'neutral', badge:T.roas>=1.5?'bom':'atenção', spark:filtered.map(d=>d.costTotal>0?d.revenue/d.costTotal:0), sc:'#2563eb' },
     { id:'ca',label:'CAC',                 value:T.cac>0?fmtR(T.cac):'—', sub:'meta: '+fmtR(TARGET_CPA), color:T.cac>0&&T.cac<=TARGET_CPA?'green':T.cac>0?'red':'blue', dir:T.cac>0&&T.cac<=TARGET_CPA?'up':T.cac>0?'down':'neutral', badge:T.cac>0&&T.cac<=TARGET_CPA?'dentro da meta':T.cac>0?'acima da meta':'s/ ads', spark:filtered.map(d=>d.cac), sc:T.cac>0&&T.cac<=TARGET_CPA?'#16a34a':'#dc2626' },
   ];
   const row2 = [
@@ -539,7 +539,7 @@ function buildKPIs(T) {
     { id:'tr',label:'Transações',          value:fmtN(T.conv,0,''),      sub:'conversões',          color:'blue',   dir:'up',      badge:'+12%',   spark:filtered.map(d=>d.conv),     sc:'#2563eb' },
     { id:'tk',label:'Ticket Médio',        value:fmtR(T.ticket),         sub:'por compra',          color:'blue',   dir:'neutral', badge:'estável',spark:filtered.map(()=>T.ticket),  sc:'#0891b2' },
     { id:'up',label:'Taxa de Upsell',      value:fmtN(T.upsell,1)+'%',  sub:'meta: '+TARGET_UPSELL+'%', color:T.upsell>=TARGET_UPSELL?'green':'amber', dir:T.upsell>=TARGET_UPSELL?'up':'neutral', badge:T.upsell>=TARGET_UPSELL?'meta atingida':fmtN(TARGET_UPSELL-T.upsell,1)+'pp abaixo', spark:filtered.map(d=>d.upsellRate), sc:'#7c3aed' },
-    { id:'iv',label:'Investimento Ads',    value:fmtR(T.cost),           sub:'gasto com ads',       color:'amber',  dir:'neutral', badge:'+5%',    spark:filtered.map(d=>d.cost),     sc:'#d97706' },
+    { id:'iv',label:'Investimento Total',  value:fmtR(T.costTotal),      sub:'bureau + ads',        color:'amber',  dir:'neutral', badge:'total',  spark:filtered.map(d=>d.costTotal||0), sc:'#d97706' },
     { id:'cv',label:'Taxa de Conversão',   value:fmtN(T.convRate,2)+'%', sub:'checkout → compra',  color:'blue',   dir:'up',      badge:'+2pp',   spark:filtered.map(()=>T.convRate), sc:'#0891b2' },
   ];
   renderRow('kpiRow1', row1);
@@ -646,7 +646,7 @@ function buildCharts(T) {
     labels,
     datasets:[
       { label:'Receita Bruta', data:d.map(x=>x.revenue), borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,.06)', fill:true, tension:.3, pointRadius:d.length>20?2:3, pointHoverRadius:5, pointBackgroundColor:'#16a34a', borderWidth:2 },
-      { label:'Investimento',  data:d.map(x=>x.cost),    borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.06)', fill:true, tension:.3, pointRadius:d.length>20?2:3, pointHoverRadius:5, pointBackgroundColor:'#2563eb', borderWidth:2 },
+      { label:'Investimento',  data:d.map(x=>x.costTotal||0),    borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.06)', fill:true, tension:.3, pointRadius:d.length>20?2:3, pointHoverRadius:5, pointBackgroundColor:'#2563eb', borderWidth:2 },
     ]
   },{
     responsive:true, maintainAspectRatio:false,
