@@ -694,7 +694,7 @@ function buildCharts(T) {
     labels:camps.map(c=>c.name),
     datasets:[{ data:camps.map(c=>c.conv), backgroundColor:camps.map(c=>c.color), borderWidth:2, borderColor:'#fff' }]
   },{
-  2 responsive:true, maintainAspectRatio:false, cutout:'60%',
+    responsive:true, maintainAspectRatio:false, cutout:'60%',
     plugins:{
       legend:{position:'bottom',labels:{font:{size:10.5},boxWidth:9,padding:10}},
       tooltip:{callbacks:{label:c=>' '+c.label+': '+fmtN(c.raw,0,'')+ ' conv'}},
