@@ -283,16 +283,16 @@
     </div>
   </div>
 
-  <!-- Upsell table -->
-  <div class="section-label" style="margin-top:24px">Detalhamento de Upsell</div>
-  <div class="card">
+  <!-- Upsell type table -->
+  <div class="section-label" style="margin-top:24px">Upsell por Tipo · Período Selecionado</div>
+  <div class="card" style="padding:0">
     <div class="table-wrap">
-      <table id="upsellTable">
+      <table id="upsellTypeTable" style="font-size:13px">
         <thead><tr>
-          <th>Data</th>
+          <th>Tipo de Upsell</th>
           <th class="num">Pedidos</th>
-          <th class="num">Upsell (qtd)</th>
-          <th style="min-width:160px">% Upsell Pago</th>
+          <th class="num">% do Total</th>
+          <th class="num">Receita</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -322,7 +322,9 @@ const MONTHLY = { revenue:27334.04, cost:20740.63, conv:1898, profit:6237.85, ro
 // ─── GOOGLE SHEETS CSV DATA SOURCE ───────────────────────────────────────────
 // Paste the "Publicar na web → CSV" URL of the Dashboard tab here.
 // Leave empty ("") to use example data.
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqbE08eyRjAugsJ4ZZG7-jUf9MG6UfbOuOm4W_nONBZUs8nM6OaHWxso4_7A1NJVJnsgfgDjzOGfER/pub?gid=2140356170&single=true&output=csv";
+const CSV_URL          = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqbE08eyRjAugsJ4ZZG7-jUf9MG6UfbOuOm4W_nONBZUs8nM6OaHWxso4_7A1NJVJnsgfgDjzOGfER/pub?gid=2140356170&single=true&output=csv";
+// Paste the "Publicar na web → CSV" URL of the UpsellByType tab here.
+const UPSELL_TYPE_URL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqbE08eyRjAugsJ4ZZG7-jUf9MG6UfbOuOm4W_nONBZUs8nM6OaHWxso4_7A1NJVJnsgfgDjzOGfER/pub?gid=1122099462&single=true&output=csv";
 
 // ─── EXAMPLE DATA (fallback when CSV_URL is empty or fetch fails) ─────────────
 function makeDays() {
@@ -422,10 +424,11 @@ async function loadCSVData(url) {
 }
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let ALL_DAYS = [];
-let filtered  = [];
-let activeCamp = '';
-let usingRealData = false;
+let ALL_DAYS        = [];
+let filtered        = [];
+let activeCamp      = '';
+let usingRealData   = false;
+let UPSELL_TYPE_DATA = []; // rows: { dateStr, addonKey, label, count, revenue }
 const charts = {};
 const sparkRefs = {};
 
@@ -515,7 +518,7 @@ function render() {
   buildAlertBar(T);
   buildCharts(T);
   buildTable();
-  buildUpsellTable();
+  buildUpsellTypeTable();
   const d = filtered;
   document.getElementById('chartSub').textContent =
     d.length===1 ? fmt2(d[0].dateStr) : `${fmt2(d[0].dateStr)} – ${fmt2(d[d.length-1].dateStr)}`;
@@ -800,30 +803,70 @@ function buildTable() {
   });
 }
 
-// ─── UPSELL TABLE ────────────────────────────────────────────────────────────
-function buildUpsellTable() {
-  const rows = filtered
-    .filter(d => d.pedidosUpsell > 0 || d.upsellRate > 0)
-    .sort((a,b) => b.dateStr.localeCompare(a.dateStr));
-  const maxPct = rows.length ? Math.max(...rows.map(r=>r.upsellRate), TARGET_UPSELL) : TARGET_UPSELL;
-  const tbody = document.querySelector('#upsellTable tbody');
+// ─── UPSELL TYPE TABLE ───────────────────────────────────────────────────────
+function buildUpsellTypeTable() {
+  const tbody = document.querySelector('#upsellTypeTable tbody');
   tbody.innerHTML = '';
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;font-size:12.5px">Sem dados de upsell no período selecionado</td></tr>';
+
+  // Determine date range from current filter
+  const dates = filtered.map(d => d.dateStr);
+  if (!dates.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;font-size:12.5px">Sem dados no período selecionado</td></tr>';
     return;
   }
+  const minDate = dates[0], maxDate = dates[dates.length - 1];
+
+  // Aggregate UPSELL_TYPE_DATA for the period
+  const agg = new Map(); // addonKey → { label, count, revenue }
+  for (const row of UPSELL_TYPE_DATA) {
+    if (row.dateStr < minDate || row.dateStr > maxDate) continue;
+    if (!agg.has(row.addonKey)) agg.set(row.addonKey, { label: row.label, count: 0, revenue: 0 });
+    const e = agg.get(row.addonKey);
+    e.count   += row.count;
+    e.revenue += row.revenue;
+  }
+
+  if (!agg.size) {
+    // Fallback: use existing aggregated upsell data from filtered days
+    const totalUpsell = filtered.reduce((s, d) => s + (d.pedidosUpsell || 0), 0);
+    if (!totalUpsell) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;font-size:12.5px">Configure UPSELL_TYPE_URL para ver breakdown por tipo</td></tr>';
+      return;
+    }
+    // Show single "Upsell" row with totals from main CSV
+    const totalRevUpsell = filtered.reduce((s, d) => s + (d.revenueUpsell || 0), 0);
+    const totalOrders = filtered.reduce((s, d) => s + (d.pedidos || 0), 0);
+    tbody.innerHTML = `<tr>
+      <td style="font-weight:500">Upsell (todos os tipos)</td>
+      <td class="num">${totalUpsell}</td>
+      <td class="num">${totalOrders ? ((totalUpsell/totalOrders)*100).toFixed(1)+'%' : '—'}</td>
+      <td class="num">${totalRevUpsell ? fmtR(totalRevUpsell) : '—'}</td>
+    </tr>`;
+    return;
+  }
+
+  const totalCount = Array.from(agg.values()).reduce((s, e) => s + e.count, 0);
+  const rows = Array.from(agg.entries())
+    .map(([key, e]) => ({ key, ...e }))
+    .sort((a, b) => b.count - a.count);
+
   rows.forEach(r => {
-    const barPct = Math.round((r.upsellRate / maxPct) * 100);
-    const col = r.upsellRate >= TARGET_UPSELL ? '#16a34a' : '#7c3aed';
+    const pct = totalCount ? ((r.count / totalCount) * 100).toFixed(1) : '0.0';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="font-weight:500">${fmt2(r.dateStr)}</td>
-      <td class="num">${r.pedidos}</td>
-      <td class="num">${r.pedidosUpsell}</td>
-      <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${barPct}%;background:${col}"></div></div>
-          <span style="font-size:12px;font-variant-numeric:tabular-nums;color:${col};min-width:46px;text-align:right">${r.upsellRate.toFixed(1)}%</span></div></td>`;
+      <td style="font-weight:500">${r.label}</td>
+      <td class="num">${r.count}</td>
+      <td class="num" style="color:#7c3aed;font-weight:600">${pct}%</td>
+      <td class="num">${fmtR(r.revenue)}</td>`;
     tbody.appendChild(tr);
   });
+
+  // Totals row
+  const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
+  const tfoot = document.createElement('tr');
+  tfoot.style.cssText = 'font-weight:700;border-top:2px solid var(--border);background:var(--bg-hover)';
+  tfoot.innerHTML = `<td>Total</td><td class="num">${totalCount}</td><td class="num">100%</td><td class="num">${fmtR(totalRevenue)}</td>`;
+  tbody.appendChild(tfoot);
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -833,9 +876,10 @@ function fmt2(s)          { const [,m,d]=s.split('-'); return `${d}/${m}`; }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 async function initDashboard() {
+  document.getElementById('lastUpdated').textContent = 'Carregando dados…';
+
+  // Load main CSV
   if (CSV_URL) {
-    // Show loading indicator
-    document.getElementById('lastUpdated').textContent = 'Carregando dados…';
     try {
       const data = await loadCSVData(CSV_URL);
       if (data.length > 0) {
@@ -844,11 +888,9 @@ async function initDashboard() {
         document.getElementById('footerBar').textContent =
           'Verifica Placa · Dashboard · Google Sheets · Atualizado: ' +
           new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      } else {
-        throw new Error('CSV vazio');
-      }
+      } else throw new Error('CSV vazio');
     } catch (err) {
-      console.warn('[Dashboard] Falha ao carregar CSV, usando dados de exemplo:', err);
+      console.warn('[Dashboard] Falha ao carregar CSV principal:', err);
       ALL_DAYS = makeDays();
       document.getElementById('footerBar').textContent =
         'Verifica Placa · Dashboard · Dados de exemplo (CSV indisponível)';
@@ -857,7 +899,27 @@ async function initDashboard() {
     ALL_DAYS = makeDays();
   }
 
-  // Default to last 30 days (or all data if fewer rows)
+  // Load UpsellByType CSV (optional — silently skip if not configured)
+  if (UPSELL_TYPE_URL) {
+    try {
+      const raw = await fetch(UPSELL_TYPE_URL).then(r => r.text());
+      const lines = raw.trim().split('\n').map(l => l.split(','));
+      const hdr = lines[0].map(h => h.trim().toLowerCase().replace(/"/g,''));
+      const ci = k => hdr.indexOf(k);
+      const cDate=ci('date'), cKey=ci('addon_key'), cLbl=ci('label'), cCnt=ci('count'), cRev=ci('revenue');
+      UPSELL_TYPE_DATA = lines.slice(1).map(r => ({
+        dateStr:  (r[cDate]||'').replace(/"/g,'').trim().substring(0,10),
+        addonKey: (r[cKey] ||'').replace(/"/g,'').trim(),
+        label:    (r[cLbl] ||'').replace(/"/g,'').trim(),
+        count:    Number((r[cCnt]||'0').replace(/"/g,'')),
+        revenue:  Number((r[cRev]||'0').replace(/"/g,'').replace(/R\$|\s/g,'')),
+      })).filter(r => r.dateStr && r.addonKey);
+    } catch (err) {
+      console.warn('[Dashboard] Falha ao carregar UpsellByType CSV:', err);
+    }
+  }
+
+  // Default to last 30 days
   filtered = [...ALL_DAYS].slice(-30);
   if (!filtered.length) filtered = [...ALL_DAYS];
 
