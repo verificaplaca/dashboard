@@ -35,11 +35,12 @@ const PROP_SECRET    = "PAGARME_SECRET_KEY";
 const PROP_SSID      = "SPREADSHEET_ID";
 const PROP_SB_URL    = "SUPABASE_URL";       // ex: https://xyzxyz.supabase.co
 const PROP_SB_KEY    = "SUPABASE_ANON_KEY";  // anon key do projeto
-const CONFIG_SHEET   = "Config";
-const REVENUE_SHEET  = "RevenueDaily";
-const BUREAU_SHEET   = "BureauDaily";
-const UPSELL_SHEET   = "UpsellDaily";
-const TZ             = "America/Sao_Paulo";
+const CONFIG_SHEET      = "Config";
+const REVENUE_SHEET     = "RevenueDaily";
+const BUREAU_SHEET      = "BureauDaily";
+const UPSELL_SHEET      = "UpsellDaily";
+const UPSELL_TYPE_SHEET = "UpsellByType";
+const TZ                = "America/Sao_Paulo";
 
 // ─────────────────────────────────────────────────────────────
 //  MENU
@@ -59,6 +60,7 @@ function onOpen() {
       .addItem("RevenueDaily (agrega Orders → diário)", "syncRevenueDailyFromOrdersSheet")
       .addItem("UpsellDaily (acumula addons por dia)", "syncUpsellDaily")
       .addItem("UpsellDaily (histórico completo)", "syncUpsellFull")
+      .addItem("UpsellByType (breakdown por tipo)", "syncUpsellByType")
       .addItem("Dashboard (consolida GAds + Pagar.me)", "syncDashboard")
       .addItem("Bureau (Supabase → BureauDaily)", "syncBureauFromSupabase")
       .addSeparator()
@@ -111,7 +113,10 @@ function syncAll() {
 
     try { syncUpsellDaily(); }
     catch (e) { setLastError_("upsell_daily: " + String(e)); }
-    // syncDashboard roda no seu próprio trigger (3x ao dia via setupAutoSync)
+
+    try { syncUpsellByType(); }
+    catch (e) { setLastError_("upsell_by_type: " + String(e)); }
+    // syncDashboard roda no seu próprio trigger (a cada 30min via setupAutoSync)
     // para não sobrecarregar o trigger horário do syncAll.
   } finally {
     lock.releaseLock();
@@ -469,6 +474,99 @@ function syncUpsellFull() {
   setConfigValue_("last_sync_upsell", new Date().toISOString());
   ss.toast("UpsellFull concluído: " + out.length + " dias de histórico.", "OK", 5);
   Logger.log("syncUpsellFull: " + out.length + " dias, " + addonOrders.size + " pedidos com addon.");
+}
+
+/**
+ * syncUpsellByType — agrega upsell por tipo de addon e data.
+ * Aba "UpsellByType": date | addon_key | label | count | revenue
+ * count   = pedidos PAGOS distintos com esse addon naquela data
+ * revenue = soma de total_amount dos itens desse tipo (em reais)
+ * Roda a cada execução de syncAll (incremental — reescreve tudo a partir de OrderItems).
+ */
+function syncUpsellByType() {
+  const ss = getSpreadsheet_();
+
+  const itemsSh = ss.getSheetByName("OrderItems");
+  if (!itemsSh) {
+    Logger.log("syncUpsellByType: aba OrderItems não encontrada.");
+    return;
+  }
+
+  const vals = itemsSh.getDataRange().getValues();
+  if (vals.length < 2) return;
+
+  const h        = vals[0].map(v => _normalizeHeader(v));
+  const cOrderId = h.findIndex(v => v === "order_id");
+  const cDate    = h.findIndex(v => v === "order_created_at");
+  const cStatus  = h.findIndex(v => v === "order_status");
+  const cType    = h.findIndex(v => v === "item_type");
+  const cKey     = h.findIndex(v => v === "addon_key");
+  const cDesc    = h.findIndex(v => v === "item_description");
+  const cAmt     = h.findIndex(v => v === "total_amount");
+
+  if (cOrderId < 0 || cDate < 0 || cType < 0 || cKey < 0) {
+    Logger.log("syncUpsellByType: colunas necessárias não encontradas.");
+    return;
+  }
+
+  // Map: "date|addon_key" → { label, orderIds: Set, revenue }
+  const map = new Map();
+
+  for (let i = 1; i < vals.length; i++) {
+    const row    = vals[i];
+    const type   = String(row[cType]   || "").toUpperCase();
+    const status = String(row[cStatus] || "").toLowerCase();
+    if ((type !== "ADDON" && type !== "BUNDLE") || status !== "paid") continue;
+
+    const orderId  = String(row[cOrderId] || "");
+    const addonKey = String(row[cKey]     || "") || "outro";
+    const desc     = String(row[cDesc]    || "");
+    const amt      = Number(row[cAmt]     || 0);
+    const dt       = _parseDate(row[cDate]);
+    if (!dt || !orderId) continue;
+
+    const dateStr = Utilities.formatDate(dt, TZ, "yyyy-MM-dd");
+    const mapKey  = dateStr + "|" + addonKey;
+
+    if (!map.has(mapKey)) {
+      map.set(mapKey, { date: dateStr, addonKey, label: _addonLabel_(addonKey, desc), orderIds: new Set(), revenue: 0 });
+    }
+    const entry = map.get(mapKey);
+    entry.orderIds.add(orderId);
+    entry.revenue += amt;
+  }
+
+  // Build rows sorted by date asc, then addon_key
+  const rows = Array.from(map.values())
+    .sort((a, b) => a.date.localeCompare(b.date) || a.addonKey.localeCompare(b.addonKey))
+    .map(e => [new Date(e.date + "T12:00:00"), e.addonKey, e.label, e.orderIds.size, Math.round(e.revenue * 100) / 100]);
+
+  const dest = getOrCreateSheet_(UPSELL_TYPE_SHEET);
+  dest.clearContents();
+  const headers = ["date", "addon_key", "label", "count", "revenue"];
+  dest.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (rows.length) {
+    dest.getRange(2, 1, rows.length, headers.length).setValues(rows);
+    dest.getRange(2, 1, rows.length, 1).setNumberFormat("yyyy-mm-dd");
+    dest.getRange(2, 4, rows.length, 1).setNumberFormat("0");
+    dest.getRange(2, 5, rows.length, 1).setNumberFormat("R$ #,##0.00");
+  }
+  dest.autoResizeColumns(1, headers.length);
+  Logger.log("syncUpsellByType: " + rows.length + " linhas gravadas.");
+}
+
+/** Rótulo legível para um addon_key. */
+function _addonLabel_(key, fallbackDesc) {
+  const LABELS = {
+    "dados_proprietario_atual": "Dados do Proprietário",
+    "bin_estadual":             "Restrições Estaduais",
+    "bin_federal":              "Restrições Federais",
+    "gravame":                  "Gravame",
+    "historico_leilao":         "Histórico de Leilão",
+    "indicio_sinistro":         "Indício de Sinistro",
+  };
+  if (key.startsWith("combo:")) return "Pacote Completo";
+  return LABELS[key] || fallbackDesc || key;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -834,13 +932,14 @@ function _parseAddonKeys(code) {
 // ─────────────────────────────────────────────────────────────
 function setupAutoSync() {
   // Remove todos os triggers antigos gerenciados por este script
+  const MANAGED = ["syncAll","syncBackoffice","syncRevenueDailyFromOrdersSheet",
+                   "syncUpsellDaily","syncDashboard","syncBureauFromSupabase"];
   ScriptApp.getProjectTriggers().forEach(t => {
     const fn = t.getHandlerFunction ? t.getHandlerFunction() : "";
-    if (["syncAll","syncBackoffice","syncRevenueDailyFromOrdersSheet","syncUpsellDaily","syncDashboard","syncBureauFromSupabase"].includes(fn))
-      ScriptApp.deleteTrigger(t);
+    if (MANAGED.includes(fn)) ScriptApp.deleteTrigger(t);
   });
 
-  // ① Orders + OrderItems + RevenueDaily — a cada 1 hora
+  // ① Orders + OrderItems + RevenueDaily + UpsellByType — a cada 1 hora
   ScriptApp.newTrigger("syncAll")
     .timeBased()
     .everyHours(1)
@@ -863,18 +962,16 @@ function setupAutoSync() {
       .create();
   });
 
-  // ④ Dashboard (consolida tudo) — logo após o Bureau: 7h05, 13h05, 20h05
-  [7, 13, 20].forEach(hour => {
-    ScriptApp.newTrigger("syncDashboard")
-      .timeBased()
-      .everyDays(1)
-      .atHour(hour)
-      .nearMinute(5)
-      .create();
-  });
+  // ④ Dashboard (consolida GAds + Pagar.me) — a cada 30 minutos
+  //    Garante que dados do Google Ads report (atualizado pelo add-on) sejam
+  //    incorporados ao CSV do dashboard frequentemente ao longo do dia.
+  ScriptApp.newTrigger("syncDashboard")
+    .timeBased()
+    .everyMinutes(30)
+    .create();
 
   SpreadsheetApp.getActiveSpreadsheet()
-    .toast("Triggers OK: syncAll 1h · syncBackoffice 6h10 · Bureau+Dashboard 7h/13h/20h", "Triggers OK", 8);
+    .toast("Triggers OK: syncAll 1h · syncBackoffice 6h10 · Bureau 3x/dia · Dashboard a cada 30min", "Triggers OK", 8);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1296,47 +1393,62 @@ function syncDashboard() {
 /** Map<"yyyy-MM-dd", { cost }> — somas diárias do GAds_Diario. */
 function _readGAdsDaily_(ss) {
   const result = new Map();
+
+  // ── Lê histórico do report diário (GAds_Diario) ──────────────────────────
   const sh = ss.getSheetByName("GAds_Diario");
-  if (!sh) { Logger.log('Aba "GAds_Diario" não encontrada.'); return result; }
-
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return result;
-
-  // Auto-detect linha de cabeçalho (suporta exportações com meta-linhas no topo)
-  let headerIdx = -1;
-  for (let r = 0; r < Math.min(5, values.length); r++) {
-    const row = values[r].map(h => _normGAds_(h));
-    if (row.some(h => h === "dia" || h === "day")) { headerIdx = r; break; }
-  }
-  if (headerIdx < 0) {
-    Logger.log("GAds_Diario: coluna Dia/Day não encontrada nas primeiras 5 linhas.");
-    return result;
-  }
-
-  const header = values[headerIdx].map(h => _normGAds_(h));
-  const cDay   = header.findIndex(h => h === "dia"   || h === "day");
-  const cCost  = header.findIndex(h => h === "custo" || h === "cost");
-
-  if (cDay < 0 || cCost < 0) {
-    Logger.log("GAds_Diario: colunas 'Dia'/'Custo' não encontradas. Headers: " + header.join(", "));
-    return result;
-  }
-
-  for (let i = headerIdx + 1; i < values.length; i++) {
-    const row    = values[i];
-    const dayStr = String(row[cDay] || "").trim();
-    // Pula linhas de total, subtotal ou sem data
-    if (!dayStr || /total|subtotal/i.test(dayStr)) continue;
-    const key = _normalizeGAdsDate_(dayStr);
-    if (!key) continue;
-    const cost = _parseGAdsNum_(row[cCost]);
-    // Sanity check: custo diário acima de R$ 50.000 é claramente erro de parsing
-    if (cost > 50000) {
-      Logger.log("GAds_Diario: valor suspeito ignorado na linha " + (i+1) + " → custo=" + cost + " dia=" + dayStr);
-      continue;
+  if (sh) {
+    const values = sh.getDataRange().getValues();
+    if (values.length >= 2) {
+      let headerIdx = -1;
+      for (let r = 0; r < Math.min(5, values.length); r++) {
+        const row = values[r].map(h => _normGAds_(h));
+        if (row.some(h => h === "dia" || h === "day")) { headerIdx = r; break; }
+      }
+      if (headerIdx >= 0) {
+        const header = values[headerIdx].map(h => _normGAds_(h));
+        const cDay  = header.findIndex(h => h === "dia"   || h === "day");
+        const cCost = header.findIndex(h => h === "custo" || h === "cost");
+        if (cDay >= 0 && cCost >= 0) {
+          for (let i = headerIdx + 1; i < values.length; i++) {
+            const row    = values[i];
+            const dayStr = String(row[cDay] || "").trim();
+            if (!dayStr || /total|subtotal/i.test(dayStr)) continue;
+            const key  = _normalizeGAdsDate_(dayStr);
+            if (!key) continue;
+            const cost = _parseGAdsNum_(row[cCost]);
+            if (cost > 50000) { Logger.log("GAds_Diario: valor suspeito → " + cost); continue; }
+            result.set(key, { cost: ((result.get(key) || {}).cost || 0) + cost });
+          }
+        }
+      }
     }
-    result.set(key, { cost: ((result.get(key) || {}).cost || 0) + cost });
+  } else {
+    Logger.log('Aba "GAds_Diario" não encontrada.');
   }
+
+  // ── Sobrescreve HOJE com dados intraday do Google Ads Script (GAds_Hoje) ──
+  // A aba GAds_Hoje é gravada pelo script externo a cada hora e tem prioridade
+  // sobre o report diário para a data corrente.
+  const shHoje = ss.getSheetByName("GAds_Hoje");
+  if (shHoje) {
+    const vals = shHoje.getDataRange().getValues();
+    // Linha 1 = headers, Linha 2 = resumo do dia (data | custo | ...)
+    if (vals.length >= 2) {
+      const hdr    = vals[0].map(h => _normGAds_(h));
+      const cDate  = hdr.findIndex(h => h === "data"  || h === "dia");
+      const cCosto = hdr.findIndex(h => h === "custo" || h === "cost");
+      if (cDate >= 0 && cCosto >= 0) {
+        const row     = vals[1];
+        const dateStr = String(row[cDate] || "").trim().substring(0, 10);
+        const cost    = _parseGAdsNum_(row[cCosto]);
+        if (dateStr && cost >= 0) {
+          result.set(dateStr, { cost });
+          Logger.log("GAds_Hoje: sobreposição para " + dateStr + " → R$" + cost);
+        }
+      }
+    }
+  }
+
   return result;
 }
 
