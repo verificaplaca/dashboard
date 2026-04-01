@@ -125,9 +125,8 @@
     .kpi-delta.neg { color: var(--red); }
     .kpi-delta.neu { color: var(--text-muted); }
     .kpi-card.alert-pulse { border-color: #fca5a5 !important; box-shadow: 0 0 0 2px rgba(220,38,38,.12) !important; }
-    /* Day-of-week grid */
+    /* Day-of-week — desktop grid, mobile carousel */
     .dow-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-    @media (max-width: 700px) { .dow-grid { grid-template-columns: repeat(4, 1fr); } }
     .dow-cell { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
                 padding: 12px 8px; text-align: center; box-shadow: var(--shadow); }
     .dow-day  { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;
@@ -140,6 +139,13 @@
     .dow-worst { background: var(--red-soft);   border-color: #fca5a5; }
     .dow-badge.best  { background: #dcfce7; color: #15803d; }
     .dow-badge.worst { background: #fee2e2; color: #b91c1c; }
+    @media (max-width: 700px) {
+      .dow-grid { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory;
+                  -webkit-overflow-scrolling: touch; padding-bottom: 6px;
+                  scrollbar-width: none; }
+      .dow-grid::-webkit-scrollbar { display: none; }
+      .dow-cell { flex: 0 0 calc(33% - 6px); min-width: 96px; scroll-snap-align: start; }
+    }
 
     /* Freshness dot */
     .fresh-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -148,22 +154,45 @@
     .fresh-dot.red    { background: var(--red);   }
     #freshnessWrap { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-muted); }
 
-    /* Today Pace bar */
+    /* Today Pace */
     .pace-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-                 padding: 14px 18px; box-shadow: var(--shadow); margin-bottom: 12px; }
-    .pace-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
-    .pace-title  { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; }
-    .pace-grid   { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-    @media (max-width: 600px) { .pace-grid { grid-template-columns: 1fr 1fr; } }
-    .pace-stat   { display: flex; flex-direction: column; gap: 2px; }
-    .pace-lbl    { font-size: 10.5px; color: var(--text-muted); font-weight: 500; }
-    .pace-val    { font-size: 16px; font-weight: 700; }
-    .pace-sub    { font-size: 10.5px; color: var(--text-muted); }
-    .pace-bar-wrap { margin-top: 4px; }
-    .pace-bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
-    .pace-track  { position: relative; height: 8px; background: var(--border); border-radius: 4px; overflow: visible; }
-    .pace-fill   { height: 100%; border-radius: 4px; transition: width .5s; }
-    .pace-marker { position: absolute; top: -3px; width: 2px; height: 14px; background: rgba(0,0,0,.25); border-radius: 1px; transform: translateX(-50%); }
+                 padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 12px; }
+    .pace-header { display: flex; align-items: center; justify-content: space-between;
+                   margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+    .pace-title  { font-size: 11px; font-weight: 700; color: var(--text-muted);
+                   text-transform: uppercase; letter-spacing: .08em; }
+    .pace-status { font-size: 13px; font-weight: 700; }
+    .pace-grid   { display: grid; grid-template-columns: repeat(3, 1fr);
+                   gap: 0; margin-bottom: 16px; }
+    .pace-stat   { display: flex; flex-direction: column; gap: 3px;
+                   padding: 12px 16px; border-right: 1px solid var(--border);
+                   border-bottom: 1px solid var(--border); }
+    .pace-stat:nth-child(3n)  { border-right: none; }
+    .pace-stat:nth-last-child(-n+3) { border-bottom: none; }
+    .pace-lbl    { font-size: 10px; color: var(--text-muted); font-weight: 600;
+                   text-transform: uppercase; letter-spacing: .05em; }
+    .pace-val    { font-size: 17px; font-weight: 700; line-height: 1.2; margin-top: 2px; }
+    .pace-sub    { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+    .pace-bar-wrap { padding: 4px 0 0; }
+    .pace-bar-labels { display: flex; justify-content: space-between;
+                       font-size: 10px; color: var(--text-muted); margin-bottom: 5px; }
+    .pace-track  { position: relative; height: 6px; background: var(--border);
+                   border-radius: 3px; overflow: visible; }
+    .pace-fill   { height: 100%; border-radius: 3px; transition: width .6s ease; }
+    .pace-marker { position: absolute; top: -4px; width: 2px; height: 14px;
+                   background: var(--text-secondary); border-radius: 1px; transform: translateX(-50%); }
+    @media (max-width: 600px) {
+      .pace-card  { padding: 14px 0; }
+      .pace-header{ padding: 0 14px 4px; }
+      .pace-grid  { grid-template-columns: repeat(2, 1fr); }
+      .pace-stat:nth-child(3n)  { border-right: 1px solid var(--border); }
+      .pace-stat:nth-child(2n)  { border-right: none; }
+      .pace-stat:nth-last-child(-n+3) { border-bottom: 1px solid var(--border); }
+      .pace-stat:nth-last-child(-n+2) { border-bottom: none; }
+      .pace-stat  { padding: 10px 14px; }
+      .pace-bar-wrap { padding: 4px 14px 0; }
+      .pace-bar-labels { padding: 0; }
+    }
 
     /* Alert */
     .alert-bar { display: flex; align-items: center; gap: 10px; background: var(--amber-soft);
@@ -1281,32 +1310,33 @@ function buildTodayPace() {
   const hourStr  = now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const dayPct   = Math.round(hourFrac*100);
 
+  const revPctOfAvg = avgRev > 0 ? Math.round(today.revenue/avgRev*100) : 0;
   wrap.innerHTML = `
     <div class="pace-card">
       <div class="pace-header">
-        <span class="pace-title">⏱ Ritmo do Dia · ${hourStr} (${dayPct}% do dia)</span>
-        <span style="font-size:12px;font-weight:700;color:${paceColor}">${paceTxt}</span>
+        <span class="pace-title">⏱ Ritmo do Dia · ${hourStr} · ${dayPct}% do dia</span>
+        <span class="pace-status" style="color:${paceColor}">${paceTxt}</span>
       </div>
       <div class="pace-grid">
         <div class="pace-stat">
           <span class="pace-lbl">Receita até agora</span>
           <span class="pace-val">${fmtR(today.revenue)}</span>
-          <span class="pace-sub">Esperado: ${fmtR(expectedRev)} · ${avgRev>0?Math.round(today.revenue/avgRev*100)+'% da média diária':'—'}</span>
+          <span class="pace-sub">${revPctOfAvg}% da média diária · esp. ${fmtR(expectedRev)}</span>
         </div>
         <div class="pace-stat">
           <span class="pace-lbl">Projeção fim do dia</span>
           <span class="pace-val" style="color:${eodRev&&eodRev>=avgRev*0.9?'var(--green)':'var(--amber)'}">${eodRev?fmtR(eodRev):'—'}</span>
-          <span class="pace-sub">Média diária: ${fmtR(avgRev)}</span>
+          <span class="pace-sub">Média: ${fmtR(avgRev)}/dia</span>
         </div>
         <div class="pace-stat">
-          <span class="pace-lbl">Ontem (dia cheio)</span>
+          <span class="pace-lbl">Ontem (completo)</span>
           <span class="pace-val">${yest?fmtR(yest.revenue):'—'}</span>
           <span class="pace-sub">${yest?'Lucro: '+fmtR(yest.profit||0):'sem dados'}</span>
         </div>
         <div class="pace-stat">
-          <span class="pace-lbl">Custo ads hoje</span>
+          <span class="pace-lbl">Custo Ads hoje</span>
           <span class="pace-val">${fmtR(today.cost||0)}</span>
-          <span class="pace-sub">Projeção: ${eodCost?fmtR(eodCost):'—'}</span>
+          <span class="pace-sub">Proj.: ${eodCost?fmtR(eodCost):'—'}</span>
         </div>
         <div class="pace-stat">
           <span class="pace-lbl">CAC do dia</span>
@@ -1314,16 +1344,20 @@ function buildTodayPace() {
           <span class="pace-sub">Meta: ${fmtR(TARGET_CPA)}</span>
         </div>
         <div class="pace-stat">
-          <span class="pace-lbl">Conversões hoje</span>
+          <span class="pace-lbl">Conversões</span>
           <span class="pace-val">${fmtN(today.conv,0,'')}</span>
-          <span class="pace-sub">Média diária: ${fmtN(avgConv,1,'')}</span>
+          <span class="pace-sub">Média: ${fmtN(avgConv,1,'')}/dia</span>
         </div>
       </div>
       <div class="pace-bar-wrap">
-        <div class="pace-bar-labels"><span>0%</span><span>Progresso do dia</span><span>100%</span></div>
+        <div class="pace-bar-labels">
+          <span>Receita: ${revPctOfAvg}% da média</span>
+          <span style="color:${paceColor};font-weight:600">▎${dayPct}% do dia</span>
+          <span>Meta diária: ${fmtR(avgRev)}</span>
+        </div>
         <div class="pace-track">
-          <div class="pace-fill" style="width:${Math.min(100,Math.round(today.revenue/Math.max(avgRev,1)*100))}%;background:${paceColor}"></div>
-          <div class="pace-marker" style="left:${dayPct}%" title="Agora (${dayPct}% do dia)"></div>
+          <div class="pace-fill" style="width:${Math.min(100,revPctOfAvg)}%;background:${paceColor}"></div>
+          <div class="pace-marker" style="left:${Math.min(99,dayPct)}%" title="${hourStr} — ${dayPct}% do dia"></div>
         </div>
       </div>
     </div>`;
