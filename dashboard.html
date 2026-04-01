@@ -139,12 +139,19 @@
     .dow-worst { background: var(--red-soft);   border-color: #fca5a5; }
     .dow-badge.best  { background: #dcfce7; color: #15803d; }
     .dow-badge.worst { background: #fee2e2; color: #b91c1c; }
+    /* Carousel dots — only visible on mobile */
+    .dow-dots { display: none; }
     @media (max-width: 700px) {
       .dow-grid { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory;
-                  -webkit-overflow-scrolling: touch; padding-bottom: 6px;
+                  -webkit-overflow-scrolling: touch; padding-bottom: 4px;
                   scrollbar-width: none; }
       .dow-grid::-webkit-scrollbar { display: none; }
       .dow-cell { flex: 0 0 calc(33% - 6px); min-width: 96px; scroll-snap-align: start; }
+      .dow-dots { display: flex; justify-content: center; align-items: center;
+                  gap: 5px; margin-top: 8px; }
+      .dow-dot  { width: 6px; height: 6px; border-radius: 50%;
+                  background: var(--border); transition: background .2s, transform .2s; }
+      .dow-dot.active { background: var(--accent); transform: scale(1.3); }
     }
 
     /* Freshness dot */
@@ -417,6 +424,7 @@
   <!-- Day of week -->
   <div class="section-label" style="margin-top:24px">Performance por Dia da Semana</div>
   <div class="dow-grid" id="dowGrid"></div>
+  <div class="dow-dots" id="dowDots"></div>
 
   <!-- Upsell type table -->
   <div class="section-label" style="margin-top:24px">Upsell por Tipo · Período Selecionado</div>
@@ -1407,6 +1415,31 @@ function buildDayOfWeek() {
     ` : `<div class="dow-val" style="color:var(--text-muted)">—</div>`);
     grid.appendChild(cell);
   });
+
+  // Dots pagination (mobile only) — 7 cells, 3 visible at a time → 5 scroll positions
+  const dotsEl = document.getElementById('dowDots');
+  if (!dotsEl) return;
+  const totalCells = 7, visible = 3, positions = totalCells - visible + 1; // 5
+  dotsEl.innerHTML = '';
+  for (let i = 0; i < positions; i++) {
+    const dot = document.createElement('span');
+    dot.className = 'dow-dot' + (i === 0 ? ' active' : '');
+    dot.dataset.idx = i;
+    dot.addEventListener('click', () => {
+      const cellW = grid.firstChild ? grid.firstChild.offsetWidth + 8 : 0;
+      grid.scrollTo({ left: i * cellW, behavior: 'smooth' });
+    });
+    dotsEl.appendChild(dot);
+  }
+  // Update active dot on scroll
+  grid._dowScrollHandler && grid.removeEventListener('scroll', grid._dowScrollHandler);
+  grid._dowScrollHandler = () => {
+    const cellW = grid.firstChild ? grid.firstChild.offsetWidth + 8 : 1;
+    const idx   = Math.min(positions - 1, Math.round(grid.scrollLeft / cellW));
+    dotsEl.querySelectorAll('.dow-dot').forEach((d,i) =>
+      d.classList.toggle('active', i === idx));
+  };
+  grid.addEventListener('scroll', grid._dowScrollHandler, { passive: true });
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
