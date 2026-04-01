@@ -921,16 +921,16 @@ async function initDashboard() {
   if (UPSELL_TYPE_URL) {
     try {
       const raw = await fetch(UPSELL_TYPE_URL).then(r => r.text());
-      const lines = raw.trim().split('\n').map(l => l.split(','));
-      const hdr = lines[0].map(h => h.trim().toLowerCase().replace(/"/g,''));
+      const lines = raw.trim().split('\n');
+      const hdr = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/"/g,''));
       const ci = k => hdr.indexOf(k);
       const cDate=ci('date'), cKey=ci('addon_key'), cLbl=ci('label'), cCnt=ci('count'), cRev=ci('revenue');
-      UPSELL_TYPE_DATA = lines.slice(1).map(r => ({
+      UPSELL_TYPE_DATA = lines.slice(1).map(l => parseCSVLine(l)).map(r => ({
         dateStr:  (r[cDate]||'').replace(/"/g,'').trim().substring(0,10),
         addonKey: (r[cKey] ||'').replace(/"/g,'').trim(),
         label:    (r[cLbl] ||'').replace(/"/g,'').trim(),
-        count:    Number((r[cCnt]||'0').replace(/"/g,'')),
-        revenue:  Number((r[cRev]||'0').replace(/"/g,'').replace(/R\$|\s/g,'')),
+        count:    parseInt((r[cCnt]||'0').replace(/"/g,'')) || 0,
+        revenue:  parseBRL(r[cRev]||'0'),
       })).filter(r => r.dateStr && r.addonKey);
     } catch (err) {
       console.warn('[Dashboard] Falha ao carregar UpsellByType CSV:', err);
