@@ -81,9 +81,9 @@
       padding: 16px 16px 12px; box-shadow: var(--shadow); position: relative; overflow: hidden;
       transition: box-shadow .15s, transform .15s; }
     .kpi-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
-    .kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 5px; }
-    .kpi-label { font-size: 11.5px; color: var(--text-secondary); font-weight: 500; }
-    .badge { display: inline-flex; align-items: center; gap: 2px; font-size: 10.5px; font-weight: 700;
+    .kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 5px; gap: 4px; }
+    .kpi-label { font-size: 11.5px; color: var(--text-secondary); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge { display: inline-flex; align-items: center; gap: 2px; font-size: 10.5px; font-weight: 700; white-space: nowrap; flex-shrink: 0;
              border-radius: 4px; padding: 2px 5px; flex-shrink: 0; }
     .badge.up      { background: var(--green-soft); color: var(--green); }
     .badge.down    { background: var(--red-soft);   color: var(--red); }
