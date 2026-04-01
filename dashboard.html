@@ -29,7 +29,21 @@
     .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px;
                  display: flex; align-items: center; justify-content: center; color: white;
                  font-size: 12px; font-weight: 800; letter-spacing: -.5px; }
-    .header-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .header-controls { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+
+    /* Mobile header */
+    @media (max-width: 600px) {
+      header { height: auto; min-height: 52px; padding: 10px 14px; gap: 8px; }
+      .logo-text { display: none; }
+      #lastUpdated { display: none; }
+      .filter-select { max-width: 120px; font-size: 11.5px; padding-right: 20px; }
+      .date-picker-btn { font-size: 11.5px; padding: 4px 8px; gap: 4px; }
+      main { padding: 14px 12px 40px; }
+      .kpi-value { font-size: 18px; }
+      .kpi-card { padding: 12px 12px 10px; }
+      .grid-2-1, .grid-1-1 { grid-template-columns: 1fr; }
+      .gauge-row { grid-template-columns: repeat(2, 1fr); }
+    }
 
     /* Filters */
     .filter-select {
@@ -179,13 +193,37 @@
     .bar-track { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
     .bar-fill { height: 100%; border-radius: 3px; }
     footer { text-align: center; padding: 32px; font-size: 11.5px; color: var(--text-muted); }
+
+    /* Conversion Funnel */
+    .funnel-wrap { display: flex; flex-direction: column; gap: 0; }
+    .funnel-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+    .funnel-lbl { min-width: 82px; font-size: 12px; font-weight: 600; color: var(--text-secondary);
+                  text-align: right; flex-shrink: 0; }
+    .funnel-bar-col { flex: 1; min-width: 0; }
+    .funnel-bar { height: 36px; border-radius: 6px; display: flex; align-items: center;
+                  padding: 0 14px; min-width: 48px; transition: width .55s ease; }
+    .funnel-bar-val { color: white; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+    .funnel-stats { min-width: 130px; flex-shrink: 0; padding-left: 8px; }
+    .funnel-count { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+    .funnel-pct   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .funnel-connector { display: flex; align-items: center; gap: 0; padding: 2px 0 2px 92px; }
+    .funnel-arrow-col { width: 36px; display: flex; flex-direction: column; align-items: center; }
+    .funnel-v-line { width: 2px; height: 14px; background: var(--border); }
+    .funnel-rate-txt { font-size: 11px; font-weight: 600; padding-left: 8px;
+                       color: var(--text-secondary); white-space: nowrap; }
+    @media (max-width: 600px) {
+      .funnel-lbl { min-width: 68px; font-size: 11px; }
+      .funnel-stats { min-width: 90px; }
+      .funnel-count { font-size: 12px; }
+      .funnel-bar { height: 30px; }
+    }
   </style>
 </head>
 <body>
 
 <header>
   <a class="logo" href="#">
-    <span class="logo-icon">VP</span>Verifica Placa
+    <span class="logo-icon">VP</span><span class="logo-text">Verifica Placa</span>
   </a>
   <div class="header-controls">
     <select class="filter-select" id="campaignFilter" onchange="applyFilters()">
@@ -240,6 +278,12 @@
   <!-- Health gauges -->
   <div class="section-label" style="margin-top:24px">Saúde das Campanhas</div>
   <div class="gauge-row" id="gaugeRow"></div>
+
+  <!-- Conversion Funnel -->
+  <div class="section-label" style="margin-top:24px">Funil de Conversão</div>
+  <div class="card">
+    <div class="funnel-wrap" id="funnelWrap"></div>
+  </div>
 
   <!-- Revenue vs Cost -->
   <div class="section-label" style="margin-top:24px">Performance Diária</div>
@@ -348,7 +392,8 @@ const BASE_CAMPS    = [
   { name:'MULTAS',      convShare:.087, costShare:.122 },
 ];
 const MONTHLY = { revenue:27334.04, cost:20740.63, conv:1898, profit:6237.85, roas:1.39, convRate:4.04 };
-const MONTHLY_BUDGET = 25000; // R$ orçamento mensal de Google Ads — ajuste conforme seu plano
+const MONTHLY_BUDGET          = 25000; // R$ orçamento mensal de Google Ads — ajuste conforme seu plano
+const MONTHLY_REVENUE_TARGET  = 30000; // R$ meta de receita mensal — ajuste conforme seu objetivo
 
 // ─── GOOGLE SHEETS CSV DATA SOURCE ───────────────────────────────────────────
 // Paste the "Publicar na web → CSV" URL of the Dashboard tab here.
@@ -577,6 +622,7 @@ function render() {
   buildKPIs(T);
   buildGauges(T);
   buildAlertBar(T);
+  buildFunnel();
   buildCharts(T);
   buildTable();
   buildDayOfWeek();
@@ -591,8 +637,21 @@ function render() {
 function buildKPIs(T) {
   const P = prevTotals();
   const d = (curr, prev, rev) => P ? pctDelta(curr, prev, rev) : null;
+
+  // Projected month-end revenue (if viewing current month)
+  const _now      = new Date();
+  const _moStart  = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-01`;
+  const _todayS   = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+  const _inCurrMo = filtered.length > 0 && filtered[0].dateStr >= _moStart && filtered[filtered.length-1].dateStr <= _todayS;
+  const _dInMo    = new Date(_now.getFullYear(), _now.getMonth()+1, 0).getDate();
+  const _projRev  = _inCurrMo && filtered.length > 0
+    ? Math.round(filtered.reduce((s,x)=>s+x.revenue,0) / filtered.length * _dInMo) : 0;
+  const _revSub   = _projRev > 0
+    ? `Projeção mês: ${fmtR(_projRev)}${MONTHLY_REVENUE_TARGET > 0 ? ' · Meta: '+fmtR(MONTHLY_REVENUE_TARGET) : ''}`
+    : 'receita total';
+
   const row1 = [
-    { id:'r',  label:'Receita Bruta',    value:fmtR(T.rev),              delta:d(T.rev,P?.rev,false),        sub:'receita total',            color:'blue',                          dir:'up',      badge:'receita',  spark:filtered.map(x=>x.revenue),               sc:'#16a34a' },
+    { id:'r',  label:'Receita Bruta',    value:fmtR(T.rev),              delta:d(T.rev,P?.rev,false),        sub:_revSub,                    color:'blue',                          dir:'up',      badge:'receita',  spark:filtered.map(x=>x.revenue),               sc:'#16a34a' },
     { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:'ads + bureau',           color:'red',                           dir:'neutral', badge:'custos',   spark:filtered.map(x=>x.costTotal||0),           sc:'#dc2626' },
     { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:'receita − ads − bureau',   color:T.pft>=0?'green':'red',          dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626' },
     { id:'m',  label:'Margem',           value:fmtN(T.margin*100,1)+'%', delta:d(T.margin,P?.margin,false),  sub:'contribuição real',         color:T.margin>=.22?'green':'amber',   dir:T.margin>=.22?'up':'neutral', badge:T.margin>=.22?'saudável':'atenção', spark:filtered.map(x=>x.revenue>0?((x.profit||0)/x.revenue)*100:0), sc:'#16a34a' },
@@ -741,9 +800,9 @@ function buildCharts(T) {
   const _todayStr = `${_today.getFullYear()}-${String(_today.getMonth()+1).padStart(2,'0')}-${String(_today.getDate()).padStart(2,'0')}`;
   const _moStart  = _todayStr.slice(0,7)+'-01';
   const _inCurrMo = d.length >= 3 && d[0].dateStr >= _moStart && d[d.length-1].dateStr <= _todayStr;
+  const _daysInMo   = new Date(_today.getFullYear(), _today.getMonth()+1, 0).getDate();
   let _projLabels = [], _projRevData = [], _projCostData = [];
   if (_inCurrMo) {
-    const _daysInMo  = new Date(_today.getFullYear(), _today.getMonth()+1, 0).getDate();
     const _avgRev    = d.reduce((s,x)=>s+x.revenue,    0) / d.length;
     const _avgCost   = d.reduce((s,x)=>s+(x.costTotal||0), 0) / d.length;
     const _mo        = _today.getMonth()+1;
@@ -778,6 +837,12 @@ function buildCharts(T) {
         { label:'Projeção Receita',      data:_projRevFull,  borderColor:'rgba(22,163,74,.40)', borderDash:[5,4], borderWidth:1.5, pointRadius:0, fill:false, tension:0 },
         { label:'Projeção Investimento', data:_projCostFull, borderColor:'rgba(37,99,235,.40)', borderDash:[5,4], borderWidth:1.5, pointRadius:0, fill:false, tension:0 },
       ] : []),
+      ...(MONTHLY_REVENUE_TARGET > 0 ? [{
+        label:'Meta/dia',
+        data: _allLabels.map(() => +( MONTHLY_REVENUE_TARGET / _daysInMo ).toFixed(2)),
+        borderColor:'rgba(124,58,237,.55)', borderDash:[3,3], borderWidth:1.5,
+        pointRadius:0, fill:false, tension:0,
+      }] : []),
     ]
   },{
     responsive:true, maintainAspectRatio:false,
@@ -1030,6 +1095,70 @@ function buildUpsellTypeTable() {
   tfoot.className = 'tr-total';
   tfoot.innerHTML = `<td>Total</td><td class="num">${totalCount}</td><td class="num"></td><td class="num">100%</td><td class="num">${fmtR(totalRevenue)}</td>`;
   tbody.appendChild(tfoot);
+}
+
+// ─── CONVERSION FUNNEL ───────────────────────────────────────────────────────
+function buildFunnel() {
+  const wrap = document.getElementById('funnelWrap');
+  wrap.innerHTML = '';
+  if (!filtered.length) return;
+
+  const T = totals();
+  const checkouts    = filtered.reduce((s,d) => s+(d.checkouts||0), 0);
+  const pedidos      = filtered.reduce((s,d) => s+(d.conv||0),      0);
+  const pedUpsell    = filtered.reduce((s,d) => {
+    const u = d.pedidosUpsell != null ? d.pedidosUpsell : Math.round((d.conv||0)*((d.upsellRate||0)/100));
+    return s + u;
+  }, 0);
+
+  const base = checkouts > 0 ? checkouts : pedidos; // use checkouts as base, fallback to pedidos
+  if (!base) return;
+
+  const convRate   = checkouts > 0 ? (pedidos   / checkouts * 100) : null;
+  const upsellRate = pedidos   > 0 ? (pedUpsell / pedidos   * 100) : null;
+
+  const steps = [
+    { label:'Checkouts', count: Math.round(checkouts), color:'#2563eb',
+      pct: 100, rateTxt: convRate != null ? `↓ Conv: ${convRate.toFixed(1)}% → Pedidos` : null },
+    { label:'Pedidos',   count: Math.round(pedidos),   color:'#16a34a',
+      pct: base > 0 ? (pedidos   / base * 100) : 0,
+      rateTxt: upsellRate != null ? `↓ Upsell: ${upsellRate.toFixed(1)}% → Add-ons` : null },
+    { label:'Upsells',   count: Math.round(pedUpsell), color:'#7c3aed',
+      pct: base > 0 ? (pedUpsell / base * 100) : 0,
+      rateTxt: null },
+  ];
+
+  steps.forEach((step, i) => {
+    // Bar row
+    const row = document.createElement('div');
+    row.className = 'funnel-row';
+    const barW = Math.max(step.pct, 4); // minimum visible width
+    const subTxt = i === 0 ? 'topo do funil'
+                 : i === 1 ? (convRate != null ? `${convRate.toFixed(1)}% dos checkouts` : '% de checkouts')
+                 :            (upsellRate != null ? `${upsellRate.toFixed(1)}% dos pedidos` : '% dos pedidos');
+    row.innerHTML = `
+      <div class="funnel-lbl">${step.label}</div>
+      <div class="funnel-bar-col">
+        <div class="funnel-bar" style="width:${barW}%;background:${step.color}">
+          <span class="funnel-bar-val">${step.pct >= 12 ? fmtN(step.count,0,'') : ''}</span>
+        </div>
+      </div>
+      <div class="funnel-stats">
+        <div class="funnel-count">${fmtN(step.count,0,'')}</div>
+        <div class="funnel-pct">${subTxt}</div>
+      </div>`;
+    wrap.appendChild(row);
+
+    // Connector between steps
+    if (step.rateTxt) {
+      const conn = document.createElement('div');
+      conn.className = 'funnel-connector';
+      conn.innerHTML = `
+        <div class="funnel-arrow-col"><div class="funnel-v-line"></div></div>
+        <span class="funnel-rate-txt">${step.rateTxt}</span>`;
+      wrap.appendChild(conn);
+    }
+  });
 }
 
 // ─── DAY OF WEEK ─────────────────────────────────────────────────────────────
