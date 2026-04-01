@@ -16,6 +16,7 @@
 var SHEET_ID        = "1HSIU3CNnuqlO64CIGfN_XVsPZb62aadgV20CF1JaqNE";
 var SHEET_NAME      = "GAds_Hoje";
 var HIST_SHEET_NAME = "GAds_Historico"; // acumula 1 linha por dia (histórico permanente)
+var CAMP_SHEET_NAME = "GAds_Campanhas"; // breakdown por campanha (upsert diário)
 var TIMEZONE        = "America/Sao_Paulo";
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
@@ -117,6 +118,9 @@ function main() {
   // O Apps Script da planilha lê essa aba para montar o custo histórico.
   updateHistory_(ss, today, round2(totalCost), totalImpressions,
                  totalClicks, round2(totalConv), round2(totalConvValue), now);
+
+  // ── Acumula breakdown por campanha em GAds_Campanhas (upsert por data+campanha) ──
+  updateCampaignHistory_(ss, today, campRows, now);
 
   Logger.log(
     "GAds_Hoje: " + campRows.length + " campanhas · " +
@@ -232,6 +236,125 @@ function backfillGAdsHistory() {
 
   Logger.log("backfillGAdsHistory: " + rows.length + " dias gravados em " + HIST_SHEET_NAME);
   Logger.log("Custo total: R$" + rows.reduce(function(s,r){ return s + r[1]; }, 0).toFixed(2));
+}
+
+// ─── BREAKDOWN POR CAMPANHA ───────────────────────────────────────────────────
+var CAMP_HEADERS = ["data","campanha","custo","conversoes","valor_conversao","atualizado_em"];
+
+/**
+ * Upsert de today's per-campaign rows em GAds_Campanhas.
+ * campRows vem do main(): [date, name, status, cost, impr, clicks, conv, convVal]
+ */
+function updateCampaignHistory_(ss, today, campRows, now) {
+  var sh = ss.getSheetByName(CAMP_SHEET_NAME);
+  if (!sh) sh = ss.insertSheet(CAMP_SHEET_NAME);
+
+  var existing = sh.getDataRange().getValues();
+  var hasHeader = existing.length > 0 &&
+                  String(existing[0][0]).trim().toLowerCase() === "data";
+  if (!hasHeader) {
+    sh.clearContents();
+    sh.getRange(1, 1, 1, CAMP_HEADERS.length).setValues([CAMP_HEADERS]);
+    existing = [CAMP_HEADERS.slice()];
+  }
+
+  // Mapa de linhas existentes por "data|campanha"
+  var keyToIdx = {};
+  for (var i = 1; i < existing.length; i++) {
+    var rawDate = existing[i][0];
+    var ds = (rawDate instanceof Date)
+      ? Utilities.formatDate(rawDate, "UTC", "yyyy-MM-dd")
+      : String(rawDate || "").trim().substring(0, 10);
+    keyToIdx[ds + "|" + String(existing[i][1] || "")] = i;
+  }
+
+  // Novas linhas de hoje: [date, campaign, cost, conversions, convValue, updated]
+  var newRows = campRows.map(function(r) {
+    return [r[0], r[1], r[3], r[6], r[7], now];
+  });
+
+  // Copia linhas existentes (sem header) para edição
+  var data = existing.slice(1);
+  newRows.forEach(function(nr) {
+    var key = nr[0] + "|" + nr[1];
+    if (keyToIdx.hasOwnProperty(key)) {
+      data[keyToIdx[key] - 1] = nr; // atualiza linha existente
+    } else {
+      data.push(nr);               // nova linha
+    }
+  });
+
+  // Ordena: data desc, campanha asc
+  data.sort(function(a, b) {
+    var d = String(b[0]).localeCompare(String(a[0]));
+    return d !== 0 ? d : String(a[1]).localeCompare(String(b[1]));
+  });
+
+  sh.clearContents();
+  sh.getRange(1, 1, 1, CAMP_HEADERS.length).setValues([CAMP_HEADERS]);
+  if (data.length > 0) {
+    sh.getRange(2, 1, data.length, CAMP_HEADERS.length).setValues(data);
+  }
+  sh.autoResizeColumns(1, CAMP_HEADERS.length);
+  Logger.log("GAds_Campanhas: " + data.length + " linhas totais após upsert de " + today);
+}
+
+/**
+ * Rode UMA VEZ manualmente para popular o histórico completo de campanhas.
+ * Em ads.google.com → Scripts → dropdown → "backfillCampaignHistory" → ▶
+ */
+function backfillCampaignHistory() {
+  var DAYS_BACK = 90;
+  var ss  = SpreadsheetApp.openById(SHEET_ID);
+  var sh  = ss.getSheetByName(CAMP_SHEET_NAME);
+  if (!sh) sh = ss.insertSheet(CAMP_SHEET_NAME);
+
+  var endDate   = new Date();
+  var startDate = new Date();
+  startDate.setDate(startDate.getDate() - DAYS_BACK);
+  var fmt = function(d) { return Utilities.formatDate(d, TIMEZONE, "yyyy-MM-dd"); };
+
+  var query = [
+    "SELECT",
+    "  segments.date,",
+    "  campaign.name,",
+    "  metrics.cost_micros,",
+    "  metrics.conversions,",
+    "  metrics.conversions_value",
+    "FROM campaign",
+    "WHERE segments.date BETWEEN '" + fmt(startDate) + "' AND '" + fmt(endDate) + "'",
+    "  AND campaign.status != 'REMOVED'",
+    "  AND metrics.cost_micros > 0"
+  ].join(" ");
+
+  var report = AdsApp.search(query);
+  var now    = Utilities.formatDate(new Date(), TIMEZONE, "dd/MM/yyyy HH:mm");
+  var rows   = [];
+
+  while (report.hasNext()) {
+    var row = report.next();
+    rows.push([
+      row.segments.date,
+      row.campaign.name,
+      round2((row.metrics.costMicros || 0) / 1e6),
+      round2(parseFloat(row.metrics.conversions    || 0)),
+      round2(parseFloat(row.metrics.conversionsValue || 0)),
+      now
+    ]);
+  }
+
+  rows.sort(function(a, b) {
+    var d = String(b[0]).localeCompare(String(a[0]));
+    return d !== 0 ? d : String(a[1]).localeCompare(String(b[1]));
+  });
+
+  sh.clearContents();
+  sh.getRange(1, 1, 1, CAMP_HEADERS.length).setValues([CAMP_HEADERS]);
+  if (rows.length > 0) {
+    sh.getRange(2, 1, rows.length, CAMP_HEADERS.length).setValues(rows);
+  }
+  sh.autoResizeColumns(1, CAMP_HEADERS.length);
+  Logger.log("backfillCampaignHistory: " + rows.length + " linhas gravadas em " + CAMP_SHEET_NAME);
 }
 
 function round2(n) { return Math.round(n * 100) / 100; }

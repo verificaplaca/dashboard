@@ -39,7 +39,8 @@ const CONFIG_SHEET      = "Config";
 const REVENUE_SHEET     = "RevenueDaily";
 const BUREAU_SHEET      = "BureauDaily";
 const UPSELL_SHEET      = "UpsellDaily";
-const UPSELL_TYPE_SHEET = "UpsellByType";
+const UPSELL_TYPE_SHEET    = "UpsellByType";
+const CAMPAIGN_DAILY_SHEET = "CampaignDaily";
 const TZ                = "America/Sao_Paulo";
 
 // ─────────────────────────────────────────────────────────────
@@ -1377,6 +1378,12 @@ function syncDashboard() {
       dest.getRange(2, 14, rows.length, 1).setNumberFormat("0.00");         // tx_upsell_pct
     }
     dest.autoResizeColumns(1, headers.length);
+
+    // ── CampaignDaily: breakdown real por campanha via GAds_Campanhas ──────────
+    try { syncCampaignDailyFromGAds_(ss); } catch(e) {
+      Logger.log("syncCampaignDaily erro (não crítico): " + String(e));
+    }
+
     setConfigValue_("last_sync_dashboard", new Date().toISOString());
     setConfigValue_("last_error", "");
     ss.toast("Dashboard atualizado: " + rows.length + " dias.", "OK", 4);
@@ -1389,6 +1396,79 @@ function syncDashboard() {
     lock.releaseLock();
     _ssCache = null;
   }
+}
+
+// ── CampaignDaily ─────────────────────────────────────────────────────────────
+/**
+ * Lê GAds_Campanhas (escrita pelo gads-intraday-script.js) e consolida em
+ * CampaignDaily com: date, campaign, cost, conversions, revenue, cac, roas.
+ * Revenue = valor_conversao quando disponível, senão conversions × ticket médio.
+ */
+function syncCampaignDailyFromGAds_(ss) {
+  const TICKET_MEDIO = 14.42; // mesmo valor do dashboard — ajuste se necessário
+
+  const sh = ss.getSheetByName("GAds_Campanhas");
+  if (!sh) {
+    Logger.log("syncCampaignDaily: aba GAds_Campanhas não encontrada. Rode backfillCampaignHistory() no Google Ads Script.");
+    return;
+  }
+
+  const vals = sh.getDataRange().getValues();
+  if (vals.length < 2) return;
+
+  const hdr   = vals[0].map(h => _normGAds_(h));
+  const cDate = hdr.indexOf("data");
+  const cCamp = hdr.indexOf("campanha");
+  const cCost = hdr.indexOf("custo");
+  const cConv = hdr.indexOf("conversoes");
+  const cVal  = hdr.indexOf("valor_conversao");
+
+  if (cDate < 0 || cCamp < 0 || cCost < 0) {
+    Logger.log("syncCampaignDaily: colunas não encontradas em GAds_Campanhas. Headers: " + hdr.join("|"));
+    return;
+  }
+
+  // Agrega por date+campaign (pode haver múltiplas linhas por combo)
+  const agg = new Map();
+  for (let i = 1; i < vals.length; i++) {
+    const rawDate = vals[i][cDate];
+    const dateStr = rawDate instanceof Date
+      ? Utilities.formatDate(rawDate, "UTC", "yyyy-MM-dd")
+      : _normalizeGAdsDate_(String(rawDate || "").trim());
+    if (!dateStr) continue;
+    const campaign = String(vals[i][cCamp] || "").trim();
+    if (!campaign) continue;
+
+    const key  = dateStr + "|" + campaign;
+    const prev = agg.get(key) || { date: dateStr, campaign, cost: 0, conv: 0, convVal: 0 };
+    prev.cost    += _parseGAdsNum_(vals[i][cCost]);
+    prev.conv    += cConv >= 0 ? _parseGAdsNum_(vals[i][cConv]) : 0;
+    prev.convVal += cVal  >= 0 ? _parseGAdsNum_(vals[i][cVal])  : 0;
+    agg.set(key, prev);
+  }
+
+  const headers = ["date","campaign","cost","conversions","revenue","cac","roas"];
+  const rows = Array.from(agg.values())
+    .sort((a, b) => b.date.localeCompare(a.date) || a.campaign.localeCompare(b.campaign))
+    .map(r => {
+      const revenue = r.convVal > 0 ? +r.convVal.toFixed(2) : +(r.conv * TICKET_MEDIO).toFixed(2);
+      const cac     = r.conv > 0 ? +(r.cost / r.conv).toFixed(2) : 0;
+      const roas    = r.cost > 0 ? +(revenue / r.cost).toFixed(2) : 0;
+      return [r.date, r.campaign, +r.cost.toFixed(2), +r.conv.toFixed(1), revenue, cac, roas];
+    });
+
+  const dest = ss.getSheetByName(CAMPAIGN_DAILY_SHEET) || ss.insertSheet(CAMPAIGN_DAILY_SHEET);
+  dest.clearContents();
+  dest.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (rows.length > 0) {
+    dest.getRange(2, 1, rows.length, headers.length).setValues(rows);
+    dest.getRange(2, 1, rows.length, 1).setNumberFormat("yyyy-mm-dd");
+    dest.getRange(2, 3, rows.length, 1).setNumberFormat("R$ #,##0.00"); // cost
+    dest.getRange(2, 5, rows.length, 1).setNumberFormat("R$ #,##0.00"); // revenue
+    dest.getRange(2, 6, rows.length, 1).setNumberFormat("R$ #,##0.00"); // cac
+  }
+  dest.autoResizeColumns(1, headers.length);
+  Logger.log("syncCampaignDaily: " + rows.length + " linhas em CampaignDaily.");
 }
 
 // ── Helpers do Dashboard ──────────────────────────────────────

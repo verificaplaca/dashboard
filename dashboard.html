@@ -535,6 +535,9 @@ const MONTHLY_PROFIT_TARGET   =  7000; // R$ meta de lucro bruto mensal — ajus
 const CSV_URL          = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqbE08eyRjAugsJ4ZZG7-jUf9MG6UfbOuOm4W_nONBZUs8nM6OaHWxso4_7A1NJVJnsgfgDjzOGfER/pub?gid=2140356170&single=true&output=csv";
 // Paste the "Publicar na web → CSV" URL of the UpsellByType tab here.
 const UPSELL_TYPE_URL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqbE08eyRjAugsJ4ZZG7-jUf9MG6UfbOuOm4W_nONBZUs8nM6OaHWxso4_7A1NJVJnsgfgDjzOGfER/pub?gid=1122099462&single=true&output=csv";
+// Paste the "Publicar na web → CSV" URL of the CampaignDaily tab here.
+// Deixe "" até publicar a aba — o dashboard usa estimativas como fallback.
+const CAMPAIGN_DAILY_URL = "";
 
 // ─── EXAMPLE DATA (fallback when CSV_URL is empty or fetch fails) ─────────────
 function makeDays() {
@@ -638,7 +641,8 @@ let ALL_DAYS        = [];
 let filtered        = [];
 let activeCamp      = '';
 let usingRealData   = false;
-let UPSELL_TYPE_DATA = []; // rows: { dateStr, addonKey, label, count, revenue }
+let UPSELL_TYPE_DATA    = []; // rows: { dateStr, addonKey, label, count, revenue }
+let CAMPAIGN_DAILY_DATA = []; // rows: { dateStr, campaign, cost, conversions, revenue }
 const charts = {};
 const sparkRefs = {};
 let _campSort   = { col:-1, dir:1 };  // sort state for campaign table
@@ -714,6 +718,33 @@ function totals() {
            margin:rev>0?pft/rev:0, ticket:TICKET, convRate, upsell };
 }
 function campTotals() {
+  // ── Dados reais via CampaignDaily ──────────────────────────────────────────
+  if (CAMPAIGN_DAILY_DATA.length > 0 && filtered.length > 0) {
+    const minDate = filtered[0].dateStr, maxDate = filtered[filtered.length-1].dateStr;
+    const agg = new Map();
+    for (const r of CAMPAIGN_DAILY_DATA) {
+      if (r.dateStr < minDate || r.dateStr > maxDate) continue;
+      // Mapeia nome completo da campanha (ex: "[SEARCH]...[RISCO_DOC]...") → chave BASE_CAMPS
+      const base = BASE_CAMPS.find(c => r.campaign.toUpperCase().includes(c.name));
+      if (!base) continue;
+      if (activeCamp && base.name !== activeCamp) continue;
+      const prev = agg.get(base.name) || { name:base.name, cost:0, conv:0, rev:0 };
+      prev.cost += r.cost;
+      prev.conv += r.conversions;
+      prev.rev  += r.revenue;
+      agg.set(base.name, prev);
+    }
+    if (agg.size > 0) {
+      return Array.from(agg.values()).map(c => ({
+        ...c, color: CAMP_COLORS[c.name] || '#6b6b6b',
+        pft: +(c.rev - c.cost).toFixed(2),
+        cac:  c.conv > 0 ? +(c.cost / c.conv).toFixed(2) : 0,
+        roas: c.cost > 0 ? +(c.rev  / c.cost).toFixed(2) : 0,
+        convShare: 0, costShare: 0,
+      })).sort((a,b) => b.conv - a.conv);
+    }
+  }
+  // ── Fallback: estimativas por proporção (quando CampaignDaily não disponível) ──
   return BASE_CAMPS
     .filter(c=>!activeCamp||c.name===activeCamp)
     .map(c=>{
@@ -1622,6 +1653,34 @@ async function initDashboard() {
     }
   } else {
     ALL_DAYS = makeDays();
+  }
+
+  // Load CampaignDaily CSV (optional — silently skip if not configured)
+  if (CAMPAIGN_DAILY_URL) {
+    try {
+      const raw   = await fetch(CAMPAIGN_DAILY_URL, { cache:'no-cache' }).then(r => r.text());
+      const lines = raw.trim().split('\n');
+      const hdr   = parseCSVLine(lines[0]).map(h => h.trim().replace(/"/g,'').toLowerCase());
+      const ci    = k => hdr.indexOf(k);
+      const cDate = ci('date'), cCamp = ci('campaign'), cCost = ci('cost');
+      const cConv = ci('conversions'), cRev = ci('revenue');
+      if (cDate >= 0 && cCamp >= 0 && cCost >= 0) {
+        CAMPAIGN_DAILY_DATA = lines.slice(1)
+          .map(l => parseCSVLine(l))
+          .filter(r => r.length > cCamp && r[cDate])
+          .map(r => ({
+            dateStr:     (r[cDate]||'').replace(/"/g,'').trim().substring(0,10),
+            campaign:    (r[cCamp]||'').replace(/"/g,'').trim().toUpperCase(),
+            cost:        parseBRL(r[cCost]),
+            conversions: parseFloat((r[cConv]||'0').replace(/"/g,'')) || 0,
+            revenue:     cRev >= 0 ? parseBRL(r[cRev]) : 0,
+          }))
+          .filter(r => r.dateStr && r.campaign);
+        console.log('[Dashboard] CampaignDaily:', CAMPAIGN_DAILY_DATA.length, 'linhas carregadas.');
+      }
+    } catch(err) {
+      console.warn('[Dashboard] Falha ao carregar CampaignDaily:', err);
+    }
   }
 
   // Load UpsellByType CSV (optional — silently skip if not configured)
