@@ -365,6 +365,7 @@
       <div class="date-dropdown" id="dateDD">
         <div class="date-presets">
           <div class="date-preset" onclick="setPreset('today','Hoje',event)">Hoje</div>
+          <div class="date-preset" onclick="setPreset('tomorrow','Amanhã',event)">Amanhã</div>
           <div class="date-preset" onclick="setPreset('7d','Últimos 7 dias',event)">Últimos 7 dias</div>
           <div class="date-preset" onclick="setPreset('14d','Últimos 14 dias',event)">Últimos 14 dias</div>
           <div class="date-preset active" onclick="setPreset('month','Este mês',event)">Este mês <span id="currentMonthLbl" style="font-size:10px;color:var(--text-muted)"></span></div>
@@ -667,6 +668,8 @@ function setPreset(preset, label, e) {
   let fromDate, toDate = today;
   if (preset === 'today') {
     fromDate = today;
+  } else if (preset === 'tomorrow') {
+    const d = new Date(now); d.setDate(d.getDate()+1); fromDate = toDate = iso(d);
   } else if (preset === '7d') {
     const d = new Date(now); d.setDate(d.getDate()-6); fromDate = iso(d);
   } else if (preset === '14d') {
@@ -1251,6 +1254,27 @@ function buildTable() {
           <span style="font-size:12px;font-variant-numeric:tabular-nums;color:${col};min-width:46px;text-align:right">${fmtR(c.cac)}</span></div></td>`;
     tbody.appendChild(tr);
   });
+
+  // ── Linha de totais ──────────────────────────────────────────────────────────
+  const totConv = sorted.reduce((s,c)=>s+c.conv, 0);
+  const totCost = sorted.reduce((s,c)=>s+c.cost, 0);
+  const totRev  = sorted.reduce((s,c)=>s+c.rev,  0);
+  const totPft  = sorted.reduce((s,c)=>s+c.pft,  0);
+  const totRoas = totCost > 0 ? +(totRev/totCost).toFixed(2) : 0;
+  const totCac  = totConv > 0 ? +(totCost/totConv).toFixed(2) : 0;
+  const totCol  = totCac <= TARGET_CPA ? '#16a34a' : totCac <= TARGET_CPA*1.2 ? '#d97706' : '#dc2626';
+  const tfoot = document.createElement('tr');
+  tfoot.className = 'tr-total';
+  tfoot.innerHTML = `
+    <td>Total</td>
+    <td class="num">${fmtN(totConv,1,'')}</td>
+    <td class="num">${fmtR(totCost)}</td>
+    <td class="num">100%</td>
+    <td class="num">${fmtR(totRev)}</td>
+    <td class="num" style="color:${totPft>=0?'var(--green)':'var(--red)'}">${fmtR(totPft)}</td>
+    <td class="num">${fmtN(totRoas,2,'')}×</td>
+    <td><span style="font-size:12px;font-variant-numeric:tabular-nums;color:${totCol}">${fmtR(totCac)}</span></td>`;
+  tbody.appendChild(tfoot);
 }
 
 // ─── UPSELL TYPE TABLE ───────────────────────────────────────────────────────
