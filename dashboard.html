@@ -434,7 +434,7 @@
     <div class="card">
       <div class="card-header">
         <div><div class="card-title">Lucro Bruto por Dia</div>
-             <div class="card-subtitle">Verde = acima da média · Vermelho = abaixo</div></div>
+             <div class="card-subtitle">Verde = lucro positivo · Vermelho = lucro negativo</div></div>
       </div>
       <div style="height:200px"><canvas id="profitChart"></canvas></div>
     </div>
@@ -515,7 +515,7 @@
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const TICKET        = 14.42;
-const TARGET_CPA    = 12.00;
+const TARGET_CPA    = 10.00;
 const TARGET_UPSELL = 22; // % meta de upsell
 const CAMP_COLORS   = { RISCO_DOC:'#2563eb', ADDONS:'#7c3aed', RENAVAM:'#0891b2', ROUBO_FURTO:'#d97706', MULTAS:'#dc2626' };
 const BASE_CAMPS    = [
@@ -1087,7 +1087,7 @@ function buildCharts(T) {
     labels,
     datasets:[
       { label:'Lucro Bruto', data:d.map(x=>x.profit),
-        backgroundColor:d.map(x=>x.profit>=avgP?'rgba(22,163,74,.75)':'rgba(220,38,38,.65)'),
+        backgroundColor:d.map(x=>x.profit>=0?'rgba(22,163,74,.75)':'rgba(220,38,38,.65)'),
         borderRadius:3 },
       { label:'Média', data:d.map(()=>avgP), type:'line',
         borderColor:'rgba(0,0,0,.25)', borderDash:[4,3], borderWidth:1.5, pointRadius:0, fill:false },
@@ -1103,7 +1103,7 @@ function buildCharts(T) {
         anchor:'end', align:'end',
         formatter: v => 'R$'+Math.round(v),
         font:{ size: d.length>14 ? 7.5 : 9, weight:'600' },
-        color: ctx => ctx.dataset.data[ctx.dataIndex] >= avgP ? '#15803d' : '#b91c1c',
+        color: ctx => ctx.dataset.data[ctx.dataIndex] >= 0 ? '#15803d' : '#b91c1c',
         offset: 2,
       }
     },
