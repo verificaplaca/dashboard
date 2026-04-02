@@ -226,7 +226,8 @@
     /* Chart grids */
     .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
     .grid-1-1 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    @media (max-width: 900px) { .grid-2-1, .grid-1-1 { grid-template-columns: 1fr; } }
+    .grid-4-1 { display: grid; grid-template-columns: 4fr 1fr; gap: 10px; align-items: start; }
+    @media (max-width: 900px) { .grid-2-1, .grid-1-1, .grid-4-1 { grid-template-columns: 1fr; } }
 
     /* Gauges */
     .gauge-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
@@ -436,8 +437,10 @@
     <div class="funnel-wrap" id="funnelWrap"></div>
   </div>
 
-  <!-- Revenue vs Cost -->
+  <!-- Performance Diária -->
   <div class="section-label" style="margin-top:24px">Performance Diária</div>
+
+  <!-- Receita vs Investimento — full width -->
   <div class="card">
     <div class="card-header">
       <div><div class="card-title">Receita Bruta vs. Investimento</div>
@@ -447,25 +450,16 @@
     <div style="height:220px"><canvas id="revenueChart"></canvas></div>
   </div>
 
-  <!-- Lucro + Conversões -->
-  <div class="grid-2-1" style="margin-top:10px">
-    <div class="card">
-      <div class="card-header">
-        <div><div class="card-title">Lucro Bruto por Dia</div>
-             <div class="card-subtitle">Verde = lucro positivo · Vermelho = lucro negativo</div></div>
-      </div>
-      <div style="height:200px"><canvas id="profitChart"></canvas></div>
+  <!-- Lucro Bruto por Dia — full width -->
+  <div class="card" style="margin-top:10px">
+    <div class="card-header">
+      <div><div class="card-title">Lucro Bruto por Dia</div>
+           <div class="card-subtitle">Verde = lucro positivo · Vermelho = lucro negativo</div></div>
     </div>
-    <div class="card">
-      <div class="card-header">
-        <div><div class="card-title">Conversões por Campanha</div>
-             <div class="card-subtitle" id="convSub">Total do período</div></div>
-      </div>
-      <div style="height:200px"><canvas id="convChart"></canvas></div>
-    </div>
+    <div style="height:200px"><canvas id="profitChart"></canvas></div>
   </div>
 
-  <!-- CAC + Upsell -->
+  <!-- CAC + Upsell — 50% / 50% -->
   <div class="grid-1-1" style="margin-top:10px">
     <div class="card">
       <div class="card-header">
@@ -483,7 +477,7 @@
     </div>
   </div>
 
-  <!-- Campaigns table -->
+  <!-- Detalhamento por Campanha — full width -->
   <div class="section-label" style="margin-top:24px">Detalhamento por Campanha</div>
   <div class="card">
     <div class="table-wrap">
@@ -503,25 +497,45 @@
     </div>
   </div>
 
-  <!-- Day of week -->
+  <!-- Performance por Dia da Semana (80%) + Conversões por Campanha (20%) -->
   <div class="section-label" style="margin-top:24px">Performance por Dia da Semana</div>
-  <div class="dow-grid" id="dowGrid"></div>
-  <div class="dow-dots" id="dowDots"></div>
+  <div class="grid-4-1">
+    <div>
+      <div class="dow-grid" id="dowGrid"></div>
+      <div class="dow-dots" id="dowDots"></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Conversões por Campanha</div>
+             <div class="card-subtitle" id="convSub">Total do período</div></div>
+      </div>
+      <div style="height:200px"><canvas id="convChart"></canvas></div>
+    </div>
+  </div>
 
-  <!-- Upsell type table -->
+  <!-- Upsell por Tipo (80%) + Pizza por Tipo (20%) -->
   <div class="section-label" style="margin-top:24px">Upsell por Tipo · Período Selecionado</div>
-  <div class="card">
-    <div class="table-wrap table-wrap-scroll">
-      <table id="upsellTypeTable">
-        <thead><tr>
-          <th>Tipo de Upsell</th>
-          <th class="num">Pedidos</th>
-          <th class="num">Tendência</th>
-          <th class="num">% do Total</th>
-          <th class="num">Receita</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
+  <div class="grid-4-1">
+    <div class="card">
+      <div class="table-wrap table-wrap-scroll">
+        <table id="upsellTypeTable">
+          <thead><tr>
+            <th>Tipo de Upsell</th>
+            <th class="num">Pedidos</th>
+            <th class="num">Tendência</th>
+            <th class="num">% do Total</th>
+            <th class="num">Receita</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Por Tipo</div>
+             <div class="card-subtitle">Distribuição de upsells</div></div>
+      </div>
+      <div style="height:200px"><canvas id="upsellPieChart"></canvas></div>
     </div>
   </div>
 
@@ -902,18 +916,18 @@ function buildKPIs(T) {
     { id:'r',  label:'Receita Bruta',    value:fmtR(T.rev),              delta:d(T.rev,P?.rev,false),        sub:_revSub,                    color:'blue',                          dir:'up',      badge:'receita',  spark:filtered.map(x=>x.revenue),               sc:'#16a34a', targetPct:_tgtRev },
     { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:_costSub,                 color:'red',                           dir:'neutral', badge:'custos',   spark:filtered.map(x=>x.costTotal||0),           sc:'#dc2626', targetPct:_tgtCost,   targetReverse:true },
     { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:_profitSub,                 color:T.pft>=0?'green':'red',          dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', targetPct:_tgtProfit },
-    { id:'m',  label:'Margem',           value:fmtN(T.margin*100,1)+'%', delta:d(T.margin,P?.margin,false),  sub:'contribuição real',         color:T.margin>=.22?'green':'amber',   dir:T.margin>=.22?'up':'neutral', badge:T.margin>=.22?'saudável':'atenção', spark:filtered.map(x=>x.revenue>0?((x.profit||0)/x.revenue)*100:0), sc:'#16a34a' },
     { id:'ro', label:'ROAS',             value:fmtN(T.roas,2,'')+'×',    delta:d(T.roas,P?.roas,false),      sub:'retorno s/ investimento',  color:T.roas>=1?'green':T.roas>=.8?'amber':'red', dir:T.roas>=1?'up':'down', badge:T.roas>=1.5?'bom':T.roas>=1?'aceitável':'crítico', spark:filtered.map(x=>x.costTotal>0?x.revenue/x.costTotal:0), sc:'#2563eb', alert:T.roas<1 },
+    { id:'cpv', label:'CPV',             value:T.cpv>0?fmtR(T.cpv):'—', delta:d(T.cpv,P?.cpv,true),         sub:'custo_total / compras',    color:'amber', dir:'neutral', badge:'custo por venda', spark:filtered.map(x=>x.cpv||null), sc:'#d97706' },
     { id:'ca', label:'CAC',              value:T.cac>0?fmtR(T.cac):'—',  delta:d(T.cac,P?.cac,true),        sub:'custo_ads / compras · meta: '+fmtR(TARGET_CPA),  color:T.cac>0&&T.cac<=TARGET_CPA?'green':T.cac>0?'red':'blue', dir:T.cac>0&&T.cac<=TARGET_CPA?'up':T.cac>0?'down':'neutral', badge:T.cac>0&&T.cac<=TARGET_CPA?'dentro da meta':T.cac>0?'acima da meta':'s/ ads', spark:filtered.map(x=>x.cac), sc:T.cac>0&&T.cac<=TARGET_CPA?'#16a34a':'#dc2626', alert:T.cac>TARGET_CPA*1.15, targetPct:_tgtCac, targetReverse:false },
   ];
   const row2 = [
-    { id:'ga', label:'Gasto Google Ads', value:fmtR(T.cost),           delta:d(T.cost,P?.cost,true),       sub:'custo_ads',               color:'amber', dir:'neutral', badge:'ads',    spark:filtered.map(x=>x.cost||0),        sc:'#f59e0b', targetPct:_tgtCost, targetReverse:true },
-    { id:'gb', label:'Gasto Bureau',     value:fmtR(T.costBureau),     delta:d(T.costBureau,P?.costBureau,true), sub:'custo_bureau',      color:'amber', dir:'neutral', badge:'bureau', spark:filtered.map(x=>x.costBureau||0),  sc:'#d97706' },
-    { id:'cpv', label:'CPV',             value:T.cpv>0?fmtR(T.cpv):'—', delta:d(T.cpv,P?.cpv,true),             sub:'custo_total / compras', color:'amber', dir:'neutral', badge:'custo por venda', spark:filtered.map(x=>x.cpv||null), sc:'#d97706' },
-    { id:'tr', label:'Transações',       value:fmtN(T.conv,0,''),      delta:d(T.conv,P?.conv,false),      sub:'conversões',             color:'blue',  dir:'up',      badge:'pedidos', spark:filtered.map(x=>x.conv),           sc:'#2563eb' },
-    { id:'tk', label:'Ticket Médio',     value:fmtR(T.ticket),         delta:null,                         sub:'por compra',             color:'blue',  dir:'neutral', badge:'estável', spark:filtered.map(()=>T.ticket),        sc:'#0891b2' },
-    { id:'up', label:'Taxa de Upsell',   value:fmtN(T.upsell,1)+'%',  delta:d(T.upsell,P?.upsell,false),  sub:'meta: '+TARGET_UPSELL+'%', color:T.upsell>=TARGET_UPSELL?'green':'amber', dir:T.upsell>=TARGET_UPSELL?'up':'neutral', badge:T.upsell>=TARGET_UPSELL?'meta atingida':fmtN(TARGET_UPSELL-T.upsell,1)+'pp abaixo', spark:filtered.map(x=>x.upsellRate), sc:'#7c3aed', targetPct:_tgtUpsell },
-    { id:'cv', label:'Taxa de Conversão',value:fmtN(T.convRate,2)+'%', delta:d(T.convRate,P?.convRate,false), sub:'checkout → compra',   color:'blue',  dir:'up',      badge:'+2pp',   spark:filtered.map(()=>T.convRate),      sc:'#0891b2' },
+    { id:'ga', label:'Gasto Google Ads', value:fmtR(T.cost),            delta:d(T.cost,P?.cost,true),          sub:'custo_ads',               color:'amber', dir:'neutral', badge:'ads',    spark:filtered.map(x=>x.cost||0),        sc:'#f59e0b', targetPct:_tgtCost, targetReverse:true },
+    { id:'gb', label:'Gasto Bureau',     value:fmtR(T.costBureau),      delta:d(T.costBureau,P?.costBureau,true), sub:'custo_bureau',         color:'amber', dir:'neutral', badge:'bureau', spark:filtered.map(x=>x.costBureau||0),  sc:'#d97706' },
+    { id:'m',  label:'Margem',           value:fmtN(T.margin*100,1)+'%',delta:d(T.margin,P?.margin,false),      sub:'contribuição real',       color:T.margin>=.22?'green':'amber', dir:T.margin>=.22?'up':'neutral', badge:T.margin>=.22?'saudável':'atenção', spark:filtered.map(x=>x.revenue>0?((x.profit||0)/x.revenue)*100:0), sc:'#16a34a' },
+    { id:'cv', label:'Taxa de Conversão',value:fmtN(T.convRate,2)+'%',  delta:d(T.convRate,P?.convRate,false),  sub:'checkout → compra',       color:'blue',  dir:'up',      badge:'+2pp',   spark:filtered.map(()=>T.convRate),      sc:'#0891b2' },
+    { id:'up', label:'Taxa de Upsell',   value:fmtN(T.upsell,1)+'%',   delta:d(T.upsell,P?.upsell,false),     sub:'meta: '+TARGET_UPSELL+'%',color:T.upsell>=TARGET_UPSELL?'green':'amber', dir:T.upsell>=TARGET_UPSELL?'up':'neutral', badge:T.upsell>=TARGET_UPSELL?'meta atingida':fmtN(TARGET_UPSELL-T.upsell,1)+'pp abaixo', spark:filtered.map(x=>x.upsellRate), sc:'#7c3aed', targetPct:_tgtUpsell },
+    { id:'tr', label:'Transações',       value:fmtN(T.conv,0,''),       delta:d(T.conv,P?.conv,false),          sub:'conversões',              color:'blue',  dir:'up',      badge:'pedidos', spark:filtered.map(x=>x.conv),           sc:'#2563eb' },
+    { id:'tk', label:'Ticket Médio',     value:fmtR(T.ticket),          delta:null,                             sub:'por compra',               color:'blue',  dir:'neutral', badge:'estável', spark:filtered.map(()=>T.ticket),        sc:'#0891b2' },
   ];
   renderRow('kpiRow1', row1);
   renderRow('kpiRow2', row2);
@@ -1447,6 +1461,28 @@ function buildUpsellTypeTable() {
   tfoot.className = 'tr-total';
   tfoot.innerHTML = `<td>Total</td><td class="num">${totalCount}</td><td class="num"></td><td class="num">100%</td><td class="num">${fmtR(totalRevenue)}</td>`;
   tbody.appendChild(tfoot);
+
+  // Upsell pie chart — distribuição por tipo
+  const _pieColors = ['#2563eb','#7c3aed','#0891b2','#d97706','#dc2626','#16a34a','#db2777','#ea580c','#65a30d'];
+  mkChart('upsellPieChart', 'doughnut', {
+    labels: rows.map(r => r.label),
+    datasets:[{
+      data: rows.map(r => r.count),
+      backgroundColor: rows.map((_, i) => _pieColors[i % _pieColors.length]),
+      borderWidth: 1, borderColor: '#fff', hoverOffset: 6
+    }]
+  },{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{ position:'bottom', labels:{ font:{size:10}, boxWidth:10, padding:8 } },
+      tooltip:{ callbacks:{ label: c => ` ${c.label}: ${c.raw} (${totalCount>0?((c.raw/totalCount)*100).toFixed(1):0}%)` } },
+      datalabels:{
+        display: ctx => ctx.dataset.data[ctx.dataIndex] / totalCount >= 0.06,
+        formatter: (v) => totalCount > 0 ? ((v/totalCount)*100).toFixed(0)+'%' : '',
+        color:'#fff', font:{ size:10, weight:'700' }
+      }
+    }
+  });
 }
 
 // ─── CONVERSION FUNNEL ───────────────────────────────────────────────────────
