@@ -314,7 +314,7 @@ function syncRevenueDailyFromOrdersSheet() {
 
 /**
  * syncUpsellDaily — lê a aba OrderItems (janela recente) e agrega
- * o número de pedidos PAGOS que têm pelo menos 1 item ADDON por dia.
+ * o número de pedidos PAGOS que têm pelo menos 1 item ADDON ou BUNDLE por dia.
  * Preserva histórico como o RevenueDaily: só recalcula a janela
  * definida por orderitems_lookback_hours, mantendo datas antigas intactas.
  *
@@ -1742,7 +1742,7 @@ function _readRevDaily_(ss) {
 }
 
 /**
- * Map<"yyyy-MM-dd", number> — pedidos com ADDON por dia.
+ * Map<"yyyy-MM-dd", number> — pedidos com ADDON ou BUNDLE por dia.
  * Baseado na aba OrderItems (janela recente); o Dashboard preserva
  * dados históricos via prevUpsell.
  */
@@ -1762,10 +1762,11 @@ function _readUpsellFromOrderItems_(ss) {
 
   if (cOrderId < 0 || cDate < 0 || cType < 0) return result;
 
-  // 1ª passagem: quais order_ids têm pelo menos 1 item ADDON?
+  // 1ª passagem: quais order_ids têm pelo menos 1 item ADDON ou BUNDLE?
   const addonOrders = new Set();
   for (let i = 1; i < values.length; i++) {
-    if (String(values[i][cType] || "").toUpperCase() === "ADDON") {
+    const t = String(values[i][cType] || "").toUpperCase();
+    if (t === "ADDON" || t === "BUNDLE") {
       addonOrders.add(String(values[i][cOrderId] || ""));
     }
   }
