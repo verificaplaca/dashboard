@@ -766,7 +766,7 @@ function totals() {
            cac: conv>0 && cost>0     ? +(cost     /conv).toFixed(2) : 0,
            cpv: conv>0 && costTotal>0? +(costTotal/conv).toFixed(2) : 0,
            roas:costTotal>0?+(rev/costTotal).toFixed(2):0,
-           margin:rev>0?pft/rev:0, ticket:TICKET, convRate, upsell };
+           margin:rev>0?pft/rev:0, ticket:conv>0?+(rev/conv).toFixed(2):0, convRate, upsell };
 }
 function campTotals() {
   // Bureau total do período (distribuído proporcionalmente à receita por campanha)
@@ -846,7 +846,7 @@ function prevTotals() {
   const cpv     = conv>0 && costTot>0 ? +(costTot/conv).toFixed(2) : 0;
   const roas    = costTot>0?+(rev/costTot).toFixed(2):0;
   const margin  = rev>0?pft/rev:0;
-  return { rev, cost, costBureau:costBur, costTotal:costTot, pft, conv, upsell, cac, cpv, roas, margin, convRate };
+  return { rev, cost, costBureau:costBur, costTotal:costTot, pft, conv, upsell, cac, cpv, roas, margin, convRate, ticket:conv>0?+(rev/conv).toFixed(2):0 };
 }
 function pctDelta(curr, prev, reverse) {
   if (prev==null || Math.abs(prev)<0.01) return null;
@@ -929,7 +929,7 @@ function buildKPIs(T) {
     { id:'cv', label:'Taxa de Conversão',value:fmtN(T.convRate,2)+'%',  delta:d(T.convRate,P?.convRate,false),  sub:'checkout → compra',       color:'blue',  dir:'up',      badge:'+2pp',   spark:filtered.map(()=>T.convRate),      sc:'#0891b2' },
     { id:'up', label:'Taxa de Upsell',   value:fmtN(T.upsell,1)+'%',   delta:d(T.upsell,P?.upsell,false),     sub:'meta: '+TARGET_UPSELL+'%',color:T.upsell>=TARGET_UPSELL?'green':'amber', dir:T.upsell>=TARGET_UPSELL?'up':'neutral', badge:T.upsell>=TARGET_UPSELL?'meta atingida':fmtN(TARGET_UPSELL-T.upsell,1)+'pp abaixo', spark:filtered.map(x=>x.upsellRate), sc:'#7c3aed', targetPct:_tgtUpsell },
     { id:'tr', label:'Transações',       value:fmtN(T.conv,0,''),       delta:d(T.conv,P?.conv,false),          sub:'conversões',              color:'blue',  dir:'up',      badge:'pedidos', spark:filtered.map(x=>x.conv),           sc:'#2563eb' },
-    { id:'tk', label:'Ticket Médio',     value:fmtR(T.ticket),          delta:null,                             sub:'por compra',               color:'blue',  dir:'neutral', badge:'estável', spark:filtered.map(()=>T.ticket),        sc:'#0891b2' },
+    { id:'tk', label:'Ticket Médio',     value:fmtR(T.ticket),          delta:d(T.ticket,P?.ticket,false),      sub:'receita / pedidos',        color:'blue',  dir:T.ticket>=(P?.ticket||0)?'up':'down', badge:T.ticket>=(P?.ticket||0)?'crescendo':'caindo', spark:filtered.map(x=>x.conv>0?+(x.revenue/x.conv):0), sc:'#0891b2' },
   ];
   renderRow('kpiRow1', row1);
   renderRow('kpiRow2', row2);
