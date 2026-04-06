@@ -232,6 +232,12 @@
     .grid-1-1 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .grid-4-1 { display: grid; grid-template-columns: 4fr 1fr; gap: 10px; align-items: stretch; }
     @media (max-width: 900px) { .grid-2-1, .grid-1-1, .grid-4-1 { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) {
+      /* Donut charts: troca flex:1 por altura fixa para Chart.js calcular corretamente */
+      #convChart, #upsellPieChart { display: block; width: 100% !important; }
+      #convChart { height: 260px !important; }
+      #upsellPieChart { height: 240px !important; }
+    }
 
     /* Gauges */
     .gauge-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
@@ -508,11 +514,11 @@
   <!-- Performance por Dia da Semana (80%) + Conversões por Campanha (20%) -->
   <div class="section-label" style="margin-top:24px">Performance por Dia da Semana</div>
   <div class="grid-4-1">
-    <div style="display:flex;flex-direction:column;">
-      <div class="dow-grid" id="dowGrid" style="flex:1;"></div>
+    <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;">
+      <div class="dow-grid" id="dowGrid" style="flex:1;min-width:0;"></div>
       <div class="dow-dots" id="dowDots"></div>
     </div>
-    <div class="card" style="display:flex;flex-direction:column;">
+    <div class="card" style="display:flex;flex-direction:column;min-width:0;">
       <div class="card-header">
         <div><div class="card-title">Conversões por Campanha</div>
              <div class="card-subtitle" id="convSub">Total do período</div></div>
@@ -538,7 +544,7 @@
         </table>
       </div>
     </div>
-    <div class="card" style="display:flex;flex-direction:column;">
+    <div class="card" style="display:flex;flex-direction:column;min-width:0;">
       <div class="card-header">
         <div><div class="card-title">Por Tipo</div>
              <div class="card-subtitle">Distribuição de upsells</div></div>
@@ -880,6 +886,8 @@ function render() {
   document.getElementById('convSub').textContent = fmtN(T.conv,0)+' conversões';
   const hint = document.getElementById('dateRangeHint');
   if (hint && d.length) hint.textContent = '(' + rangeStr + ')';
+  // Força Chart.js a recalcular tamanhos após o layout mobile se estabilizar
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 }
 
 // ─── KPI CARDS ────────────────────────────────────────────────────────────────
