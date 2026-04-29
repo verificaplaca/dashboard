@@ -407,6 +407,7 @@
           <div class="date-preset active" onclick="setPreset('month','Este mês',event)">Este mês <span id="currentMonthLbl" style="font-size:10px;color:var(--text-muted)"></span></div>
           <div class="date-preset" onclick="setPreset('lastmonth','Mês passado',event)">Mês passado</div>
           <div class="date-preset" onclick="setPreset('ytd','Este ano',event)">Este ano até agora</div>
+          <div class="date-preset" onclick="setPreset('ytd','Este ano',event)">Este ano até agora</div>
           <div class="date-divider"></div>
           <div class="date-preset" onclick="setPreset('custom','Personalizado',event)">Personalizado…</div>
         </div>
@@ -851,6 +852,8 @@ function setPreset(preset, label, e) {
     const f = new Date(now.getFullYear(), now.getMonth()-1, 1);
     const t = new Date(now.getFullYear(), now.getMonth(), 0);
     fromDate = iso(f); toDate = iso(t);
+  } else if (preset === 'ytd') {
+    fromDate = `${now.getFullYear()}-01-01`;
   } else if (preset === 'ytd') {
     fromDate = `${now.getFullYear()}-01-01`;
   } else {
