@@ -901,7 +901,7 @@ function totals() {
   const upsell     = filtered.length ? filtered.reduce((s,d)=>s+d.upsellRate,0)/filtered.length : 0;
   const checkouts  = filtered.reduce((s,d)=>s+(d.checkouts||0),   0)*convMul;
   const convRate   = checkouts > 0 ? (conv / checkouts * 100) : MONTHLY.convRate;
-  const netPft      = +(pft - rev * 0.08).toFixed(2);
+  const netPft      = +(rev * 0.92).toFixed(2);
   const refundCount = filtered.reduce((s,d)=>s+(d.refundCount||0),0);
   const refundValue = +filtered.reduce((s,d)=>s+(d.refundValue||0),0).toFixed(2);
   const refundRate  = (conv+refundCount)>0 ? +(refundCount/(conv+refundCount)*100).toFixed(2) : 0;
@@ -981,7 +981,7 @@ function prevTotals() {
   const costBur = prev.reduce((s,d)=>s+(d.costBureau||0), 0)*costMul;
   const costTot = +(cost+costBur).toFixed(2);
   const pft     = usingRealData ? prev.reduce((s,d)=>s+(d.profit||0),0)*revMul : +(rev-costTot).toFixed(2);
-  const netPft  = +(pft - rev * 0.08).toFixed(2);
+  const netPft  = +(rev * 0.92).toFixed(2);
   const conv    = prev.reduce((s,d)=>s+d.conv,            0)*convMul;
   const checks  = prev.reduce((s,d)=>s+(d.checkouts||0),  0)*convMul;
   const upsell  = prev.reduce((s,d)=>s+d.upsellRate,      0)/(prev.length||1);
@@ -1065,7 +1065,7 @@ function buildKPIs(T) {
     { id:'r',  label:'Receita Bruta',    value:fmtR(T.rev),              delta:d(T.rev,P?.rev,false),        sub:_revSub,                    color:'blue',  dir:'up',      badge:'receita',         spark:filtered.map(x=>x.revenue),                              sc:'#16a34a', targetPct:_tgtRev },
     { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:_costSub,               color:'red',   dir:'neutral', badge:'custos',           spark:filtered.map(x=>x.costTotal||0),                         sc:'#dc2626', targetPct:_tgtCost, targetReverse:true },
     { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:_profitSub,                 color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', targetPct:_tgtProfit },
-    { id:'np', label:'Lucro Líquido', value:fmtR(T.netPft),         delta:d(T.netPft,P?.netPft,false),  sub:'lucro bruto − 8% s/ receita bruta', color:T.netPft>=0?'green':'red', dir:T.netPft>=0?'up':'down', badge:T.netPft>=0?'após imposto':'negativo', spark:filtered.map(x=>(x.profit||0)-(x.revenue||0)*0.08), sc:T.netPft>=0?'#16a34a':'#dc2626' },
+    { id:'np', label:'Lucro Líquido', value:fmtR(T.netPft),         delta:d(T.netPft,P?.netPft,false),  sub:'receita bruta − 8% de imposto', color:T.netPft>=0?'green':'red', dir:T.netPft>=0?'up':'down', badge:T.netPft>=0?'após imposto':'negativo', spark:filtered.map(x=>(x.revenue||0)*0.92), sc:T.netPft>=0?'#16a34a':'#dc2626' },
   ];
   const row2 = [
     { id:'ro', label:'ROAS',             value:fmtN(T.roas,2,'')+'×',   delta:d(T.roas,P?.roas,false),      sub:'retorno s/ investimento',  color:T.roas>=1?'green':T.roas>=.8?'amber':'red', dir:T.roas>=1?'up':'down', badge:T.roas>=1.5?'bom':T.roas>=1?'aceitável':'crítico', spark:filtered.map(x=>x.costTotal>0?x.revenue/x.costTotal:0), sc:'#2563eb', alert:T.roas<1 },
