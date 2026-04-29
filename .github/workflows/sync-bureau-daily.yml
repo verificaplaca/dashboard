@@ -15,7 +15,7 @@ jobs:
         run: |
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             "https://ftmgmfdqdqxboiktxcoj.supabase.co/functions/v1/sync-bureau-daily" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.VP_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{}')
 
