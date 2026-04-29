@@ -407,7 +407,6 @@
           <div class="date-preset active" onclick="setPreset('month','Este mês',event)">Este mês <span id="currentMonthLbl" style="font-size:10px;color:var(--text-muted)"></span></div>
           <div class="date-preset" onclick="setPreset('lastmonth','Mês passado',event)">Mês passado</div>
           <div class="date-preset" onclick="setPreset('ytd','Este ano',event)">Este ano até agora</div>
-          <div class="date-preset" onclick="setPreset('ytd','Este ano',event)">Este ano até agora</div>
           <div class="date-divider"></div>
           <div class="date-preset" onclick="setPreset('custom','Personalizado',event)">Personalizado…</div>
         </div>
@@ -853,8 +852,6 @@ function setPreset(preset, label, e) {
     const f = new Date(now.getFullYear(), now.getMonth()-1, 1);
     const t = new Date(now.getFullYear(), now.getMonth(), 0);
     fromDate = iso(f); toDate = iso(t);
-  } else if (preset === 'ytd') {
-    fromDate = `${now.getFullYear()}-01-01`;
   } else if (preset === 'ytd') {
     fromDate = `${now.getFullYear()}-01-01`;
   } else {
@@ -1946,14 +1943,27 @@ async function initDashboard() {
   let _restored = false;
   try {
     const _saved = JSON.parse(localStorage.getItem('vp_filter'));
-    if (_saved && _saved.from) {
-      filtered = ALL_DAYS.filter(d => d.dateStr >= _saved.from && d.dateStr <= _saved.to);
-      if (filtered.length) {
-        _restored = true;
-        document.getElementById('dateLabel').textContent = _saved.label || _saved.preset;
-        document.querySelectorAll('.date-preset').forEach(el => {
-          el.classList.toggle('active', el.getAttribute('onclick')?.includes(_saved.preset));
-        });
+    if (_saved && _saved.preset) {
+      // Recalcula datas dinâmicas para garantir que "Hoje" e "Este mês" sempre usam a data atual
+      const _iso2 = d => `${d.getFullYear()}-${_pad(d.getMonth()+1)}-${_pad(d.getDate())}`;
+      let _from = _saved.from, _to = _saved.to;
+      if      (_saved.preset === 'today')     { _from = _to = _today; }
+      else if (_saved.preset === 'yesterday') { const d=new Date(_now);d.setDate(d.getDate()-1);_from=_to=_iso2(d); }
+      else if (_saved.preset === 'week')      { const d=new Date(_now);d.setDate(d.getDate()-d.getDay());_from=_iso2(d);_to=_today; }
+      else if (_saved.preset === '7d')        { const d=new Date(_now);d.setDate(d.getDate()-6);_from=_iso2(d);_to=_today; }
+      else if (_saved.preset === '14d')       { const d=new Date(_now);d.setDate(d.getDate()-13);_from=_iso2(d);_to=_today; }
+      else if (_saved.preset === 'month')     { _from=_today.slice(0,7)+'-01';_to=_today; }
+      else if (_saved.preset === 'ytd')       { _from=`${_now.getFullYear()}-01-01`;_to=_today; }
+      if (_from) {
+        filtered = ALL_DAYS.filter(d => d.dateStr >= _from && d.dateStr <= _to);
+        if (filtered.length || _saved.preset === 'today') {
+          _restored = true;
+          activePreset = _saved.preset;
+          document.getElementById('dateLabel').textContent = _saved.label || _saved.preset;
+          document.querySelectorAll('.date-preset').forEach(el => {
+            el.classList.toggle('active', !!el.getAttribute('onclick')?.match(new RegExp("'" + _saved.preset + "'")));
+          });
+        }
       }
     }
   } catch(e) {}
