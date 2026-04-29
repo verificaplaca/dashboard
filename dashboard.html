@@ -440,6 +440,8 @@
   <!-- ROW 2: Volume & efficiency -->
   <div class="kpi-row kpi-row-2" id="kpiRow2"></div>
   <div class="kpi-row kpi-row-3" id="kpiRow3"></div>
+  <div class="section-label" style="margin-top:24px">Estornos</div>
+  <div id="refundSection"></div>
   <script>
   (function(){
     const s='<div class="kpi-card kpi-skel"><div class="kpi-skel-lbl skeleton"></div><div class="kpi-skel-val skeleton"></div><div class="kpi-skel-spark skeleton"></div><div class="kpi-skel-sub skeleton"></div></div>';
@@ -621,12 +623,13 @@ async function loadSupabaseData() {
   const qs    = `date=gte.${start}&date=lte.${today}`;
 
   const gadsQs = `date=gte.${start}&date=lte.${today}`;
-  const [revRows, upsRows, ubtRows, burRows, gadsRows] = await Promise.all([
+  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows] = await Promise.all([
     supaGet(`/rest/v1/revenue_daily?${qs}&select=date,revenue,paid_orders`),
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
     supaGet(`/rest/v1/bureau_daily?${qs}&select=date,custo_bureau,lucro_bruto,margem_pct`),
     supaGet(`/rest/v1/google_ads_campaign_daily?${gadsQs}&select=date,campaign_name,cost_micros,conversions&order=date.asc`),
+    supaGet(`/rest/v1/refunds_daily?${qs}&select=date,refund_count,refund_value`),
   ]);
 
   const upsMap = new Map();
@@ -635,10 +638,14 @@ async function loadSupabaseData() {
   const burMap = new Map();
   for (const b of burRows) burMap.set(String(b.date).slice(0,10), b);
 
+  const refMap = new Map();
+  for (const r of refRows) refMap.set(String(r.date).slice(0,10), r);
+
   ALL_DAYS = revRows.map(row => {
     const dateStr = String(row.date).slice(0,10);
     const u       = upsMap.get(dateStr) || {};
     const b       = burMap.get(dateStr) || {};
+    const ref     = refMap.get(dateStr) || {};
     const revenue = parseFloat(row.revenue)   || 0;
     const conv    = parseInt(row.paid_orders) || 0;
     const costBureau = parseFloat(b.custo_bureau) || 0;
@@ -894,8 +901,11 @@ function totals() {
   const upsell     = filtered.length ? filtered.reduce((s,d)=>s+d.upsellRate,0)/filtered.length : 0;
   const checkouts  = filtered.reduce((s,d)=>s+(d.checkouts||0),   0)*convMul;
   const convRate   = checkouts > 0 ? (conv / checkouts * 100) : MONTHLY.convRate;
-  const netPft = +(pft * 0.92).toFixed(2); // Lucro líquido = Lucro Bruto − 8% imposto
-  return { rev, cost, costBureau, costTotal, conv, pft, netPft,
+  const netPft      = +(pft * 0.92).toFixed(2);
+  const refundCount = filtered.reduce((s,d)=>s+(d.refundCount||0),0);
+  const refundValue = +filtered.reduce((s,d)=>s+(d.refundValue||0),0).toFixed(2);
+  const refundRate  = (conv+refundCount)>0 ? +(refundCount/(conv+refundCount)*100).toFixed(2) : 0;
+  return { rev, cost, costBureau, costTotal, conv, pft, netPft, refundCount, refundValue, refundRate,
            cac: conv>0 && cost>0     ? +(cost     /conv).toFixed(2) : 0,
            cpv: conv>0 && costTotal>0? +(costTotal/conv).toFixed(2) : 0,
            roas:costTotal>0?+(rev/costTotal).toFixed(2):0,
@@ -995,6 +1005,7 @@ function render() {
   buildFreshness();
   buildTodayPace();
   buildKPIs(T);
+  buildRefundSection(T);
   buildGauges(T);
   buildAlertBar(T);
   buildFunnel();
@@ -1717,6 +1728,32 @@ function buildFreshness() {
 }
 
 // ─── TODAY PACE ───────────────────────────────────────────────────────────────
+
+function buildRefundSection(T) {
+  const wrap = document.getElementById('refundSection');
+  if (!wrap) return;
+  const rateColor = T.refundRate > 5 ? 'var(--red)' : T.refundRate > 2 ? 'var(--amber)' : 'var(--green)';
+  const rateBadge = T.refundRate > 5 ? 'alto' : T.refundRate > 2 ? 'moderado' : 'normal';
+  const spark = filtered.map(x => x.refundCount || 0);
+  const cards = [
+    { label:'Qtd. Estornos',    value: fmtN(T.refundCount,0,''),      sub:'pedidos estornados',               color:'var(--red)',     badge: T.refundCount > 0 ? String(T.refundCount)+' pedidos' : 'nenhum' },
+    { label:'Valor Estornado',  value: fmtR(T.refundValue),           sub:'total devolvido ao cliente',       color: T.refundValue>0?'var(--red)':'var(--green)', badge: T.refundValue>0?'devolvido':'zerado' },
+    { label:'Taxa de Estorno',  value: fmtN(T.refundRate,2)+'%',      sub:'estornos ÷ (vendas+estornos)', color: rateColor,      badge: rateBadge },
+  ];
+  wrap.style.display = '';
+  wrap.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' +
+    cards.map(c => `
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">${c.label}</span>
+          <span class="badge neutral">${c.badge}</span>
+        </div>
+        <div class="kpi-value" style="color:${c.color}">${c.value}</div>
+        <div class="kpi-sub">${c.sub}</div>
+      </div>`).join('') +
+  '</div>';
+}
+
 function buildTodayPace() {
   const wrap  = document.getElementById('todayPace');
   if (!wrap) return;
