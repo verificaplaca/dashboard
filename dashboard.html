@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard · Verifica Placa</title>
-  <link rel="icon" type="image/svg+xml" href="logotipo-verifica-placa.svg" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <style>
@@ -576,14 +576,100 @@ const MONTHLY_BUDGET          = 25000; // R$ orçamento mensal de Google Ads —
 const MONTHLY_REVENUE_TARGET  = 30000; // R$ meta de receita mensal — ajuste conforme seu objetivo
 const MONTHLY_PROFIT_TARGET   =  7000; // R$ meta de lucro bruto mensal — ajuste conforme seu objetivo
 
+// ─── SUPABASE ─────────────────────────────────────────────────────────────────
+const SUPA_URL = 'https://ftmgmfdqdqxboiktxcoj.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0bWdtZmRxZHF4Ym9pa3R4Y29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MTIwNzAsImV4cCI6MjA5Mjk4ODA3MH0.IfOKtwpBB9orGN3UnCZDG8RYEHTAEAsX0LHxV3WBfCs';
+const SUPA_HDR = { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY };
+
+const ADDON_LABELS = {
+  'bin_estadual':             'BIN Estadual',
+  'bin_estadual_owner':       'Proprietário Estadual',
+  'bin_federal':              'BIN Federal',
+  'gravame':                  'Gravame',
+  'historico_leilao':         'Histórico Leilão',
+  'indicio_sinistro':         'Indício Sinistro',
+  'dados_proprietario_atual': 'Dados do Proprietário',
+  'renavam':                  'RENAVAM',
+};
+function addonLabel(key) {
+  if (!key) return key;
+  if (ADDON_LABELS[key]) return ADDON_LABELS[key];
+  // Combos: "combo:k1+k2+..." → junta labels dos componentes
+  if (key.startsWith('combo:')) {
+    return key.slice(6).split('+').map(k => ADDON_LABELS[k] || k).join(' + ');
+  }
+  return key;
+}
+
+async function supaGet(path) {
+  const r = await fetch(SUPA_URL + path, { headers: SUPA_HDR });
+  if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
+  return r.json();
+}
+
+async function loadSupabaseData() {
+  const pad   = n => String(n).padStart(2, '0');
+  const now   = new Date();
+  const today = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const start = '2026-01-01';
+  const qs    = `date=gte.${start}&date=lte.${today}`;
+
+  const [revRows, upsRows, ubtRows] = await Promise.all([
+    supaGet(`/rest/v1/revenue_daily?${qs}&select=date,revenue,paid_orders`),
+    supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
+    supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
+  ]);
+
+  const upsMap = new Map();
+  for (const u of upsRows) upsMap.set(String(u.date).slice(0,10), u);
+
+  ALL_DAYS = revRows.map(row => {
+    const dateStr = String(row.date).slice(0,10);
+    const u       = upsMap.get(dateStr) || {};
+    const revenue = parseFloat(row.revenue)   || 0;
+    const conv    = parseInt(row.paid_orders) || 0;
+    return {
+      date:          new Date(dateStr + 'T00:00:00'),
+      dateStr,
+      revenue,
+      conv,
+      pedidos:       conv,
+      cost:          0,
+      costBureau:    0,
+      costTotal:     0,
+      profit:        0,
+      checkouts:     0,
+      upsellRate:    parseFloat(u.upsell_rate)  || 0,
+      pedidosUpsell: parseInt(u.upsell_orders)  || 0,
+      cac: null, cpv: null,
+    };
+  }).sort((a,b) => a.dateStr.localeCompare(b.dateStr));
+
+  UPSELL_TYPE_DATA = ubtRows.map(r => ({
+    dateStr:  String(r.date).slice(0,10),
+    addonKey: r.addon_key,
+    label:    addonLabel(r.addon_key),
+    count:    parseInt(r.qty)      || 0,
+    revenue:  parseFloat(r.revenue) || 0,
+  }));
+}
+
+function mergeCostIntoAllDays() {
+  const costMap = new Map();
+  for (const r of CAMPAIGN_DAILY_DATA)
+    costMap.set(r.dateStr, (costMap.get(r.dateStr) || 0) + r.cost);
+  for (const d of ALL_DAYS) {
+    d.cost      = costMap.get(d.dateStr) || 0;
+    d.costTotal = +(d.cost + d.costBureau).toFixed(2);
+    d.profit    = +(d.revenue - d.costTotal).toFixed(2);
+    if (d.conv > 0 && d.cost      > 0) d.cac = +(d.cost      / d.conv).toFixed(2);
+    if (d.conv > 0 && d.costTotal > 0) d.cpv = +(d.costTotal / d.conv).toFixed(2);
+  }
+}
+
 // ─── GOOGLE SHEETS CSV DATA SOURCE ───────────────────────────────────────────
-// Paste the "Publicar na web → CSV" URL of the Dashboard tab here.
-// Leave empty ("") to use example data.
-const CSV_URL          = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqbE08eyRjAugsJ4ZZG7-jUf9MG6UfbOuOm4W_nONBZUs8nM6OaHWxso4_7A1NJVJnsgfgDjzOGfER/pub?gid=2140356170&single=true&output=csv";
-// Paste the "Publicar na web → CSV" URL of the UpsellByType tab here.
-const UPSELL_TYPE_URL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqbE08eyRjAugsJ4ZZG7-jUf9MG6UfbOuOm4W_nONBZUs8nM6OaHWxso4_7A1NJVJnsgfgDjzOGfER/pub?gid=1122099462&single=true&output=csv";
-// Paste the "Publicar na web → CSV" URL of the CampaignDaily tab here.
-// Deixe "" até publicar a aba — o dashboard usa estimativas como fallback.
+// Mantém apenas CampaignDaily (custos de Ads) como ponte temporária.
+// Receita e upsell agora vêm do Supabase via loadSupabaseData().
 const CAMPAIGN_DAILY_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqbE08eyRjAugsJ4ZZG7-jUf9MG6UfbOuOm4W_nONBZUs8nM6OaHWxso4_7A1NJVJnsgfgDjzOGfER/pub?gid=818651786&single=true&output=csv";
 
 // ─── EXAMPLE DATA (fallback when CSV_URL is empty or fetch fails) ─────────────
@@ -1766,28 +1852,18 @@ async function initDashboard() {
   document.getElementById('lastUpdated').textContent = 'Carregando…';
   document.getElementById('freshDot').className = 'fresh-dot amber';
 
-  // Load main CSV
-  if (CSV_URL) {
-    try {
-      const data = await loadCSVData(CSV_URL);
-      if (data.length > 0) {
-        ALL_DAYS = data;
-        usingRealData = true;
-        document.getElementById('footerBar').textContent =
-          'Verifica Placa · Dashboard · Google Sheets · Atualizado: ' +
-          new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      } else throw new Error('CSV vazio');
-    } catch (err) {
-      console.warn('[Dashboard] Falha ao carregar CSV principal:', err);
-      ALL_DAYS = makeDays();
-      document.getElementById('footerBar').textContent =
-        'Verifica Placa · Dashboard · Dados de exemplo (CSV indisponível)';
-    }
-  } else {
+  // Carrega dados de pedidos e upsell do Supabase
+  try {
+    await loadSupabaseData();
+    usingRealData = true;
+  } catch (err) {
+    console.warn('[Dashboard] Falha ao carregar Supabase:', err);
     ALL_DAYS = makeDays();
+    document.getElementById('footerBar').textContent =
+      'Verifica Placa · Dashboard · Dados de exemplo (Supabase indisponível)';
   }
 
-  // Load CampaignDaily CSV (optional — silently skip if not configured)
+  // Carrega custos de Ads via CSV do Google Sheets (ponte temporária)
   if (CAMPAIGN_DAILY_URL) {
     try {
       const raw   = await fetch(CAMPAIGN_DAILY_URL, { cache:'no-cache' }).then(r => r.text());
@@ -1808,6 +1884,7 @@ async function initDashboard() {
             revenue:     cRev >= 0 ? parseBRL(r[cRev]) : 0,
           }))
           .filter(r => r.dateStr && r.campaign);
+        mergeCostIntoAllDays();
         console.log('[Dashboard] CampaignDaily:', CAMPAIGN_DAILY_DATA.length, 'linhas carregadas.');
       }
     } catch(err) {
@@ -1815,24 +1892,10 @@ async function initDashboard() {
     }
   }
 
-  // Load UpsellByType CSV (optional — silently skip if not configured)
-  if (UPSELL_TYPE_URL) {
-    try {
-      const raw = await fetch(UPSELL_TYPE_URL).then(r => r.text());
-      const lines = raw.trim().split('\n');
-      const hdr = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/"/g,''));
-      const ci = k => hdr.indexOf(k);
-      const cDate=ci('date'), cKey=ci('addon_key'), cLbl=ci('label'), cCnt=ci('count'), cRev=ci('revenue');
-      UPSELL_TYPE_DATA = lines.slice(1).map(l => parseCSVLine(l)).map(r => ({
-        dateStr:  (r[cDate]||'').replace(/"/g,'').trim().substring(0,10),
-        addonKey: (r[cKey] ||'').replace(/"/g,'').trim(),
-        label:    (r[cLbl] ||'').replace(/"/g,'').trim(),
-        count:    parseInt((r[cCnt]||'0').replace(/"/g,'')) || 0,
-        revenue:  parseBRL(r[cRev]||'0'),
-      })).filter(r => r.dateStr && r.addonKey);
-    } catch (err) {
-      console.warn('[Dashboard] Falha ao carregar UpsellByType CSV:', err);
-    }
+  if (usingRealData) {
+    document.getElementById('footerBar').textContent =
+      'Verifica Placa · Dashboard · Supabase · Atualizado: ' +
+      new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
   }
 
   // Restore filter from localStorage (or default to current month)
