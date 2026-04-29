@@ -614,11 +614,13 @@ async function loadSupabaseData() {
   const start = '2026-01-01';
   const qs    = `date=gte.${start}&date=lte.${today}`;
 
-  const [revRows, upsRows, ubtRows, burRows] = await Promise.all([
+  const gadsQs = `date=gte.${start}&date=lte.${today}`;
+  const [revRows, upsRows, ubtRows, burRows, gadsRows] = await Promise.all([
     supaGet(`/rest/v1/revenue_daily?${qs}&select=date,revenue,paid_orders`),
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
     supaGet(`/rest/v1/bureau_daily?${qs}&select=date,custo_bureau,lucro_bruto,margem_pct`),
+    supaGet(`/rest/v1/google_ads_campaign_daily?${gadsQs}&select=date,campaign_name,cost_micros,conversions&order=date.asc`),
   ]);
 
   const upsMap = new Map();
@@ -658,6 +660,17 @@ async function loadSupabaseData() {
     count:    parseInt(r.qty)      || 0,
     revenue:  parseFloat(r.revenue) || 0,
   }));
+
+  // Popula CAMPAIGN_DAILY_DATA a partir do Supabase (substitui CSV)
+  CAMPAIGN_DAILY_DATA = gadsRows.map(r => ({
+    dateStr:     String(r.date).slice(0, 10),
+    campaign:    String(r.campaign_name || '').toUpperCase(),
+    cost:        (parseInt(r.cost_micros) || 0) / 1_000_000,
+    conversions: parseFloat(r.conversions) || 0,
+    revenue:     0,
+  }));
+  console.log('[Dashboard] Google Ads (Supabase):', CAMPAIGN_DAILY_DATA.length, 'linhas carregadas.');
+  mergeCostIntoAllDays();
 }
 
 function mergeCostIntoAllDays() {
@@ -675,9 +688,9 @@ function mergeCostIntoAllDays() {
 }
 
 // ─── GOOGLE SHEETS CSV DATA SOURCE ───────────────────────────────────────────
-// Mantém apenas CampaignDaily (custos de Ads) como ponte temporária.
-// Receita e upsell agora vêm do Supabase via loadSupabaseData().
-const CAMPAIGN_DAILY_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqbE08eyRjAugsJ4ZZG7-jUf9MG6UfbOuOm4W_nONBZUs8nM6OaHWxso4_7A1NJVJnsgfgDjzOGfER/pub?gid=818651786&single=true&output=csv";
+// Google Ads agora vem do Supabase (google_ads_campaign_daily) via loadSupabaseData().
+// CSV desativado — mantido para referência histórica.
+const CAMPAIGN_DAILY_URL = "";
 
 // ─── EXAMPLE DATA (fallback when CSV_URL is empty or fetch fails) ─────────────
 function makeDays() {
