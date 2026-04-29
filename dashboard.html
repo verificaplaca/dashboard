@@ -901,7 +901,7 @@ function totals() {
   const upsell     = filtered.length ? filtered.reduce((s,d)=>s+d.upsellRate,0)/filtered.length : 0;
   const checkouts  = filtered.reduce((s,d)=>s+(d.checkouts||0),   0)*convMul;
   const convRate   = checkouts > 0 ? (conv / checkouts * 100) : MONTHLY.convRate;
-  const netPft      = +(rev * 0.92).toFixed(2);
+  const netPft      = +(rev * 0.92 - costTotal).toFixed(2);
   const refundCount = filtered.reduce((s,d)=>s+(d.refundCount||0),0);
   const refundValue = +filtered.reduce((s,d)=>s+(d.refundValue||0),0).toFixed(2);
   const refundRate  = (conv+refundCount)>0 ? +(refundCount/(conv+refundCount)*100).toFixed(2) : 0;
@@ -981,7 +981,7 @@ function prevTotals() {
   const costBur = prev.reduce((s,d)=>s+(d.costBureau||0), 0)*costMul;
   const costTot = +(cost+costBur).toFixed(2);
   const pft     = usingRealData ? prev.reduce((s,d)=>s+(d.profit||0),0)*revMul : +(rev-costTot).toFixed(2);
-  const netPft  = +(rev * 0.92).toFixed(2);
+  const netPft  = +(rev * 0.92 - costTot).toFixed(2);
   const conv    = prev.reduce((s,d)=>s+d.conv,            0)*convMul;
   const checks  = prev.reduce((s,d)=>s+(d.checkouts||0),  0)*convMul;
   const upsell  = prev.reduce((s,d)=>s+d.upsellRate,      0)/(prev.length||1);
@@ -1063,23 +1063,23 @@ function buildKPIs(T) {
 
   const row1 = [
     { id:'r',  label:'Receita Bruta',    value:fmtR(T.rev),              delta:d(T.rev,P?.rev,false),        sub:_revSub,                    color:'blue',  dir:'up',      badge:'receita',         spark:filtered.map(x=>x.revenue),                              sc:'#16a34a', targetPct:_tgtRev },
-    { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:_costSub,               color:'red',   dir:'neutral', badge:'custos',           spark:filtered.map(x=>x.costTotal||0),                         sc:'#dc2626', targetPct:_tgtCost, targetReverse:true },
-    { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:_profitSub,                 color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', targetPct:_tgtProfit },
-    { id:'np', label:'Lucro Líquido', value:fmtR(T.netPft),         delta:d(T.netPft,P?.netPft,false),  sub:'receita bruta − 8% de imposto', color:T.netPft>=0?'green':'red', dir:T.netPft>=0?'up':'down', badge:T.netPft>=0?'após imposto':'negativo', spark:filtered.map(x=>(x.revenue||0)*0.92), sc:T.netPft>=0?'#16a34a':'#dc2626' },
+    { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:_costSub,               color:'red',   dir:'neutral', badge:'custos',           spark:filtered.map(x=>x.costTotal||0),                         sc:'#dc2626', targetPct:_tgtCost, targetReverse:true, tip:'custo Google Ads\n+ custo bureau\n= total operacional' },
+    { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:_profitSub,                 color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', targetPct:_tgtProfit, tip:'receita bruta\n− custo Google Ads\n− custo bureau' },
+    { id:'np', label:'Lucro Líquido',    value:fmtR(T.netPft),           delta:d(T.netPft,P?.netPft,false),  sub:'receita bruta × 92% − custo total', color:T.netPft>=0?'green':'red', dir:T.netPft>=0?'up':'down', badge:T.netPft>=0?'após imposto':'negativo', spark:filtered.map(x=>(x.revenue||0)*0.92-(x.costTotal||0)), sc:T.netPft>=0?'#16a34a':'#dc2626', tip:'receita bruta × 92%\n(dedução de 8% de imposto)\n− custo total COGS' },
   ];
   const row2 = [
-    { id:'ro', label:'ROAS',             value:fmtN(T.roas,2,'')+'×',   delta:d(T.roas,P?.roas,false),      sub:'retorno s/ investimento',  color:T.roas>=1?'green':T.roas>=.8?'amber':'red', dir:T.roas>=1?'up':'down', badge:T.roas>=1.5?'bom':T.roas>=1?'aceitável':'crítico', spark:filtered.map(x=>x.costTotal>0?x.revenue/x.costTotal:0), sc:'#2563eb', alert:T.roas<1 },
-    { id:'cpv', label:'CPV',             value:T.cpv>0?fmtR(T.cpv):'—', delta:d(T.cpv,P?.cpv,true),        sub:'custo_total / compras',    color:'amber', dir:'neutral', badge:'custo por venda',  spark:filtered.map(x=>x.cpv||null),                            sc:'#d97706' },
-    { id:'ca', label:'CAC',              value:T.cac>0?fmtR(T.cac):'—', delta:d(T.cac,P?.cac,true),        sub:'custo_ads / compras · meta: '+fmtR(TARGET_CPA), color:T.cac>0&&T.cac<=TARGET_CPA?'green':T.cac>0?'red':'blue', dir:T.cac>0&&T.cac<=TARGET_CPA?'up':T.cac>0?'down':'neutral', badge:T.cac>0&&T.cac<=TARGET_CPA?'dentro da meta':T.cac>0?'acima da meta':'s/ ads', spark:filtered.map(x=>x.cac), sc:T.cac>0&&T.cac<=TARGET_CPA?'#16a34a':'#dc2626', alert:T.cac>TARGET_CPA*1.15, targetPct:_tgtCac, targetReverse:false },
+    { id:'ro', label:'ROAS',             value:fmtN(T.roas,2,'')+'×',   delta:d(T.roas,P?.roas,false),      sub:'retorno s/ investimento',  color:T.roas>=1?'green':T.roas>=.8?'amber':'red', dir:T.roas>=1?'up':'down', badge:T.roas>=1.5?'bom':T.roas>=1?'aceitável':'crítico', spark:filtered.map(x=>x.costTotal>0?x.revenue/x.costTotal:0), sc:'#2563eb', alert:T.roas<1, tip:'receita bruta ÷ custo total\n(R$ gerado por R$ investido)' },
+    { id:'cpv', label:'CPV',             value:T.cpv>0?fmtR(T.cpv):'—', delta:d(T.cpv,P?.cpv,true),        sub:'custo_total / compras',    color:'amber', dir:'neutral', badge:'custo por venda',  spark:filtered.map(x=>x.cpv||null),                            sc:'#d97706', tip:'custo total ÷ nº de compras\n(custo médio por venda)' },
+    { id:'ca', label:'CAC',              value:T.cac>0?fmtR(T.cac):'—', delta:d(T.cac,P?.cac,true),        sub:'custo_ads / compras · meta: '+fmtR(TARGET_CPA), color:T.cac>0&&T.cac<=TARGET_CPA?'green':T.cac>0?'red':'blue', dir:T.cac>0&&T.cac<=TARGET_CPA?'up':T.cac>0?'down':'neutral', badge:T.cac>0&&T.cac<=TARGET_CPA?'dentro da meta':T.cac>0?'acima da meta':'s/ ads', spark:filtered.map(x=>x.cac), sc:T.cac>0&&T.cac<=TARGET_CPA?'#16a34a':'#dc2626', alert:T.cac>TARGET_CPA*1.15, targetPct:_tgtCac, targetReverse:false, tip:'custo Google Ads ÷ nº de compras\n(custo de aquisição por cliente)' },
     { id:'ga', label:'Gasto Google Ads', value:fmtR(T.cost),            delta:d(T.cost,P?.cost,true),       sub:'custo_ads',                color:'amber', dir:'neutral', badge:'ads',              spark:filtered.map(x=>x.cost||0),                              sc:'#f59e0b', targetPct:_tgtCost, targetReverse:true },
     { id:'gb', label:'Gasto Bureau',     value:fmtR(T.costBureau),      delta:d(T.costBureau,P?.costBureau,true), sub:'custo_bureau',       color:'amber', dir:'neutral', badge:'bureau',           spark:filtered.map(x=>x.costBureau||0),                        sc:'#d97706' },
   ];
   const row3 = [
-    { id:'m',  label:'Margem',           value:fmtN(T.margin*100,1)+'%',delta:d(T.margin,P?.margin,false),   sub:'contribuição real', color:T.margin>=.22?'green':'amber', dir:T.margin>=.22?'up':'neutral', badge:T.margin>=.22?'saudável':'atenção', spark:filtered.map(x=>x.revenue>0?((x.profit||0)/x.revenue)*100:0), sc:'#16a34a' },
-    { id:'cv', label:'Taxa de Conversão', value:fmtN(T.convRate,2)+'%', delta:d(T.convRate,P?.convRate,false), sub:'checkout → compra', color:'blue', dir:'up', badge:'+2pp', spark:filtered.map(()=>T.convRate), sc:'#0891b2' },
-    { id:'up', label:'Taxa de Upsell',   value:fmtN(T.upsell,1)+'%',   delta:d(T.upsell,P?.upsell,false),   sub:'meta: '+TARGET_UPSELL+'%', color:T.upsell>=TARGET_UPSELL?'green':'amber', dir:T.upsell>=TARGET_UPSELL?'up':'neutral', badge:T.upsell>=TARGET_UPSELL?'meta atingida':fmtN(TARGET_UPSELL-T.upsell,1)+'pp abaixo', spark:filtered.map(x=>x.upsellRate), sc:'#7c3aed', targetPct:_tgtUpsell },
-    { id:'tr', label:'Transações', value:fmtN(T.conv,0,''),  delta:d(T.conv,P?.conv,false),       sub:'conversões',          color:'blue',  dir:'up',      badge:'pedidos',          spark:filtered.map(x=>x.conv),                                 sc:'#2563eb' },
-    { id:'tk', label:'Ticket Médio', value:fmtR(T.ticket),         delta:d(T.ticket,P?.ticket,false),   sub:'receita / pedidos',        color:'blue',  dir:T.ticket>=(P?.ticket||0)?'up':'down', badge:T.ticket>=(P?.ticket||0)?'crescendo':'caindo', spark:filtered.map(x=>x.conv>0?+(x.revenue/x.conv):0), sc:'#0891b2' },
+    { id:'m',  label:'Margem',           value:fmtN(T.margin*100,1)+'%',delta:d(T.margin,P?.margin,false),   sub:'contribuição real', color:T.margin>=.22?'green':'amber', dir:T.margin>=.22?'up':'neutral', badge:T.margin>=.22?'saudável':'atenção', spark:filtered.map(x=>x.revenue>0?((x.profit||0)/x.revenue)*100:0), sc:'#16a34a', tip:'lucro bruto ÷ receita bruta\n(% de cada R$ que vira lucro)' },
+    { id:'cv', label:'Taxa de Conversão', value:fmtN(T.convRate,2)+'%', delta:d(T.convRate,P?.convRate,false), sub:'checkout → compra', color:'blue', dir:'up', badge:'+2pp', spark:filtered.map(()=>T.convRate), sc:'#0891b2', tip:'nº de compras ÷ checkouts iniciados\n(% de visitantes que compraram)' },
+    { id:'up', label:'Taxa de Upsell',   value:fmtN(T.upsell,1)+'%',   delta:d(T.upsell,P?.upsell,false),   sub:'meta: '+TARGET_UPSELL+'%', color:T.upsell>=TARGET_UPSELL?'green':'amber', dir:T.upsell>=TARGET_UPSELL?'up':'neutral', badge:T.upsell>=TARGET_UPSELL?'meta atingida':fmtN(TARGET_UPSELL-T.upsell,1)+'pp abaixo', spark:filtered.map(x=>x.upsellRate), sc:'#7c3aed', targetPct:_tgtUpsell, tip:'pedidos com upsell ÷ total de pedidos\n(% que adicionou produto extra)' },
+    { id:'tr', label:'Transações',       value:fmtN(T.conv,0,''),       delta:d(T.conv,P?.conv,false),       sub:'conversões',          color:'blue',  dir:'up',      badge:'pedidos',          spark:filtered.map(x=>x.conv),                                 sc:'#2563eb' },
+    { id:'tk', label:'Ticket Médio',     value:fmtR(T.ticket),          delta:d(T.ticket,P?.ticket,false),   sub:'receita / pedidos',        color:'blue',  dir:T.ticket>=(P?.ticket||0)?'up':'down', badge:T.ticket>=(P?.ticket||0)?'crescendo':'caindo', spark:filtered.map(x=>x.conv>0?+(x.revenue/x.conv):0), sc:'#0891b2', tip:'receita bruta ÷ nº de pedidos\n(valor médio por compra)' },
   ];
   renderRow('kpiRow1', row1);
   renderRow('kpiRow2', row2);
@@ -1096,7 +1096,7 @@ function renderRow(rowId, defs) {
       el.className = 'kpi-card'; el.id = 'kc_'+k.id;
       el.innerHTML = `
         <div class="kpi-top">
-          <span class="kpi-label">${k.label}</span>
+          <span class="kpi-label${k.tip?' has-tip':''}"${k.tip?` data-tip="${k.tip}"`:''}>${k.label}${k.tip?' <span style="opacity:.45;font-size:10px">ⓘ</span>':''}</span>
           <span class="badge ${k.dir}" id="kb_${k.id}"></span>
         </div>
         <div class="kpi-value" id="kv_${k.id}"></div>

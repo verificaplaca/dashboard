@@ -84,6 +84,6 @@ ssh-add --apple-use-keychain ~/.ssh/id_ed25519_git_verificaplaca
 // Lucro Bruto
 pft = receita − custo_ads − custo_bureau
 
-// Lucro Líquido (imposto sobre receita bruta)
-netPft = rev * 0.92
+// Lucro Líquido (receita bruta − 8% de imposto − custo total)
+netPft = rev * 0.92 − costTotal
 ```
