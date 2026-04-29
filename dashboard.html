@@ -614,20 +614,26 @@ async function loadSupabaseData() {
   const start = '2026-01-01';
   const qs    = `date=gte.${start}&date=lte.${today}`;
 
-  const [revRows, upsRows, ubtRows] = await Promise.all([
+  const [revRows, upsRows, ubtRows, burRows] = await Promise.all([
     supaGet(`/rest/v1/revenue_daily?${qs}&select=date,revenue,paid_orders`),
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
+    supaGet(`/rest/v1/bureau_daily?${qs}&select=date,custo_bureau,lucro_bruto,margem_pct`),
   ]);
 
   const upsMap = new Map();
   for (const u of upsRows) upsMap.set(String(u.date).slice(0,10), u);
 
+  const burMap = new Map();
+  for (const b of burRows) burMap.set(String(b.date).slice(0,10), b);
+
   ALL_DAYS = revRows.map(row => {
     const dateStr = String(row.date).slice(0,10);
     const u       = upsMap.get(dateStr) || {};
+    const b       = burMap.get(dateStr) || {};
     const revenue = parseFloat(row.revenue)   || 0;
     const conv    = parseInt(row.paid_orders) || 0;
+    const costBureau = parseFloat(b.custo_bureau) || 0;
     return {
       date:          new Date(dateStr + 'T00:00:00'),
       dateStr,
@@ -635,9 +641,9 @@ async function loadSupabaseData() {
       conv,
       pedidos:       conv,
       cost:          0,
-      costBureau:    0,
-      costTotal:     0,
-      profit:        0,
+      costBureau,
+      costTotal:     costBureau,
+      profit:        +(revenue - costBureau).toFixed(2),
       checkouts:     0,
       upsellRate:    parseFloat(u.upsell_rate)  || 0,
       pedidosUpsell: parseInt(u.upsell_orders)  || 0,
@@ -655,6 +661,7 @@ async function loadSupabaseData() {
 }
 
 function mergeCostIntoAllDays() {
+  // Soma custo de Ads (CSV) ao custo de bureau (já preenchido pelo Supabase)
   const costMap = new Map();
   for (const r of CAMPAIGN_DAILY_DATA)
     costMap.set(r.dateStr, (costMap.get(r.dateStr) || 0) + r.cost);
