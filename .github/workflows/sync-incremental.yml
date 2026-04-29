@@ -1,0 +1,31 @@
+name: sync-orders-incremental
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # toda hora no minuto 0
+  workflow_dispatch:       # permite rodar manualmente pelo GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Invocar Edge Function
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://ftmgmfdqdqxboiktxcoj.supabase.co/functions/v1/sync-orders-incremental" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d 'null')
+
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          STATUS=$(echo "$RESPONSE" | tail -n 1)
+
+          echo "HTTP $STATUS"
+          echo "$BODY"
+
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Sync falhou com HTTP $STATUS"
+            exit 1
+          fi
