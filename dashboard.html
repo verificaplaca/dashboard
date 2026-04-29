@@ -99,15 +99,15 @@
 
     /* KPI Rows — stretch makes all cards in a row the same height */
     .kpi-row { display: grid; gap: 10px; margin-bottom: 10px; align-items: stretch; }
-    .kpi-row-1 { grid-template-columns: repeat(4, 1fr); }
+    .kpi-row-1 { grid-template-columns: repeat(5, 1fr); }
     .kpi-row-2 { grid-template-columns: repeat(5, 1fr); }
     .kpi-row-3 { grid-template-columns: repeat(5, 1fr); }
-    @media (max-width: 1400px) { .kpi-row-1 { grid-template-columns: repeat(4, 1fr); } .kpi-row-2 { grid-template-columns: repeat(5, 1fr); } .kpi-row-3 { grid-template-columns: repeat(5, 1fr); } }
-    @media (max-width: 1200px) { .kpi-row-1 { grid-template-columns: repeat(2, 1fr); } .kpi-row-2 { grid-template-columns: repeat(3, 1fr); } .kpi-row-3 { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 1400px) { .kpi-row-1 { grid-template-columns: repeat(5, 1fr); } .kpi-row-2 { grid-template-columns: repeat(5, 1fr); } .kpi-row-3 { grid-template-columns: repeat(5, 1fr); } }
+    @media (max-width: 1200px) { .kpi-row-1 { grid-template-columns: repeat(3, 1fr); } .kpi-row-2 { grid-template-columns: repeat(3, 1fr); } .kpi-row-3 { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 700px)  { .kpi-row-1, .kpi-row-2, .kpi-row-3 { grid-template-columns: repeat(2, 1fr); } }
 
     .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 16px 16px 12px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+      padding: 16px 16px 12px; box-shadow: var(--shadow); position: relative; overflow: visible;
       transition: box-shadow .15s, transform .15s; }
     .kpi-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
     .kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 5px; gap: 4px; }
@@ -445,7 +445,7 @@
   <script>
   (function(){
     const s='<div class="kpi-card kpi-skel"><div class="kpi-skel-lbl skeleton"></div><div class="kpi-skel-val skeleton"></div><div class="kpi-skel-spark skeleton"></div><div class="kpi-skel-sub skeleton"></div></div>';
-    document.getElementById('kpiRow1').innerHTML=s.repeat(4);
+    document.getElementById('kpiRow1').innerHTML=s.repeat(5);
     document.getElementById('kpiRow2').innerHTML=s.repeat(5);
     document.getElementById('kpiRow3').innerHTML=s.repeat(5);
   })();
@@ -1094,10 +1094,11 @@ function renderRow(rowId, defs) {
     row.innerHTML = '';
     defs.forEach(k => {
       const el = document.createElement('div');
-      el.className = 'kpi-card'; el.id = 'kc_'+k.id;
+      el.className = 'kpi-card'+(k.tip?' has-tip':''); el.id = 'kc_'+k.id;
+      if (k.tip) el.setAttribute('data-tip', k.tip);
       el.innerHTML = `
         <div class="kpi-top">
-          <span class="kpi-label${k.tip?' has-tip':''}"${k.tip?` data-tip="${k.tip}"`:''}>${k.label}${k.tip?' <span style="opacity:.45;font-size:10px">ⓘ</span>':''}</span>
+          <span class="kpi-label">${k.label}${k.tip?' <span style="opacity:.45;font-size:10px">ⓘ</span>':''}</span>
           <span class="badge ${k.dir}" id="kb_${k.id}"></span>
         </div>
         <div class="kpi-value" id="kv_${k.id}"></div>
