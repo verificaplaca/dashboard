@@ -378,6 +378,18 @@
 </head>
 <body>
 
+<!-- Loading overlay -->
+<div id="loadingOverlay" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:9999;transition:opacity .4s">
+  <div style="display:flex;gap:7px">
+    <span class="ld"></span><span class="ld" style="animation-delay:.18s"></span><span class="ld" style="animation-delay:.36s"></span>
+  </div>
+</div>
+<style>
+  .ld { display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);
+        animation:ldpulse 1s ease-in-out infinite; }
+  @keyframes ldpulse { 0%,100%{opacity:.2;transform:scale(.8)} 50%{opacity:1;transform:scale(1)} }
+</style>
+
 <header>
   <a class="logo" href="#">
     Dashboard Verifica Placa
@@ -1066,7 +1078,7 @@ function buildKPIs(T) {
     { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:_costSub,               color:'red',   dir:'neutral', badge:'custos',           spark:filtered.map(x=>x.costTotal||0),                         sc:'#dc2626', targetPct:_tgtCost, targetReverse:true, tip:'custo Google Ads\n+ custo bureau\n= total operacional' },
     { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:_profitSub,                 color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', targetPct:_tgtProfit, tip:'receita bruta\n− custo Google Ads\n− custo bureau' },
     { id:'np', label:'Lucro Líquido',    value:fmtR(T.netPft),           delta:d(T.netPft,P?.netPft,false),  sub:'receita bruta × 92% − custo total', color:T.netPft>=0?'green':'red', dir:T.netPft>=0?'up':'down', badge:T.netPft>=0?'após imposto':'negativo', spark:filtered.map(x=>(x.revenue||0)*0.92-(x.costTotal||0)), sc:T.netPft>=0?'#16a34a':'#dc2626', tip:'receita bruta × 92%\n(dedução de 8% de imposto)\n− custo total COGS' },
-    { id:'eb', label:'EBITDA',           value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:'resultado operacional s/ impostos', color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', tip:'receita bruta\n− custo Google Ads\n− custo bureau\n(antes de impostos, deprec. e amort.)' },
+    { id:'eb', label:'EBITDA',           value:fmtR(ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)), delta:null, sub:`todo o período · ${ALL_DAYS.length} dias`, color:ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)>=0?'green':'red', dir:'up', badge:'acumulado total', spark:ALL_DAYS.map(x=>x.profit||0), sc:'#16a34a', tip:'receita bruta\n− custo Google Ads\n− custo bureau\n(acumulado de todo o período disponível,\nnão muda com o filtro de datas)' },
   ];
   const row2 = [
     { id:'ro', label:'ROAS',             value:fmtN(T.roas,2,'')+'×',   delta:d(T.roas,P?.roas,false),      sub:'retorno s/ investimento',  color:T.roas>=1?'green':T.roas>=.8?'amber':'red', dir:T.roas>=1?'up':'down', badge:T.roas>=1.5?'bom':T.roas>=1?'aceitável':'crítico', spark:filtered.map(x=>x.costTotal>0?x.revenue/x.costTotal:0), sc:'#2563eb', alert:T.roas<1, tip:'receita bruta ÷ custo total\n(R$ gerado por R$ investido)' },
@@ -2024,6 +2036,9 @@ async function initDashboard() {
   if (_moEl) _moEl.textContent = _moLbl;
 
   render(); // buildFreshness() já é chamado dentro de render()
+
+  const _ov = document.getElementById('loadingOverlay');
+  if (_ov) { _ov.style.opacity = '0'; setTimeout(() => _ov.remove(), 420); }
 }
 
 initDashboard();
