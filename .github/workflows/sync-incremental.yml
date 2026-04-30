@@ -1,9 +1,7 @@
 name: sync-orders-incremental
 
 on:
-  schedule:
-    - cron: '0,30 * * * *'   # a cada 30 minutos
-  workflow_dispatch:       # permite rodar manualmente pelo GitHub UI
+  workflow_dispatch:       # rodar manualmente pelo GitHub UI (cron via cron-job.org)
 
 jobs:
   sync:
