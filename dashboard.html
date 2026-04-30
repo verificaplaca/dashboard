@@ -105,6 +105,8 @@
     @media (max-width: 1400px) { .kpi-row-1 { grid-template-columns: repeat(5, 1fr); } .kpi-row-2 { grid-template-columns: repeat(5, 1fr); } .kpi-row-3 { grid-template-columns: repeat(5, 1fr); } }
     @media (max-width: 1200px) { .kpi-row-1 { grid-template-columns: repeat(3, 1fr); } .kpi-row-2 { grid-template-columns: repeat(3, 1fr); } .kpi-row-3 { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 700px)  { .kpi-row-1, .kpi-row-2, .kpi-row-3 { grid-template-columns: repeat(2, 1fr); } }
+    /* Último card em linha ímpar (5º de 5) ocupa largura total para não deixar lacuna */
+    @media (max-width: 700px)  { .kpi-row .kpi-card:last-child:nth-child(odd) { grid-column: 1 / -1; } }
 
     .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
       padding: 16px 16px 12px; box-shadow: var(--shadow); position: relative; overflow: visible;
@@ -350,12 +352,12 @@
     .has-tip { position:relative; cursor:help; }
     .has-tip::after {
       content:attr(data-tip);
-      position:absolute; bottom:calc(100% + 7px); left:50%;
+      position:absolute; top:28px; bottom:auto; left:50%;
       transform:translateX(-50%);
       background:#1e293b; color:#f1f5f9; font-size:11px; line-height:1.45;
       padding:6px 10px; border-radius:7px; white-space:pre-wrap;
       min-width:160px; max-width:240px; text-align:center;
-      opacity:0; pointer-events:none; transition:opacity .15s; z-index:500;
+      opacity:0; pointer-events:none; transition:opacity .15s; z-index:9999;
       box-shadow:0 4px 12px rgba(0,0,0,.25);
     }
     .has-tip:hover::after { opacity:1; }
@@ -369,6 +371,19 @@
     /* ── KPI Target Progress Bar ──────────────────────────────────────────── */
     .kpi-tgt { height:3px; border-radius:2px; margin-top:5px; background:var(--border); overflow:hidden; }
     .kpi-tgt-fill { height:100%; border-radius:2px; transition:width .6s ease; }
+
+    /* ── Estornos grid ───────────────────────────────────────────────────── */
+    .refund-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    @media (max-width: 700px) { .refund-grid { grid-template-columns:1fr; } }
+
+    /* ── Upsell type table — mobile sem scroll horizontal ────────────────── */
+    .trend-in-receita { display:none; }
+    @media (max-width: 700px) {
+      .tendencia-col { display:none; }
+      .trend-in-receita { display:inline; font-size:13px; font-weight:700; }
+      #upsellTypeTable { min-width:0; font-size:11.5px; }
+      #upsellTypeTable th, #upsellTypeTable td { padding:7px 5px; }
+    }
 
     /* ── Keyboard shortcut hint ───────────────────────────────────────────── */
     .kbd-hint { display:inline-block; background:var(--border); border-radius:3px;
@@ -556,7 +571,7 @@
           <thead><tr>
             <th>Tipo de Upsell</th>
             <th class="num">Pedidos</th>
-            <th class="num">Tendência</th>
+            <th class="num tendencia-col">Tendência</th>
             <th class="num">% do Total</th>
             <th class="num">Receita</th>
           </tr></thead>
@@ -1612,9 +1627,9 @@ function buildUpsellTypeTable() {
     tr.innerHTML = `
       <td style="font-weight:500">${r.label}</td>
       <td class="num">${r.count}</td>
-      <td class="num" style="color:${t.color};font-size:14px;font-weight:700">${t.icon}</td>
+      <td class="num tendencia-col" style="color:${t.color};font-size:14px;font-weight:700">${t.icon}</td>
       <td class="num" style="color:#7c3aed;font-weight:600">${pct}%</td>
-      <td class="num">${fmtR(r.revenue)}</td>`;
+      <td class="num"><span class="trend-in-receita" style="color:${t.color}">${t.icon} </span>${fmtR(r.revenue)}</td>`;
     tbody.appendChild(tr);
   });
 
@@ -1622,7 +1637,7 @@ function buildUpsellTypeTable() {
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const tfoot = document.createElement('tr');
   tfoot.className = 'tr-total';
-  tfoot.innerHTML = `<td>Total</td><td class="num">${totalCount}</td><td class="num"></td><td class="num">100%</td><td class="num">${fmtR(totalRevenue)}</td>`;
+  tfoot.innerHTML = `<td>Total</td><td class="num">${totalCount}</td><td class="num tendencia-col"></td><td class="num">100%</td><td class="num">${fmtR(totalRevenue)}</td>`;
   tbody.appendChild(tfoot);
 
   // Upsell pie chart — distribuição por tipo
@@ -1755,7 +1770,7 @@ function buildRefundSection(T) {
     { label:'Taxa de Estorno',  value: fmtN(T.refundRate,2)+'%',      sub:'estornos ÷ (vendas+estornos)', color: rateColor,      badge: rateBadge },
   ];
   wrap.style.display = '';
-  wrap.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' +
+  wrap.innerHTML = '<div class="refund-grid">' +
     cards.map(c => `
       <div class="kpi-card">
         <div class="kpi-top">
