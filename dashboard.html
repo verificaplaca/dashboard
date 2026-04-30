@@ -1945,6 +1945,12 @@ function fmt2(s)          { const [,m,d]=s.split('-'); return `${d}/${m}`; }
 async function initDashboard() {
   document.getElementById('lastUpdated').textContent = 'Carregando…';
   document.getElementById('freshDot').className = 'fresh-dot amber';
+  // Safety: remove overlay after 10s mesmo se algo der erro
+  const _safetyTimer = setTimeout(() => {
+    const o = document.getElementById('loadingOverlay');
+    if (o) { o.style.opacity='0'; setTimeout(()=>o.remove(),420); }
+  }, 10000);
+  try {
 
   // Carrega dados de pedidos e upsell do Supabase
   try {
@@ -2035,10 +2041,14 @@ async function initDashboard() {
   const _moEl  = document.getElementById('currentMonthLbl');
   if (_moEl) _moEl.textContent = _moLbl;
 
-  render(); // buildFreshness() já é chamado dentro de render()
-
-  const _ov = document.getElementById('loadingOverlay');
-  if (_ov) { _ov.style.opacity = '0'; setTimeout(() => _ov.remove(), 420); }
+    render(); // buildFreshness() já é chamado dentro de render()
+  } catch(err) {
+    console.error('[Dashboard] Erro em initDashboard:', err);
+  } finally {
+    clearTimeout(_safetyTimer);
+    const _ov = document.getElementById('loadingOverlay');
+    if (_ov) { _ov.style.opacity = '0'; setTimeout(() => _ov.remove(), 420); }
+  }
 }
 
 initDashboard();
