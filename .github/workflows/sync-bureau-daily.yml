@@ -1,9 +1,7 @@
 name: sync-bureau-daily
 
 on:
-  schedule:
-    - cron: '0 9,15,21 * * *'  # 06h, 12h, 18h horário de Brasília (UTC-3)
-  workflow_dispatch:             # permite rodar manualmente pelo GitHub UI
+  workflow_dispatch:  # rodar manualmente pelo GitHub UI (cron via cron-job.org)
 
 jobs:
   sync:

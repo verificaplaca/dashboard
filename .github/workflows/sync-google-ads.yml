@@ -1,9 +1,7 @@
 name: sync-google-ads
 
 on:
-  schedule:
-    - cron: '30 9,15,21 * * *'  # 06h30, 12h30, 18h30 horário de Brasília (UTC-3)
-  workflow_dispatch:
+  workflow_dispatch:  # rodar manualmente pelo GitHub UI (cron via cron-job.org)
 
 jobs:
   sync:
