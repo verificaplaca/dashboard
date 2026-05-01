@@ -33,17 +33,32 @@
                  display: flex; align-items: center; justify-content: center; color: white;
                  font-size: 12px; font-weight: 800; letter-spacing: -.5px; }
     .header-controls { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+    .header-actions  { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-    /* Mobile header */
+    /* Refresh button */
+    .refresh-btn { background: none; border: 1px solid var(--border); border-radius: 7px;
+      padding: 5px 8px; cursor: pointer; color: var(--text-secondary);
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .15s, color .15s; flex-shrink: 0; }
+    .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    @keyframes spin-refresh { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .refresh-btn.loading svg { animation: spin-refresh .7s linear infinite; }
+
+    /* Mobile header
+       Linha 1: logo (esquerda) + actions (direita)
+       Linha 2: controles de filtro (largura total) */
     @media (max-width: 600px) {
-      header { height: auto; flex-direction: column; align-items: stretch;
-               padding: 10px 14px 8px; gap: 6px; }
-      .logo  { font-size: 13.5px; }
-      .header-controls { justify-content: space-between; gap: 6px; }
-      .filter-select { flex: 1; min-width: 0; font-size: 12px; padding-right: 22px; }
-      .date-picker-btn { font-size: 12px; padding: 5px 8px; gap: 4px; white-space: nowrap; }
-      #dateRangeHint { display: none; }      /* esconde "(01/04 – 01/04)" — já aparece no botão */
-      #freshnessWrap { display: none; }      /* esconde indicador de dados — sem espaço no mobile */
+      header { height: auto; flex-wrap: wrap; align-items: center;
+               padding: 10px 14px 10px; gap: 0; row-gap: 8px; }
+      .logo           { flex: 1; order: 1; font-size: 13.5px; }
+      .header-actions { order: 2; flex-shrink: 0; }
+      .header-controls { order: 3; flex-basis: 100%; gap: 6px; }
+      .filter-select  { flex: 1; min-width: 0; font-size: 12.5px; }
+      .date-picker-btn { flex: 1; min-width: 0; font-size: 12.5px; padding: 7px 10px;
+                         justify-content: center; gap: 5px; }
+      #dateLabel      { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      #dateRangeHint  { display: none; }
+      #freshnessWrap  { display: none; }
       main { padding: 14px 12px 40px; }
       .kpi-value { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .kpi-card { padding: 12px 10px 10px; }
@@ -445,6 +460,14 @@
         </div>
       </div>
     </div>
+  </div>
+  <div class="header-actions">
+    <button class="refresh-btn" id="refreshBtn" onclick="refreshDashboard()" title="Atualizar dados (R)">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <path d="M13.7 2.3A7 7 0 1 0 14.9 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M10 2H14.5V6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Alternar tema (dark/light)">🌙</button>
     <span id="freshnessWrap"><span class="fresh-dot" id="freshDot"></span><span id="lastUpdated"></span></span>
   </div>
@@ -860,6 +883,13 @@ document.addEventListener('click', e => {
   if (!document.getElementById('dpWrapper').contains(e.target))
     document.getElementById('dateDD').classList.remove('open');
 });
+
+// ─── REFRESH ──────────────────────────────────────────────────────────────────
+function refreshDashboard() {
+  const btn = document.getElementById('refreshBtn');
+  if (btn) btn.classList.add('loading');
+  initDashboard().finally(() => { if (btn) btn.classList.remove('loading'); });
+}
 function setPreset(preset, label, e) {
   activePreset = preset;
   document.getElementById('dateLabel').textContent = label;
