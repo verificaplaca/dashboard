@@ -754,6 +754,7 @@ function mergeCostIntoAllDays() {
     d.cost      = costMap.get(d.dateStr) || 0;
     d.costTotal = +(d.cost + d.costBureau).toFixed(2);
     d.profit    = +(d.revenue - d.costTotal).toFixed(2);
+    d.netProfit = +(d.revenue * netFactor(d.dateStr) - d.costTotal).toFixed(2);
     if (d.conv > 0 && d.cost      > 0) d.cac = +(d.cost      / d.conv).toFixed(2);
     if (d.conv > 0 && d.costTotal > 0) d.cpv = +(d.costTotal / d.conv).toFixed(2);
   }
@@ -784,7 +785,8 @@ function makeDays() {
     const revenue = +(MONTHLY.revenue * frac).toFixed(2);
     const profit  = +(revenue - cost).toFixed(2);
     const checkouts = +(conv / (MONTHLY.convRate / 100)).toFixed(1);
-    return { ...d, cost, conv, revenue, profit, checkouts,
+    const netProfit = +(revenue * netFactor(d.dateStr) - cost).toFixed(2);
+    return { ...d, cost, conv, revenue, profit, netProfit, checkouts,
              cac: conv>0?+(cost/conv).toFixed(2):null };
   });
 }
@@ -849,7 +851,9 @@ function parseCSVText(text) {
       : (pedidos > 0 && pedidosUpsell > 0 ? +(pedidosUpsell/pedidos*100).toFixed(2) : 0);
     const date        = new Date(dateStr + 'T00:00:00');
     days.push({ date, dateStr, cost, costBureau, costTotal,
-                revenue, conv, profit, checkouts, upsellRate, pedidos, pedidosUpsell,
+                revenue, conv, profit,
+                netProfit: +(revenue * netFactor(dateStr) - costTotal).toFixed(2),
+                checkouts, upsellRate, pedidos, pedidosUpsell,
                 cac: (conv>0 && cost>0)     ? +(cost     /conv).toFixed(2) : null,
                 cpv: (conv>0 && costTotal>0)? +(costTotal/conv).toFixed(2) : null });
   }
@@ -951,6 +955,17 @@ function applyCustomDate() {
 }
 function applyFilters() { activeCamp = document.getElementById('campaignFilter').value; render(); }
 
+// ─── TAX FACTOR ──────────────────────────────────────────────────────────────
+// Fator líquido após imposto, por data de venda:
+//   até mar/2026  → 100% a 8%              → fator 0,92
+//   abr/2026      → 50% a 2% + 50% a 8%   → fator 0,95
+//   mai/2026+     → 70% a 2% + 30% a 8%   → fator 0,962
+function netFactor(dateStr) {
+  if (!dateStr || dateStr < '2026-04-01') return 0.92;
+  if (dateStr < '2026-05-01')             return 0.95;   // 0.50×0.98 + 0.50×0.92
+  return 0.962;                                          // 0.70×0.98 + 0.30×0.92
+}
+
 // ─── TOTALS ───────────────────────────────────────────────────────────────────
 function totals() {
   const cf = activeCamp ? (BASE_CAMPS.find(c=>c.name===activeCamp)?.costShare||1) : 1;
@@ -967,9 +982,10 @@ function totals() {
   const upsell     = filtered.length ? filtered.reduce((s,d)=>s+d.upsellRate,0)/filtered.length : 0;
   const checkouts  = filtered.reduce((s,d)=>s+(d.checkouts||0),   0)*convMul;
   const convRate   = checkouts > 0 ? (conv / checkouts * 100) : MONTHLY.convRate;
-  const netPft      = +(rev * 0.92  - costTotal).toFixed(2);
-  // Otimização tributária: 70% ebook (2% ISS) + 30% serviço (8%) → fator líquido = 0.962
-  const netPftOpt   = +(rev * 0.962 - costTotal).toFixed(2);
+  const netPft      = +(rev * 0.92 - costTotal).toFixed(2); // baseline: sempre 8%
+  // Otimização faseada: fator por data (até mar/26=0.92 | abr/26=0.95 | mai/26+=0.962)
+  const netPftOpt   = +(filtered.reduce((s,d) =>
+    s + d.revenue * revMul * netFactor(d.dateStr) - (d.costTotal||0) * costMul, 0)).toFixed(2);
   const refundCount = filtered.reduce((s,d)=>s+(d.refundCount||0),0);
   const refundValue = +filtered.reduce((s,d)=>s+(d.refundValue||0),0).toFixed(2);
   const refundRate  = (conv+refundCount)>0 ? +(refundCount/(conv+refundCount)*100).toFixed(2) : 0;
@@ -1049,8 +1065,9 @@ function prevTotals() {
   const costBur = prev.reduce((s,d)=>s+(d.costBureau||0), 0)*costMul;
   const costTot = +(cost+costBur).toFixed(2);
   const pft     = usingRealData ? prev.reduce((s,d)=>s+(d.profit||0),0)*revMul : +(rev-costTot).toFixed(2);
-  const netPft    = +(rev * 0.92  - costTot).toFixed(2);
-  const netPftOpt = +(rev * 0.962 - costTot).toFixed(2);
+  const netPft    = +(rev * 0.92 - costTot).toFixed(2); // baseline: sempre 8%
+  const netPftOpt = +(prev.reduce((s,d) =>
+    s + d.revenue * revMul * netFactor(d.dateStr) - (d.costTotal||0) * costMul, 0)).toFixed(2);
   const conv    = prev.reduce((s,d)=>s+d.conv,            0)*convMul;
   const checks  = prev.reduce((s,d)=>s+(d.checkouts||0),  0)*convMul;
   const upsell  = prev.reduce((s,d)=>s+d.upsellRate,      0)/(prev.length||1);
@@ -1135,7 +1152,7 @@ function buildKPIs(T) {
     { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:_costSub,               color:'red',   dir:'neutral', badge:'custos',           spark:filtered.map(x=>x.costTotal||0),                         sc:'#dc2626', targetPct:_tgtCost, targetReverse:true, tip:'custo Google Ads\n+ custo bureau\n= total operacional' },
     { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:_profitSub,                 color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', targetPct:_tgtProfit, tip:'receita bruta\n− custo Google Ads\n− custo bureau' },
     { id:'np', label:'Lucro Líquido',    value:fmtR(T.netPft),           delta:d(T.netPft,P?.netPft,false),  sub:'receita bruta × 92% − custo total', color:T.netPft>=0?'green':'red', dir:T.netPft>=0?'up':'down', badge:T.netPft>=0?'após imposto':'negativo', spark:filtered.map(x=>(x.revenue||0)*0.92-(x.costTotal||0)), sc:T.netPft>=0?'#16a34a':'#dc2626', tip:'receita bruta × 92%\n(dedução de 8% de imposto)\n− custo total COGS' },
-    { id:'npo', label:'Lucro Líquido Otimizado', value:fmtR(T.netPftOpt), delta:d(T.netPftOpt,P?.netPftOpt,false), sub:'70% × 2% + 30% × 8% de imposto', color:T.netPftOpt>=0?'green':'red', dir:T.netPftOpt>=0?'up':'down', badge:T.netPftOpt>=0?'otimizado':'negativo', spark:filtered.map(x=>(x.revenue||0)*0.962-(x.costTotal||0)), sc:T.netPftOpt>=0?'#0891b2':'#dc2626', tip:'Otimização tributária: ebook\n70% da receita → 2% de imposto\n30% da receita → 8% de imposto\nFator líquido: × 0,962\n− custo total COGS' },
+    { id:'npo', label:'Lucro Líquido Otimizado', value:fmtR(T.netPftOpt), delta:d(T.netPftOpt,P?.netPftOpt,false), sub:'imposto faseado por período', color:T.netPftOpt>=0?'green':'red', dir:T.netPftOpt>=0?'up':'down', badge:T.netPftOpt>=0?'otimizado':'negativo', spark:filtered.map(x=>x.netProfit||0), sc:T.netPftOpt>=0?'#0891b2':'#dc2626', tip:'Otimização tributária faseada:\naté mar/26 → 100% a 8%\nabr/26     → 50% a 2% + 50% a 8%\nmai/26+    → 70% a 2% + 30% a 8%\n− custo total COGS' },
     { id:'eb', label:'EBITDA',           value:fmtR(ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)), delta:null, sub:`todo o período · ${ALL_DAYS.length} dias`, color:ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)>=0?'green':'red', dir:'up', badge:'acumulado total', spark:ALL_DAYS.map(x=>x.profit||0), sc:'#16a34a', tip:'receita bruta\n− custo Google Ads\n− custo bureau\n(acumulado de todo o período disponível,\nnão muda com o filtro de datas)' },
   ];
   const row2 = [
@@ -1407,8 +1424,8 @@ function buildCharts(T) {
              y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10.5},callback:v=>fmtR(v)}} }
   });
 
-  // 2b. Net Profit per day (optimized tax: 70% × 2% + 30% × 8% → factor 0.962)
-  const netOptData = d.map(x => +((x.revenue||0) * 0.962 - (x.costTotal||0)).toFixed(2));
+  // 2b. Net Profit per day — fator de imposto faseado por data via netFactor()
+  const netOptData = d.map(x => x.netProfit || 0);
   const avgNetOpt  = netOptData.reduce((s,v)=>s+v,0) / (netOptData.length||1);
   mkChart('netProfitChart','bar', {
     labels,
