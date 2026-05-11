@@ -114,10 +114,10 @@
 
     /* KPI Rows — stretch makes all cards in a row the same height */
     .kpi-row { display: grid; gap: 10px; margin-bottom: 10px; align-items: stretch; }
-    .kpi-row-1 { grid-template-columns: repeat(6, 1fr); }
+    .kpi-row-1 { grid-template-columns: repeat(5, 1fr); }
     .kpi-row-2 { grid-template-columns: repeat(5, 1fr); }
     .kpi-row-3 { grid-template-columns: repeat(5, 1fr); }
-    @media (max-width: 1400px) { .kpi-row-1 { grid-template-columns: repeat(6, 1fr); } .kpi-row-2 { grid-template-columns: repeat(5, 1fr); } .kpi-row-3 { grid-template-columns: repeat(5, 1fr); } }
+    @media (max-width: 1400px) { .kpi-row-1 { grid-template-columns: repeat(5, 1fr); } .kpi-row-2 { grid-template-columns: repeat(5, 1fr); } .kpi-row-3 { grid-template-columns: repeat(5, 1fr); } }
     @media (max-width: 1200px) { .kpi-row-1 { grid-template-columns: repeat(3, 1fr); } .kpi-row-2 { grid-template-columns: repeat(3, 1fr); } .kpi-row-3 { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 700px)  { .kpi-row-1, .kpi-row-2, .kpi-row-3 { grid-template-columns: repeat(2, 1fr); } }
     /* Último card em linha ímpar (5º de 5) ocupa largura total para não deixar lacuna */
@@ -1151,7 +1151,6 @@ function buildKPIs(T) {
     { id:'r',  label:'Receita Bruta',    value:fmtR(T.rev),              delta:d(T.rev,P?.rev,false),        sub:_revSub,                    color:'blue',  dir:'up',      badge:'receita',         spark:filtered.map(x=>x.revenue),                              sc:'#16a34a', targetPct:_tgtRev },
     { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:_costSub,               color:'red',   dir:'neutral', badge:'custos',           spark:filtered.map(x=>x.costTotal||0),                         sc:'#dc2626', targetPct:_tgtCost, targetReverse:true, tip:'custo Google Ads\n+ custo bureau\n= total operacional' },
     { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:_profitSub,                 color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', targetPct:_tgtProfit, tip:'receita bruta\n− custo Google Ads\n− custo bureau' },
-    { id:'np', label:'Lucro Líquido',    value:fmtR(T.netPft),           delta:d(T.netPft,P?.netPft,false),  sub:'receita bruta × 92% − custo total', color:T.netPft>=0?'green':'red', dir:T.netPft>=0?'up':'down', badge:T.netPft>=0?'após imposto':'negativo', spark:filtered.map(x=>(x.revenue||0)*0.92-(x.costTotal||0)), sc:T.netPft>=0?'#16a34a':'#dc2626', tip:'receita bruta × 92%\n(dedução de 8% de imposto)\n− custo total COGS' },
     { id:'npo', label:'Lucro Líquido Otimizado', value:fmtR(T.netPftOpt), delta:d(T.netPftOpt,P?.netPftOpt,false), sub:'imposto faseado por período', color:T.netPftOpt>=0?'green':'red', dir:T.netPftOpt>=0?'up':'down', badge:T.netPftOpt>=0?'otimizado':'negativo', spark:filtered.map(x=>x.netProfit||0), sc:T.netPftOpt>=0?'#0891b2':'#dc2626', tip:'Otimização tributária faseada:\naté mar/26 → 100% a 8%\nabr/26     → 50% a 2% + 50% a 8%\nmai/26+    → 70% a 2% + 30% a 8%\n− custo total COGS' },
     { id:'eb', label:'EBITDA',           value:fmtR(ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)), delta:null, sub:`todo o período · ${ALL_DAYS.length} dias`, color:ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)>=0?'green':'red', dir:'up', badge:'acumulado total', spark:ALL_DAYS.map(x=>x.profit||0), sc:'#16a34a', tip:'receita bruta\n− custo Google Ads\n− custo bureau\n(acumulado de todo o período disponível,\nnão muda com o filtro de datas)' },
   ];
