@@ -5,22 +5,22 @@
  * de lookback (padrão 72h) e faz upsert na tabela `orders`. A view
  * `refunds_daily` agrega automaticamente esses registros para o dashboard.
  *
- * Usa /orders (não /charges) pois reembolsos de PIX ficam no nível de pedido.
+ * Usa /charges?status=refunded (único endpoint que aceita esse status na Pagar.me v5).
  *
  * Deploy:  supabase functions deploy sync-refunds
  * Cron:    cron-job.org → POST .../functions/v1/sync-refunds a cada 30min
  *          Header: Authorization: Bearer <SERVICE_ROLE_KEY>
- *          Body: null
+ *          Body: null  (ou {"lookback_hours": 8760} para backfill histórico)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const PAGARME_BASE   = "https://api.pagar.me/core/v5";
-const PAGE_SIZE      = 100;
-const MAX_PAGES      = 10;
-const LOOKBACK_HOURS = 72; // pega estornos dos últimos 3 dias por execução
+const PAGARME_BASE          = "https://api.pagar.me/core/v5";
+const PAGE_SIZE             = 100;
+const MAX_PAGES             = 10;
+const DEFAULT_LOOKBACK_HOURS = 72; // 3 dias — suficiente para o cron normal
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
   try {
     // ── Credenciais ────────────────────────────────────────────────────────
     const pagarmeKey = Deno.env.get("PAGARME_SECRET_KEY");
@@ -33,9 +33,15 @@ Deno.serve(async (_req) => {
 
     const supabase = createClient(supaUrl, supaKey);
 
-    // ── Janela de busca ────────────────────────────────────────────────────
+    // ── Lookback customizável (body JSON opcional) ─────────────────────────
+    let lookbackHours = DEFAULT_LOOKBACK_HOURS;
+    try {
+      const body = await req.json();
+      if (body?.lookback_hours) lookbackHours = Number(body.lookback_hours);
+    } catch { /* body vazio ou null — usa default */ }
+
     const now   = new Date();
-    const since = new Date(now.getTime() - LOOKBACK_HOURS * 3600 * 1000);
+    const since = new Date(now.getTime() - lookbackHours * 3600 * 1000);
 
     const params = new URLSearchParams({
       status:        "refunded",
@@ -44,9 +50,9 @@ Deno.serve(async (_req) => {
       size:          String(PAGE_SIZE),
     });
 
-    // ── Paginação Pagar.me /orders ─────────────────────────────────────────
-    const orders: Record<string, unknown>[] = [];
-    let   nextUrl: string | null = `${PAGARME_BASE}/orders?${params}`;
+    // ── Paginação Pagar.me /charges ────────────────────────────────────────
+    const charges: Record<string, unknown>[] = [];
+    let   nextUrl: string | null = `${PAGARME_BASE}/charges?${params}`;
     let   page = 0;
 
     while (nextUrl && page < MAX_PAGES) {
@@ -61,34 +67,34 @@ Deno.serve(async (_req) => {
 
       const data = await resp.json();
       const items: Record<string, unknown>[] = Array.isArray(data.data) ? data.data : [];
-      orders.push(...items);
+      charges.push(...items);
 
       // Condição de parada: sem próxima página
       nextUrl = data.paging?.next ?? null;
       page++;
     }
 
-    if (!orders.length) {
+    if (!charges.length) {
       return json({ ok: true, upserted: 0, message: "Nenhum estorno no período." });
     }
 
     // ── Mapeia para o schema de `orders` ───────────────────────────────────
-    const rows = orders.map((o) => {
-      const customer = (o.customer as Record<string, unknown>) ?? {};
-      // amount em pedidos: campo `amount` (centavos)
-      const amount = Number(o.amount ?? 0);
+    // Charges da Pagar.me têm order_id vinculado — usamos o charge.id como
+    // provider_order_id para não colidir com pedidos paid já existentes.
+    const rows = charges.map((c) => {
+      const customer = (c.customer as Record<string, unknown>) ?? {};
       return {
         provider:          "pagarme",
-        provider_order_id: String(o.id   ?? ""),
-        order_code:        String(o.code ?? ""),
+        provider_order_id: String(c.id   ?? ""),
+        order_code:        String(c.code ?? ""),
         status:            "refunded",
-        created_at:        o.created_at ?? null,
-        updated_at:        o.updated_at ?? null,
+        created_at:        c.created_at ?? null,
+        updated_at:        c.updated_at ?? null,
         customer_id:       customer.id    ? String(customer.id)    : null,
         customer_email:    customer.email ? String(customer.email) : null,
         customer_name:     customer.name  ? String(customer.name)  : null,
-        amount,
-        currency:          String(o.currency ?? "BRL"),
+        amount:            Number(c.amount ?? 0), // centavos (bigint)
+        currency:          String(c.currency ?? "BRL"),
         ingested_at:       now.toISOString(),
       };
     });
