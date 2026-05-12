@@ -1,11 +1,21 @@
--- Estornos: pré-requisito para syncRefundsToSupabase()
+-- View: refunds_daily
 --
--- A view `refunds_daily` já existe e agrega da tabela `orders`.
--- Este script apenas garante o unique constraint necessário para o upsert
--- via ?on_conflict=provider_order_id funcionar corretamente.
+-- Agrega estornos a partir da tabela `orders`.
+-- Na Pagar.me v5, pedidos estornados ficam com status = 'canceled' e
+-- paid_at preenchido (foram pagos antes de serem cancelados/estornados).
+-- Usa updated_at como data do estorno (quando o status mudou para canceled).
 --
--- Execute uma única vez no SQL Editor do Supabase.
+-- Pré-requisito aplicado anteriormente:
+--   ALTER TABLE orders ADD CONSTRAINT orders_provider_order_id_key UNIQUE (provider_order_id);
 
-alter table public.orders
-  add constraint if not exists orders_provider_order_id_key
-  unique (provider_order_id);
+CREATE OR REPLACE VIEW public.refunds_daily AS
+SELECT
+  date((updated_at AT TIME ZONE 'America/Sao_Paulo')) AS date,
+  count(*)                                             AS refund_count,
+  round(sum(amount) / 100.0, 2)                        AS refund_value
+FROM orders
+WHERE lower(status) = 'canceled'
+  AND paid_at IS NOT NULL
+  AND amount > 0
+GROUP BY date((updated_at AT TIME ZONE 'America/Sao_Paulo'))
+ORDER BY date((updated_at AT TIME ZONE 'America/Sao_Paulo'));
