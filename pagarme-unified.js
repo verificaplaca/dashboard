@@ -1852,21 +1852,20 @@ function _parseGAdsNum_(v) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  ESTORNOS — Pagar.me → Supabase refunds_daily
+//  ESTORNOS — Pagar.me charges (refunded) → Supabase orders
 // ─────────────────────────────────────────────────────────────
 
 /**
- * syncRefundsToSupabase — busca cobranças com status "refunded" na Pagar.me,
- * agrupa por data (updated_at = data do estorno) e faz upsert na tabela
- * refunds_daily do Supabase.
+ * syncRefundsToSupabase — busca cobranças com status "refunded" na Pagar.me
+ * e faz upsert na tabela `orders` do Supabase (mesma tabela que a view
+ * `refunds_daily` já usa para agregar estornos por dia).
  *
- * Lookback padrão: 45 dias (pega estornos de pedidos criados até 45 dias atrás).
- * Para backfill completo, ajuste REFUND_LOOKBACK_DAYS na Config.
+ * Lookback padrão: 45 dias. Para backfill, ajuste `refund_lookback_days`
+ * na aba Config da planilha.
  *
- * Colunas esperadas na tabela refunds_daily:
- *   date          DATE  PRIMARY KEY
- *   refund_count  INT
- *   refund_value  NUMERIC(12,2)
+ * Pré-requisito no Supabase (ver supabase/refunds_daily.sql):
+ *   ALTER TABLE orders ADD CONSTRAINT orders_provider_order_id_key
+ *     UNIQUE (provider_order_id);
  */
 function syncRefundsToSupabase() {
   const props = PropertiesService.getScriptProperties();
@@ -1876,52 +1875,44 @@ function syncRefundsToSupabase() {
   if (!sbUrl || !sbKey)
     throw new Error("Configure SUPABASE_URL e SUPABASE_ANON_KEY nas Script Properties.");
 
-  const cfg      = getConfig_();
-  const days     = Math.max(parseInt(cfg.refund_lookback_days || "45", 10) || 45, 1);
-  const now      = new Date();
-  const since    = new Date(now.getTime() - days * 86400 * 1000);
+  const cfg   = getConfig_();
+  const days  = Math.max(parseInt(cfg.refund_lookback_days || "45", 10) || 45, 1);
+  const now   = new Date();
+  const since = new Date(now.getTime() - days * 86400 * 1000);
 
-  const params   = {
+  const charges = fetchAllPaged_("/charges", {
     created_since: since.toISOString(),
     created_until: now.toISOString(),
-  };
+  }) || [];
 
-  const charges  = fetchAllPaged_("/charges", params) || [];
-  Logger.log("syncRefundsToSupabase: " + charges.length + " cobranças no período de " + days + " dias.");
+  Logger.log("syncRefundsToSupabase: " + charges.length + " cobranças buscadas (" + days + " dias).");
 
-  // Agrupa por data do estorno (updated_at), filtrando só as refunded
-  const byDate = new Map();
-  for (const c of charges) {
-    if (String(c.status || "").toLowerCase() !== "refunded") continue;
+  const refunded = charges.filter(c => String(c.status || "").toLowerCase() === "refunded");
 
-    // updated_at = momento em que a cobrança virou "refunded"
-    const ts      = c.updated_at || c.created_at || "";
-    const dateStr = String(ts).slice(0, 10);
-    if (!dateStr || dateStr.length < 10) continue;
-
-    // Pagar.me v5 retorna amount em centavos
-    const valueReais = num_(c.amount) / 100;
-
-    if (!byDate.has(dateStr)) byDate.set(dateStr, { count: 0, value: 0 });
-    const agg = byDate.get(dateStr);
-    agg.count  += 1;
-    agg.value  += valueReais;
-  }
-
-  if (!byDate.size) {
+  if (!refunded.length) {
     Logger.log("syncRefundsToSupabase: nenhum estorno encontrado no período.");
     setConfigValue_("last_sync_refunds", now.toISOString());
     return;
   }
 
-  const rows = Array.from(byDate.entries()).map(([date, agg]) => ({
-    date,
-    refund_count: agg.count,
-    refund_value: +agg.value.toFixed(2),
+  // Mapeia cada cobrança para o schema da tabela orders
+  const rows = refunded.map(c => ({
+    provider:          "pagarme",
+    provider_order_id: String(c.id   || ""),
+    order_code:        String(c.code || ""),
+    status:            "refunded",
+    created_at:        c.created_at  || null,
+    updated_at:        c.updated_at  || null,
+    customer_id:       (c.customer && c.customer.id)    ? String(c.customer.id)    : null,
+    customer_email:    (c.customer && c.customer.email) ? String(c.customer.email) : null,
+    customer_name:     (c.customer && c.customer.name)  ? String(c.customer.name)  : null,
+    amount:            num_(c.amount),   // centavos (bigint) — a view divide por 100
+    currency:          c.currency || "BRL",
+    ingested_at:       now.toISOString(),
   }));
 
-  // Upsert no Supabase (merge-duplicates atualiza se a data já existir)
-  const url  = sbUrl + "/rest/v1/refunds_daily";
+  // Upsert em orders usando provider_order_id como chave de conflito
+  const url  = sbUrl + "/rest/v1/orders?on_conflict=provider_order_id";
   const resp = UrlFetchApp.fetch(url, {
     method:  "post",
     headers: {
@@ -1939,11 +1930,11 @@ function syncRefundsToSupabase() {
   if (code < 200 || code >= 300)
     throw new Error("Supabase HTTP " + code + " → " + url + "\n" + body.slice(0, 400));
 
-  Logger.log("syncRefundsToSupabase: upsert OK — " + rows.length + " dias gravados.");
+  Logger.log("syncRefundsToSupabase: upsert OK — " + rows.length + " estornos gravados em orders.");
   setConfigValue_("last_sync_refunds", now.toISOString());
 
   const ss = getSpreadsheet_();
-  ss.toast("Estornos sincronizados: " + rows.length + " dias.", "OK", 4);
+  ss.toast("Estornos sincronizados: " + rows.length + " cobranças.", "OK", 4);
 }
 
 // ─────────────────────────────────────────────────────────────
