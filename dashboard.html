@@ -722,6 +722,8 @@ async function loadSupabaseData() {
       upsellRate:    parseFloat(u.upsell_rate)  || 0,
       pedidosUpsell: parseInt(u.upsell_orders)  || 0,
       cac: null, cpv: null,
+      refundCount:  parseInt(ref.refund_count)   || 0,
+      refundValue:  parseFloat(ref.refund_value) || 0,
     };
   }).sort((a,b) => a.dateStr.localeCompare(b.dateStr));
 

@@ -1851,6 +1851,103 @@ function _parseGAdsNum_(v) {
   return parseFloat(s) || 0;
 }
 
+// ─────────────────────────────────────────────────────────────
+//  ESTORNOS — Pagar.me → Supabase refunds_daily
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * syncRefundsToSupabase — busca cobranças com status "refunded" na Pagar.me,
+ * agrupa por data (updated_at = data do estorno) e faz upsert na tabela
+ * refunds_daily do Supabase.
+ *
+ * Lookback padrão: 45 dias (pega estornos de pedidos criados até 45 dias atrás).
+ * Para backfill completo, ajuste REFUND_LOOKBACK_DAYS na Config.
+ *
+ * Colunas esperadas na tabela refunds_daily:
+ *   date          DATE  PRIMARY KEY
+ *   refund_count  INT
+ *   refund_value  NUMERIC(12,2)
+ */
+function syncRefundsToSupabase() {
+  const props = PropertiesService.getScriptProperties();
+  const sbUrl = (props.getProperty(PROP_SB_URL) || "").replace(/\/$/, "");
+  const sbKey = props.getProperty(PROP_SB_KEY)  || "";
+
+  if (!sbUrl || !sbKey)
+    throw new Error("Configure SUPABASE_URL e SUPABASE_ANON_KEY nas Script Properties.");
+
+  const cfg      = getConfig_();
+  const days     = Math.max(parseInt(cfg.refund_lookback_days || "45", 10) || 45, 1);
+  const now      = new Date();
+  const since    = new Date(now.getTime() - days * 86400 * 1000);
+
+  const params   = {
+    created_since: since.toISOString(),
+    created_until: now.toISOString(),
+  };
+
+  const charges  = fetchAllPaged_("/charges", params) || [];
+  Logger.log("syncRefundsToSupabase: " + charges.length + " cobranças no período de " + days + " dias.");
+
+  // Agrupa por data do estorno (updated_at), filtrando só as refunded
+  const byDate = new Map();
+  for (const c of charges) {
+    if (String(c.status || "").toLowerCase() !== "refunded") continue;
+
+    // updated_at = momento em que a cobrança virou "refunded"
+    const ts      = c.updated_at || c.created_at || "";
+    const dateStr = String(ts).slice(0, 10);
+    if (!dateStr || dateStr.length < 10) continue;
+
+    // Pagar.me v5 retorna amount em centavos
+    const valueReais = num_(c.amount) / 100;
+
+    if (!byDate.has(dateStr)) byDate.set(dateStr, { count: 0, value: 0 });
+    const agg = byDate.get(dateStr);
+    agg.count  += 1;
+    agg.value  += valueReais;
+  }
+
+  if (!byDate.size) {
+    Logger.log("syncRefundsToSupabase: nenhum estorno encontrado no período.");
+    setConfigValue_("last_sync_refunds", now.toISOString());
+    return;
+  }
+
+  const rows = Array.from(byDate.entries()).map(([date, agg]) => ({
+    date,
+    refund_count: agg.count,
+    refund_value: +agg.value.toFixed(2),
+  }));
+
+  // Upsert no Supabase (merge-duplicates atualiza se a data já existir)
+  const url  = sbUrl + "/rest/v1/refunds_daily";
+  const resp = UrlFetchApp.fetch(url, {
+    method:  "post",
+    headers: {
+      "Content-Type":  "application/json",
+      "apikey":         sbKey,
+      "Authorization":  "Bearer " + sbKey,
+      "Prefer":         "resolution=merge-duplicates",
+    },
+    payload:            JSON.stringify(rows),
+    muteHttpExceptions: true,
+  });
+
+  const code = resp.getResponseCode();
+  const body = resp.getContentText();
+  if (code < 200 || code >= 300)
+    throw new Error("Supabase HTTP " + code + " → " + url + "\n" + body.slice(0, 400));
+
+  Logger.log("syncRefundsToSupabase: upsert OK — " + rows.length + " dias gravados.");
+  setConfigValue_("last_sync_refunds", now.toISOString());
+
+  const ss = getSpreadsheet_();
+  ss.toast("Estornos sincronizados: " + rows.length + " dias.", "OK", 4);
+}
+
+// ─────────────────────────────────────────────────────────────
+
 /** Normaliza string de data do Google Ads → "yyyy-MM-dd". */
 function _normalizeGAdsDate_(s) {
   s = String(s || "").trim();
