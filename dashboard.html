@@ -155,22 +155,30 @@
 
     /* ── Saldo Google Ads ─────────────────────────────────────────────────── */
     .ads-balance-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-      padding:14px 18px; display:flex; align-items:center; justify-content:space-between;
-      gap:16px; flex-wrap:wrap; margin-bottom:16px; transition:box-shadow .15s; }
+      padding:16px 20px; margin-bottom:16px; transition:box-shadow .15s; }
     .ads-balance-card:hover { box-shadow:var(--shadow-md); }
-    .ads-balance-left { display:flex; align-items:center; gap:14px; }
-    .ads-balance-icon { font-size:22px; line-height:1; }
+    .ads-balance-top { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+    .ads-balance-main { display:flex; align-items:center; gap:14px; }
     .ads-balance-label { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); margin-bottom:3px; }
-    .ads-balance-value { font-size:24px; font-weight:700; color:var(--text-primary); letter-spacing:-.5px; }
-    .ads-balance-right { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .ads-balance-value { font-size:26px; font-weight:700; color:var(--text-primary); letter-spacing:-.5px; }
+    .ads-balance-topright { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .ads-balance-badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; }
     .ads-balance-badge.ok       { background:#dcfce7; color:#15803d; }
     .ads-balance-badge.aviso    { background:#fef9c3; color:#a16207; }
     .ads-balance-badge.atencao  { background:#ffedd5; color:#c2410c; }
     .ads-balance-badge.critico  { background:#fee2e2; color:#b91c1c; }
-    .ads-balance-spark { display:flex; align-items:flex-end; gap:2px; height:28px; }
-    .ads-balance-spark span { width:4px; border-radius:2px 2px 0 0; background:var(--blue); opacity:.7; min-height:2px; }
-    .ads-balance-meta { font-size:10.5px; color:var(--text-muted); white-space:nowrap; }
+    .ads-balance-meta { font-size:10.5px; color:var(--text-muted); }
+    .ads-balance-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    @media(max-width:700px){ .ads-balance-metrics { grid-template-columns:repeat(2,1fr); } }
+    .ads-bal-metric { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+    .ads-bal-metric-label { font-size:10.5px; color:var(--text-muted); font-weight:500; margin-bottom:4px; }
+    .ads-bal-metric-value { font-size:16px; font-weight:700; color:var(--text-primary); }
+    .ads-bal-metric-sub { font-size:10px; color:var(--text-muted); margin-top:2px; }
+    .ads-bal-metric.warn .ads-bal-metric-value { color:#d97706; }
+    .ads-bal-metric.danger .ads-bal-metric-value { color:#dc2626; }
+    .ads-bal-metric.good .ads-bal-metric-value  { color:#16a34a; }
+    .ads-balance-spark { display:flex; align-items:flex-end; gap:2px; height:24px; }
+    .ads-balance-spark span { width:4px; border-radius:2px 2px 0 0; opacity:.75; min-height:2px; }
     .ads-balance-card.pulse-critico { border-color:#fca5a5 !important; animation:ads-pulse 2s infinite; }
     @keyframes ads-pulse { 0%,100%{box-shadow:0 0 0 2px rgba(220,38,38,.12)} 50%{box-shadow:0 0 0 5px rgba(220,38,38,.22)} }
 
@@ -508,18 +516,20 @@
   <!-- Saldo Google Ads -->
   <div class="section-label">Saldo Google Ads</div>
   <div class="ads-balance-card" id="adsBalanceCard">
-    <div class="ads-balance-left">
-      <div class="ads-balance-icon">💰</div>
-      <div>
-        <div class="ads-balance-label">Saldo disponível</div>
-        <div class="ads-balance-value" id="adsBalanceValue">—</div>
+    <div class="ads-balance-top">
+      <div class="ads-balance-main">
+        <div>
+          <div class="ads-balance-label">Saldo disponível</div>
+          <div class="ads-balance-value" id="adsBalanceValue">—</div>
+        </div>
+        <div class="ads-balance-spark" id="adsBalanceSpark"></div>
+      </div>
+      <div class="ads-balance-topright">
+        <span class="ads-balance-badge ok" id="adsBalanceBadge">carregando…</span>
+        <span class="ads-balance-meta" id="adsBalanceMeta"></span>
       </div>
     </div>
-    <div class="ads-balance-right">
-      <div class="ads-balance-spark" id="adsBalanceSpark"></div>
-      <span class="ads-balance-badge ok" id="adsBalanceBadge">carregando…</span>
-      <span class="ads-balance-meta" id="adsBalanceMeta"></span>
-    </div>
+    <div class="ads-balance-metrics" id="adsBalanceMetrics"></div>
   </div>
 
   <!-- ROW 1: Business outcomes (CEO reads top-to-bottom) -->
@@ -1156,58 +1166,126 @@ function render() {
 
 // ─── SALDO GOOGLE ADS ─────────────────────────────────────────────────────────
 function buildAdsBalance() {
-  const card   = document.getElementById('adsBalanceCard');
-  const valEl  = document.getElementById('adsBalanceValue');
-  const badge  = document.getElementById('adsBalanceBadge');
-  const meta   = document.getElementById('adsBalanceMeta');
-  const spark  = document.getElementById('adsBalanceSpark');
+  const card    = document.getElementById('adsBalanceCard');
+  const valEl   = document.getElementById('adsBalanceValue');
+  const badge   = document.getElementById('adsBalanceBadge');
+  const meta    = document.getElementById('adsBalanceMeta');
+  const spark   = document.getElementById('adsBalanceSpark');
+  const metrics = document.getElementById('adsBalanceMetrics');
   if (!card) return;
 
   if (!ADS_BALANCE_DATA.length) {
-    valEl.textContent  = '—';
-    badge.textContent  = 'sem dados';
-    badge.className    = 'ads-balance-badge ok';
-    meta.textContent   = 'Execute o cron para carregar';
+    valEl.textContent    = '—';
+    badge.textContent    = 'sem dados';
+    badge.className      = 'ads-balance-badge ok';
+    meta.textContent     = 'Execute o cron para carregar';
+    metrics.innerHTML    = '';
     return;
   }
 
-  // Dado mais recente (já vem ordenado DESC)
+  // ── Saldo atual ────────────────────────────────────────────────────────
   const latest = ADS_BALANCE_DATA[0];
   const bal    = parseFloat(latest.balance_brl) || 0;
+  valEl.textContent = bal.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
 
-  // Formatar valor
-  valEl.textContent = bal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-  // Status badge
+  // ── Status badge ───────────────────────────────────────────────────────
   let statusClass, statusText;
-  if (bal <= 500)  { statusClass = 'critico'; statusText = '🔴 Crítico — abaixo de R$500'; }
-  else if (bal <= 1000) { statusClass = 'atencao'; statusText = '🟠 Atenção — abaixo de R$1.000'; }
-  else if (bal <= 1500) { statusClass = 'aviso';   statusText = '🟡 Aviso — abaixo de R$1.500'; }
-  else             { statusClass = 'ok';      statusText = '✅ Saldo OK'; }
-
+  if      (bal <= 500)  { statusClass = 'critico'; statusText = '🔴 Crítico'; }
+  else if (bal <= 1000) { statusClass = 'atencao'; statusText = '🟠 Atenção'; }
+  else if (bal <= 1500) { statusClass = 'aviso';   statusText = '🟡 Aviso'; }
+  else                  { statusClass = 'ok';      statusText = '✅ Saldo OK'; }
   badge.className   = 'ads-balance-badge ' + statusClass;
   badge.textContent = statusText;
   card.classList.toggle('pulse-critico', statusClass === 'critico');
 
-  // Meta: última atualização
+  // ── Última atualização ─────────────────────────────────────────────────
   const checkedAt = new Date(latest.checked_at);
   const diffMin   = Math.round((Date.now() - checkedAt.getTime()) / 60000);
-  const diffTxt   = diffMin < 60
-    ? `há ${diffMin} min`
-    : `há ${Math.round(diffMin/60)}h`;
-  meta.textContent = `Atualizado ${diffTxt}`;
+  meta.textContent = diffMin < 60
+    ? `Atualizado há ${diffMin} min`
+    : `Atualizado há ${Math.round(diffMin / 60)}h`;
 
-  // Sparkline com barras proporcional ao maior valor
-  const vals    = [...ADS_BALANCE_DATA].reverse().map(r => parseFloat(r.balance_brl) || 0);
-  const maxVal  = Math.max(...vals, 1);
+  // ── Sparkline (histórico de saldo, cronológico) ────────────────────────
+  const vals     = [...ADS_BALANCE_DATA].reverse().map(r => parseFloat(r.balance_brl) || 0);
+  const maxVal   = Math.max(...vals, 1);
   const barColor = statusClass === 'critico' ? '#dc2626'
                  : statusClass === 'atencao' ? '#f97316'
                  : statusClass === 'aviso'   ? '#eab308'
                  : '#2563eb';
   spark.innerHTML = vals.slice(-20).map(v => {
-    const h = Math.max(2, Math.round((v / maxVal) * 28));
+    const h = Math.max(2, Math.round((v / maxVal) * 24));
     return `<span style="height:${h}px;background:${barColor}"></span>`;
   }).join('');
+
+  // ── Cálculos de burn rate com base em ALL_DAYS ─────────────────────────
+  const fmtR = v => v.toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
+  const fmtN = (v, d=1) => v.toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
+
+  // Média de gasto diário (últimos 7 e 30 dias, excluindo dias com custo zero)
+  const sortedDays  = [...ALL_DAYS].sort((a,b) => a.dateStr.localeCompare(b.dateStr));
+  const last7days   = sortedDays.slice(-7).filter(d => d.cost > 0);
+  const last30days  = sortedDays.slice(-30).filter(d => d.cost > 0);
+  const avg7  = last7days.length  ? last7days.reduce((s,d)  => s + d.cost, 0) / last7days.length  : 0;
+  const avg30 = last30days.length ? last30days.reduce((s,d) => s + d.cost, 0) / last30days.length : 0;
+  const avgRef = avg7 > 0 ? avg7 : avg30; // prefere 7d; fallback 30d
+
+  // Dias restantes e data estimada de esgotamento
+  const daysLeft    = avgRef > 0 ? bal / avgRef : null;
+  const runoutDate  = daysLeft !== null
+    ? new Date(Date.now() + daysLeft * 86400000)
+    : null;
+  const runoutStr   = runoutDate
+    ? runoutDate.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })
+    : '—';
+
+  // Tendência: gasto ontem vs média 7d
+  const yesterday   = sortedDays.length >= 2 ? sortedDays[sortedDays.length - 2] : null;
+  const todayDay    = sortedDays.length >= 1  ? sortedDays[sortedDays.length - 1]  : null;
+  const spendYest   = yesterday?.cost || 0;
+  const spendToday  = todayDay?.cost  || 0;
+  const burnVsAvg   = avg7 > 0 ? ((spendYest - avg7) / avg7) * 100 : 0;
+
+  // Classe de urgência para dias restantes
+  const daysClass = daysLeft === null ? '' : daysLeft <= 3 ? 'danger' : daysLeft <= 7 ? 'warn' : 'good';
+
+  // ── Renderizar 4 métricas ──────────────────────────────────────────────
+  const metricItems = [
+    {
+      label: 'Gasto médio / dia',
+      value: avg7 > 0 ? fmtR(avg7) : '—',
+      sub:   avg30 > 0 ? `30d: ${fmtR(avg30)}` : 'sem dados suficientes',
+      cls:   '',
+    },
+    {
+      label: 'Dias restantes',
+      value: daysLeft !== null ? fmtN(daysLeft, 1) + ' dias' : '—',
+      sub:   daysLeft !== null
+        ? (daysLeft <= 3 ? '⚠️ Recarregue agora!' : daysLeft <= 7 ? '⚠️ Recarregue em breve' : 'campanha segura')
+        : 'gasto insuficiente p/ calcular',
+      cls:   daysClass,
+    },
+    {
+      label: 'Esgotamento estimado',
+      value: runoutStr,
+      sub:   daysLeft !== null ? `em ${Math.floor(daysLeft)}d ${Math.round((daysLeft % 1) * 24)}h` : '—',
+      cls:   daysClass,
+    },
+    {
+      label: 'Gasto ontem',
+      value: spendYest > 0 ? fmtR(spendYest) : '—',
+      sub:   avg7 > 0 && spendYest > 0
+        ? (burnVsAvg > 10 ? `▲ ${fmtN(burnVsAvg)}% acima da média` : burnVsAvg < -10 ? `▼ ${fmtN(Math.abs(burnVsAvg))}% abaixo da média` : `≈ dentro da média 7d`)
+        : 'sem histórico',
+      cls:   burnVsAvg > 20 ? 'warn' : '',
+    },
+  ];
+
+  metrics.innerHTML = metricItems.map(m => `
+    <div class="ads-bal-metric ${m.cls}">
+      <div class="ads-bal-metric-label">${m.label}</div>
+      <div class="ads-bal-metric-value">${m.value}</div>
+      <div class="ads-bal-metric-sub">${m.sub}</div>
+    </div>`).join('');
 }
 
 // ─── KPI CARDS ────────────────────────────────────────────────────────────────
