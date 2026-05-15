@@ -3,10 +3,11 @@
  *
  * Busca o saldo disponível na conta Google Ads via REST API (GAQL),
  * salva o snapshot em `ads_balance_history` e dispara alerta no Telegram
- * quando o saldo cruza os thresholds: R$1.500 / R$1.000 / R$500.
+ * quando os DIAS RESTANTES cruzam os thresholds: ≤7d / ≤5d / ≤3d.
  *
- * A notificação só é enviada UMA VEZ por threshold — o sistema verifica
- * o último nível notificado antes de disparar, evitando spam.
+ * O burn rate é calculado com base nos últimos 7 dias de gasto real
+ * em `google_ads_campaign_daily`. Isso torna os alertas sempre relevantes
+ * independente do valor absoluto do saldo.
  *
  * Variáveis de ambiente necessárias (Supabase → Project Settings → Edge Functions):
  *   GADS_DEVELOPER_TOKEN       Developer Token do Google Ads
@@ -26,11 +27,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// ─── Thresholds em centavos (R$) ────────────────────────────────────────────
-const THRESHOLDS = [
-  { level: 1500, label: "⚠️ Aviso",    emoji: "🟡" },
-  { level: 1000, label: "🔶 Atenção",  emoji: "🟠" },
-  { level:  500, label: "🚨 Crítico",  emoji: "🔴" },
+// ─── Thresholds baseados em DIAS RESTANTES ───────────────────────────────────
+// alert_level armazena o threshold de dias (7, 5, 3)
+const DAY_THRESHOLDS = [
+  { days: 7, label: "⚠️ Aviso",   emoji: "🟡", msg: "Planeje a recarga nos próximos dias." },
+  { days: 5, label: "🔶 Atenção", emoji: "🟠", msg: "Recarregue em breve para não interromper campanhas." },
+  { days: 3, label: "🚨 Crítico", emoji: "🔴", msg: "Recarga urgente — campanhas param em menos de 3 dias!" },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -77,7 +79,7 @@ async function fetchBalance(
   developerToken: string,
   customerId: string,
 ): Promise<number> {
-  const apiVersion = "v17";
+  const apiVersion = "v23";
   const url = `https://googleads.googleapis.com/${apiVersion}/customers/${customerId}/googleAds:search`;
 
   const query = `
@@ -175,16 +177,42 @@ Deno.serve(async () => {
     const accessToken = await getAccessToken(clientId!, clientSecret!, refreshToken!);
     const balanceBRL  = await fetchBalance(accessToken, developerToken!, customerId!);
 
-    // ── 2. Determinar threshold atingido ──────────────────────────────────
+    // ── 2. Calcular burn rate (média 7d de gasto real) ────────────────────
+    const today7 = new Date();
+    const since7 = new Date(today7.getTime() - 8 * 86400000).toISOString().slice(0, 10);
+    const { data: spendRows } = await supabase
+      .from("google_ads_campaign_daily")
+      .select("date, cost_micros")
+      .gte("date", since7)
+      .order("date", { ascending: false });
+
+    // Agrupa por data e soma cost_micros
+    const byDate = new Map<string, number>();
+    for (const r of (spendRows ?? [])) {
+      const d = String(r.date).slice(0, 10);
+      byDate.set(d, (byDate.get(d) ?? 0) + Number(r.cost_micros ?? 0));
+    }
+    const dailyCosts = [...byDate.values()]
+      .map(micros => micros / 1_000_000)
+      .filter(v => v > 0)
+      .slice(0, 7); // últimos 7 dias com gasto
+
+    const avg7spend = dailyCosts.length
+      ? dailyCosts.reduce((s, v) => s + v, 0) / dailyCosts.length
+      : 0;
+
+    const daysLeft = avg7spend > 0 ? balanceBRL / avg7spend : null;
+
+    // ── 3. Determinar threshold de dias atingido ──────────────────────────
+    // Percorre do mais crítico para o menos crítico (3 → 5 → 7)
     let currentAlertLevel: number | null = null;
-    for (const t of THRESHOLDS) {
-      if (balanceBRL <= t.level) {
-        currentAlertLevel = t.level;
-        break; // pega o maior threshold que ainda é >= balance (ordem decrescente)
+    if (daysLeft !== null) {
+      for (const t of [...DAY_THRESHOLDS].reverse()) {
+        if (daysLeft <= t.days) currentAlertLevel = t.days;
       }
     }
 
-    // ── 3. Verificar último alerta enviado ────────────────────────────────
+    // ── 4. Verificar último alerta enviado ────────────────────────────────
     const { data: lastRows } = await supabase
       .from("ads_balance_history")
       .select("alert_level")
@@ -193,7 +221,7 @@ Deno.serve(async () => {
 
     const lastAlertLevel: number | null = lastRows?.[0]?.alert_level ?? null;
 
-    // ── 4. Salvar snapshot ────────────────────────────────────────────────
+    // ── 5. Salvar snapshot ────────────────────────────────────────────────
     const { error: insertErr } = await supabase
       .from("ads_balance_history")
       .insert({
@@ -206,50 +234,53 @@ Deno.serve(async () => {
       return json({ error: `Supabase insert error: ${insertErr.message}` }, 500);
     }
 
-    // ── 5. Enviar alerta Telegram (apenas quando threshold muda para pior) ─
-    // Lógica: só envia se:
-    //   a) cruzou um novo threshold (currentAlertLevel < lastAlertLevel ou era null)
-    //   b) balance voltou ao normal: envia mensagem de "saldo ok"
+    // ── 6. Enviar alerta Telegram ─────────────────────────────────────────
+    // Só envia quando o nível muda (para evitar repetição a cada hora)
     let alertSent = false;
-
     const levelChanged = currentAlertLevel !== lastAlertLevel;
 
-    if (levelChanged && currentAlertLevel !== null) {
-      // Cruzou um threshold — envia alerta
-      const threshold = THRESHOLDS.find(t => t.level === currentAlertLevel)!;
+    if (levelChanged && currentAlertLevel !== null && daysLeft !== null) {
+      const threshold = DAY_THRESHOLDS.find(t => t.days === currentAlertLevel)!;
+      const runout = new Date(Date.now() + daysLeft * 86400000);
+      const runoutStr = runout.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
       const msg = [
         `${threshold.emoji} <b>Alerta de Saldo Google Ads</b>`,
         ``,
-        `${threshold.label}: saldo abaixo de <b>${fmtBRL(threshold.level)}</b>`,
+        `${threshold.label}: apenas <b>${daysLeft.toFixed(1)} dias</b> de campanha restantes`,
         ``,
         `💰 Saldo atual: <b>${fmtBRL(balanceBRL)}</b>`,
+        `📊 Gasto médio/dia (7d): <b>${fmtBRL(avg7spend)}</b>`,
+        `📅 Esgotamento estimado: <b>${runoutStr}</b>`,
         ``,
-        `Recarregue sua conta para não interromper as campanhas.`,
+        threshold.msg,
       ].join("\n");
 
       await sendTelegram(botToken!, chatId!, msg);
       alertSent = true;
 
     } else if (levelChanged && currentAlertLevel === null && lastAlertLevel !== null) {
-      // Saldo voltou ao normal após um alerta anterior
+      // Saldo recarregado — voltou ao normal
       const msg = [
-        `✅ <b>Saldo Google Ads normalizado</b>`,
+        `✅ <b>Saldo Google Ads recarregado</b>`,
         ``,
         `💰 Saldo atual: <b>${fmtBRL(balanceBRL)}</b>`,
+        daysLeft !== null ? `📅 Dias restantes: <b>${daysLeft.toFixed(1)} dias</b>` : "",
         ``,
-        `Conta recarregada — campanhas funcionando normalmente.`,
-      ].join("\n");
+        `Campanhas funcionando normalmente.`,
+      ].filter(Boolean).join("\n");
 
       await sendTelegram(botToken!, chatId!, msg);
       alertSent = true;
     }
 
     return json({
-      ok:               true,
-      balance_brl:      balanceBRL,
-      alert_level:      currentAlertLevel,
-      alert_sent:       alertSent,
-      checked_at:       new Date().toISOString(),
+      ok:           true,
+      balance_brl:  balanceBRL,
+      days_left:    daysLeft,
+      avg7_spend:   avg7spend,
+      alert_level:  currentAlertLevel,
+      alert_sent:   alertSent,
+      checked_at:   new Date().toISOString(),
     });
 
   } catch (err) {

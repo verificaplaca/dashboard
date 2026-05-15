@@ -1308,10 +1308,26 @@ function buildBureauCard() {
       cls:   projVsPrev !== null && projVsPrev > 40 ? 'warn' : projVsPrev !== null && projVsPrev > 0 ? '' : 'good',
     },
     {
-      label: 'Mês anterior',
-      value: prevTotal > 0 ? fmtR(prevTotal) : '—',
-      sub:   prevMo,
-      cls:   '',
+      label: 'Bureau % da receita',
+      value: (() => {
+        const currRev = currDays.reduce((s,d) => s + (d.revenue||0), 0);
+        return currRev > 0 ? fmtN((currTotal / currRev) * 100) + '%' : '—';
+      })(),
+      sub: (() => {
+        const currRev = currDays.reduce((s,d) => s + (d.revenue||0), 0);
+        const prevRev = prevDays.reduce((s,d) => s + (d.revenue||0), 0);
+        const currPct = currRev > 0 ? (currTotal / currRev) * 100 : null;
+        const prevPct = prevRev > 0 && prevTotal > 0 ? (prevTotal / prevRev) * 100 : null;
+        if (currPct === null) return 'sem dados de receita';
+        if (prevPct === null) return `mês ant.: ${fmtR(prevTotal)}`;
+        const diff = currPct - prevPct;
+        return `${diff > 0 ? '▲' : '▼'} ${fmtN(Math.abs(diff))}pp vs mês ant. (${fmtN(prevPct)}%)`;
+      })(),
+      cls: (() => {
+        const currRev = currDays.reduce((s,d) => s + (d.revenue||0), 0);
+        const pct = currRev > 0 ? (currTotal / currRev) * 100 : 0;
+        return pct > 15 ? 'warn' : pct > 20 ? 'danger' : '';
+      })(),
     },
     {
       label: 'Gasto ontem',
@@ -1355,12 +1371,18 @@ function buildAdsBalance() {
   const bal    = parseFloat(latest.balance_brl) || 0;
   valEl.textContent = bal.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
 
-  // ── Status badge ───────────────────────────────────────────────────────
+  // ── Burn rate provisório para o badge (será recalculado abaixo) ──────────
+  const _sorted   = [...ALL_DAYS].sort((a,b) => a.dateStr.localeCompare(b.dateStr));
+  const _last7    = _sorted.slice(-8, -1).filter(d => d.cost > 0);
+  const _avg7pre  = _last7.length ? _last7.reduce((s,d) => s + d.cost, 0) / _last7.length : 0;
+  const _daysEst  = _avg7pre > 0 ? bal / _avg7pre : null;
+
+  // ── Status badge — baseado em dias restantes (não em R$) ─────────────
   let statusClass, statusText;
-  if      (bal <= 500)  { statusClass = 'critico'; statusText = '🔴 Crítico'; }
-  else if (bal <= 1000) { statusClass = 'atencao'; statusText = '🟠 Atenção'; }
-  else if (bal <= 1500) { statusClass = 'aviso';   statusText = '🟡 Aviso'; }
-  else                  { statusClass = 'ok';      statusText = '✅ Saldo OK'; }
+  if      (_daysEst !== null && _daysEst <= 3) { statusClass = 'critico'; statusText = '🔴 Crítico — ' + _daysEst.toFixed(1) + 'd restantes'; }
+  else if (_daysEst !== null && _daysEst <= 5) { statusClass = 'atencao'; statusText = '🟠 Atenção — ' + _daysEst.toFixed(1) + 'd restantes'; }
+  else if (_daysEst !== null && _daysEst <= 7) { statusClass = 'aviso';   statusText = '🟡 Aviso — ' + _daysEst.toFixed(1) + 'd restantes'; }
+  else                                          { statusClass = 'ok';      statusText = '✅ Saldo OK'; }
   badge.className   = 'ads-balance-badge ' + statusClass;
   badge.textContent = statusText;
   card.classList.toggle('pulse-critico', statusClass === 'critico');
