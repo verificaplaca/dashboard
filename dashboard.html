@@ -722,7 +722,7 @@
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const TICKET        = 14.42;
 const TARGET_CPA    =  8.00;  // meta CPA — abril/26 atingiu R$7,88; manter R$8 é realista e sustentável
-const TARGET_UPSELL = 35;     // % meta de upsell — ALAVANCA PRINCIPAL: ticket maior → margem maior sem mudar CPA
+const TARGET_UPSELL = 32;     // % upsell — nível real de abril/26; alavanca via escala de investimento, não eficiência
 const CAMP_COLORS   = { RISCO_DOC:'#2563eb', ADDONS:'#7c3aed', RENAVAM:'#0891b2', ROUBO_FURTO:'#d97706', MULTAS:'#dc2626' };
 const BASE_CAMPS    = [
   { name:'RISCO_DOC',   convShare:.294, costShare:.266 },
@@ -733,10 +733,10 @@ const BASE_CAMPS    = [
 ];
 // Referência: abril/2026 — receita R$82.286 | ads ~R$44.953 | bureau ~R$19.090 | lucro líq. ~R$15.116
 const MONTHLY = { revenue:82286, cost:44953, conv:5706, profit:18243, roas:1.83, convRate:4.04 };
-const MONTHLY_BUDGET              = 49500;  // R$ orçamento mensal de Google Ads (45% de R$110k meta)
-const MONTHLY_REVENUE_TARGET      = 110000; // R$ meta de receita mensal — necessário para R$30k lucro líquido
-const MONTHLY_PROFIT_TARGET       = 18000;  // R$ meta de lucro bruto mensal (receita − ads − bureau)
-const MONTHLY_NET_PROFIT_TARGET   = 30000;  // R$ meta de lucro LÍQUIDO mensal (pós-imposto 8%)
+const MONTHLY_BUDGET              = 89000;  // R$ orçamento necessário p/ R$30k lucro líq. (CPA R$8 × 11.125 conv.)
+const MONTHLY_REVENUE_TARGET      = 163000; // R$ meta receita mai/26 — necessário para R$30k lucro líquido via escala
+const MONTHLY_PROFIT_TARGET       = 36000;  // R$ meta de lucro bruto mai/26 (163k receita − 89k ads − 37,8k bureau)
+const MONTHLY_NET_PROFIT_TARGET   = 30000;  // R$ meta de lucro LÍQUIDO mai/26 (pós-imposto 8%) — foco da estratégia
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const SUPA_URL = 'https://ftmgmfdqdqxboiktxcoj.supabase.co';
