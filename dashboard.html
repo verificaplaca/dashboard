@@ -720,8 +720,8 @@
 // ── DO NOT register ChartDataLabels globally — enable per chart ──────────────
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const TICKET        = 14.42;
-const TARGET_CPA    =  8.00;  // meta CPA — abril/26 atingiu R$7,88; manter R$8 é realista e sustentável
+const TICKET        = 16.86;  // ticket médio real abril/26 (receita ÷ pedidos reais do banco)
+const TARGET_CPA    =  9.00;  // meta CPA — real abril/26 = R$9,21 (pedidos banco); meta levemente acima da eficiência atual
 const TARGET_UPSELL = 32;     // % upsell — nível real de abril/26; alavanca via escala de investimento, não eficiência
 const CAMP_COLORS   = { RISCO_DOC:'#2563eb', ADDONS:'#7c3aed', RENAVAM:'#0891b2', ROUBO_FURTO:'#d97706', MULTAS:'#dc2626' };
 const BASE_CAMPS    = [
@@ -732,7 +732,8 @@ const BASE_CAMPS    = [
   { name:'MULTAS',      convShare:.087, costShare:.122 },
 ];
 // Referência: abril/2026 — receita R$82.286 | ads ~R$44.953 | bureau ~R$19.090 | lucro líq. ~R$15.116
-const MONTHLY = { revenue:82286, cost:44953, conv:5706, profit:18243, roas:1.83, convRate:4.04 };
+// conv = pedidos reais do banco (44.953 ÷ 9,21 = 4.881) | ticket real = 82.286 ÷ 4.881 = R$16,86
+const MONTHLY = { revenue:82286, cost:44953, conv:4881, profit:18243, roas:1.83, convRate:4.04 };
 const MONTHLY_BUDGET              = 89000;  // R$ orçamento necessário p/ R$30k lucro líq. (CPA R$8 × 11.125 conv.)
 const MONTHLY_REVENUE_TARGET      = 163000; // R$ meta receita mai/26 — necessário para R$30k lucro líquido via escala
 const MONTHLY_PROFIT_TARGET       = 36000;  // R$ meta de lucro bruto mai/26 (163k receita − 89k ads − 37,8k bureau)
