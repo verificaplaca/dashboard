@@ -721,8 +721,8 @@
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const TICKET        = 14.42;
-const TARGET_CPA    = 10.00;
-const TARGET_UPSELL = 22; // % meta de upsell
+const TARGET_CPA    =  7.00;  // meta CPA — abril/26 atingiu R$7,88; apertar para R$7 melhora ROAS a ~2,1
+const TARGET_UPSELL = 35;     // % meta de upsell — upsell não gera custo bureau, aumenta margem diretamente
 const CAMP_COLORS   = { RISCO_DOC:'#2563eb', ADDONS:'#7c3aed', RENAVAM:'#0891b2', ROUBO_FURTO:'#d97706', MULTAS:'#dc2626' };
 const BASE_CAMPS    = [
   { name:'RISCO_DOC',   convShare:.294, costShare:.266 },
@@ -731,10 +731,12 @@ const BASE_CAMPS    = [
   { name:'ROUBO_FURTO', convShare:.163, costShare:.158 },
   { name:'MULTAS',      convShare:.087, costShare:.122 },
 ];
-const MONTHLY = { revenue:27334.04, cost:20740.63, conv:1898, profit:6237.85, roas:1.39, convRate:4.04 };
-const MONTHLY_BUDGET          = 25000; // R$ orçamento mensal de Google Ads — ajuste conforme seu plano
-const MONTHLY_REVENUE_TARGET  = 30000; // R$ meta de receita mensal — ajuste conforme seu objetivo
-const MONTHLY_PROFIT_TARGET   =  7000; // R$ meta de lucro bruto mensal — ajuste conforme seu objetivo
+// Referência: abril/2026 — receita R$82.286 | ads ~R$44.953 | bureau ~R$19.090 | lucro líq. ~R$15.116
+const MONTHLY = { revenue:82286, cost:44953, conv:5706, profit:18243, roas:1.83, convRate:4.04 };
+const MONTHLY_BUDGET              = 49500;  // R$ orçamento mensal de Google Ads (45% de R$110k meta)
+const MONTHLY_REVENUE_TARGET      = 110000; // R$ meta de receita mensal — necessário para R$30k lucro líquido
+const MONTHLY_PROFIT_TARGET       = 18000;  // R$ meta de lucro bruto mensal (receita − ads − bureau)
+const MONTHLY_NET_PROFIT_TARGET   = 30000;  // R$ meta de lucro LÍQUIDO mensal (pós-imposto 8%)
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const SUPA_URL = 'https://ftmgmfdqdqxboiktxcoj.supabase.co';
@@ -1510,17 +1512,25 @@ function buildKPIs(T) {
     : 'receita − ads − bureau';
 
   // Target % for progress bars (vs monthly target, when applicable)
-  const _tgtRev    = MONTHLY_REVENUE_TARGET > 0 ? Math.min(110, T.rev    / MONTHLY_REVENUE_TARGET  * 100) : null;
-  const _tgtCost   = MONTHLY_BUDGET > 0         ? Math.min(110, T.costTotal / MONTHLY_BUDGET       * 100) : null;
-  const _tgtProfit = MONTHLY_PROFIT_TARGET > 0  ? Math.min(110, T.pft   / MONTHLY_PROFIT_TARGET   * 100) : null;
-  const _tgtCac    = TARGET_CPA > 0             ? Math.min(110, TARGET_CPA / Math.max(T.cac, 0.01) * 100) : null;
-  const _tgtUpsell = TARGET_UPSELL > 0          ? Math.min(110, T.upsell / TARGET_UPSELL           * 100) : null;
+  const _tgtRev       = MONTHLY_REVENUE_TARGET > 0     ? Math.min(110, T.rev         / MONTHLY_REVENUE_TARGET    * 100) : null;
+  const _tgtCost      = MONTHLY_BUDGET > 0              ? Math.min(110, T.costTotal   / MONTHLY_BUDGET            * 100) : null;
+  const _tgtProfit    = MONTHLY_PROFIT_TARGET > 0       ? Math.min(110, T.pft         / MONTHLY_PROFIT_TARGET     * 100) : null;
+  const _tgtNetProfit = MONTHLY_NET_PROFIT_TARGET > 0   ? Math.min(110, T.netPftOpt   / MONTHLY_NET_PROFIT_TARGET * 100) : null;
+  const _tgtCac       = TARGET_CPA > 0                  ? Math.min(110, TARGET_CPA    / Math.max(T.cac, 0.01)    * 100) : null;
+  const _tgtUpsell    = TARGET_UPSELL > 0               ? Math.min(110, T.upsell      / TARGET_UPSELL            * 100) : null;
+
+  // Sub-label lucro líquido com projeção e meta
+  const _avgNetPft  = _inCurrMo && filtered.length > 0 ? filtered.reduce((s,x)=>s+(x.netProfit||0),0)/filtered.length : 0;
+  const _projNetPft = _avgNetPft !== 0 ? Math.round(_avgNetPft * _dInMo) : 0;
+  const _netPftSub  = _projNetPft !== 0
+    ? `Proj.: ${_fmtK(_projNetPft)}${MONTHLY_NET_PROFIT_TARGET > 0 ? ' · Meta: '+_fmtK(MONTHLY_NET_PROFIT_TARGET) : ''}`
+    : 'imposto faseado por período';
 
   const row1 = [
     { id:'r',  label:'Receita Bruta',    value:fmtR(T.rev),              delta:d(T.rev,P?.rev,false),        sub:_revSub,                    color:'blue',  dir:'up',      badge:'receita',         spark:filtered.map(x=>x.revenue),                              sc:'#16a34a', targetPct:_tgtRev },
     { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:_costSub,               color:'red',   dir:'neutral', badge:'custos',           spark:filtered.map(x=>x.costTotal||0),                         sc:'#dc2626', targetPct:_tgtCost, targetReverse:true, tip:'custo Google Ads\n+ custo bureau\n= total operacional' },
     { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:_profitSub,                 color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', targetPct:_tgtProfit, tip:'receita bruta\n− custo Google Ads\n− custo bureau' },
-    { id:'npo', label:'Lucro Líquido Otimizado', value:fmtR(T.netPftOpt), delta:d(T.netPftOpt,P?.netPftOpt,false), sub:'imposto faseado por período', color:T.netPftOpt>=0?'green':'red', dir:T.netPftOpt>=0?'up':'down', badge:T.netPftOpt>=0?'otimizado':'negativo', spark:filtered.map(x=>x.netProfit||0), sc:T.netPftOpt>=0?'#0891b2':'#dc2626', tip:'Otimização tributária faseada:\naté mar/26 → 100% a 8%\nabr/26     → 50% a 2% + 50% a 8%\nmai/26+    → 70% a 2% + 30% a 8%\n− custo total COGS' },
+    { id:'npo', label:'Lucro Líquido Otimizado', value:fmtR(T.netPftOpt), delta:d(T.netPftOpt,P?.netPftOpt,false), sub:_netPftSub, color:T.netPftOpt>=0?'green':'red', dir:T.netPftOpt>=0?'up':'down', badge:T.netPftOpt>=0?'otimizado':'negativo', spark:filtered.map(x=>x.netProfit||0), sc:T.netPftOpt>=0?'#0891b2':'#dc2626', targetPct:_tgtNetProfit, tip:'Otimização tributária faseada:\naté mar/26 → 100% a 8%\nabr/26     → 50% a 2% + 50% a 8%\nmai/26+    → 70% a 2% + 30% a 8%\n− custo total COGS\nMeta: R$30k em mai/26' },
     { id:'eb', label:'EBITDA',           value:fmtR(ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)), delta:null, sub:`todo o período · ${ALL_DAYS.length} dias`, color:ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)>=0?'green':'red', dir:'up', badge:'acumulado total', spark:ALL_DAYS.map(x=>x.profit||0), sc:'#16a34a', tip:'receita bruta\n− custo Google Ads\n− custo bureau\n(acumulado de todo o período disponível,\nnão muda com o filtro de datas)' },
   ];
   const row2 = [
