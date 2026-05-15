@@ -153,9 +153,13 @@
     .kpi-delta.neu { color: var(--text-muted); }
     .kpi-card.alert-pulse { border-color: #fca5a5 !important; box-shadow: 0 0 0 2px rgba(220,38,38,.12) !important; }
 
+    /* ── Cards de monitoramento (Google Ads + Bureau) ───────────────────── */
+    .monitor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+    @media(max-width:800px){ .monitor-grid { grid-template-columns:1fr; } }
+
     /* ── Saldo Google Ads ─────────────────────────────────────────────────── */
     .ads-balance-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-      padding:16px 20px; margin-bottom:16px; transition:box-shadow .15s; }
+      padding:16px 20px; transition:box-shadow .15s; }
     .ads-balance-card:hover { box-shadow:var(--shadow-md); }
     .ads-balance-top { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
     .ads-balance-main { display:flex; align-items:center; gap:14px; }
@@ -181,6 +185,22 @@
     .ads-balance-spark span { width:4px; border-radius:2px 2px 0 0; opacity:.75; min-height:2px; }
     .ads-balance-card.pulse-critico { border-color:#fca5a5 !important; animation:ads-pulse 2s infinite; }
     @keyframes ads-pulse { 0%,100%{box-shadow:0 0 0 2px rgba(220,38,38,.12)} 50%{box-shadow:0 0 0 5px rgba(220,38,38,.22)} }
+
+    /* ── Bureau Assertiva card ────────────────────────────────────────────── */
+    .bureau-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      padding:16px 20px; transition:box-shadow .15s; }
+    .bureau-card:hover { box-shadow:var(--shadow-md); }
+    .bureau-card-top { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+    .bureau-card-main { display:flex; align-items:center; gap:14px; }
+    .bureau-card-label { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); margin-bottom:3px; }
+    .bureau-card-value { font-size:26px; font-weight:700; color:var(--text-primary); letter-spacing:-.5px; }
+    .bureau-card-badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; }
+    .bureau-card-badge.ok     { background:#dcfce7; color:#15803d; }
+    .bureau-card-badge.aviso  { background:#fef9c3; color:#a16207; }
+    .bureau-card-badge.spike  { background:#ffedd5; color:#c2410c; }
+    .bureau-card-meta { font-size:10.5px; color:var(--text-muted); }
+    .bureau-card-spark { display:flex; align-items:flex-end; gap:2px; height:24px; }
+    .bureau-card-spark span { width:4px; border-radius:2px 2px 0 0; opacity:.75; min-height:2px; }
 
     /* Day-of-week — desktop grid 2 linhas (4+3), mobile carousel */
     .dow-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
@@ -513,23 +533,46 @@
     <span id="alertText"></span>
   </div>
 
-  <!-- Saldo Google Ads -->
-  <div class="section-label">Saldo Google Ads</div>
-  <div class="ads-balance-card" id="adsBalanceCard">
-    <div class="ads-balance-top">
-      <div class="ads-balance-main">
-        <div>
-          <div class="ads-balance-label">Saldo disponível</div>
-          <div class="ads-balance-value" id="adsBalanceValue">—</div>
+  <!-- Monitoramento: Google Ads + Bureau -->
+  <div class="section-label">Monitoramento Operacional</div>
+  <div class="monitor-grid">
+
+    <!-- Google Ads -->
+    <div class="ads-balance-card" id="adsBalanceCard">
+      <div class="ads-balance-top">
+        <div class="ads-balance-main">
+          <div>
+            <div class="ads-balance-label">💰 Saldo Google Ads</div>
+            <div class="ads-balance-value" id="adsBalanceValue">—</div>
+          </div>
+          <div class="ads-balance-spark" id="adsBalanceSpark"></div>
         </div>
-        <div class="ads-balance-spark" id="adsBalanceSpark"></div>
+        <div class="ads-balance-topright">
+          <span class="ads-balance-badge ok" id="adsBalanceBadge">carregando…</span>
+          <span class="ads-balance-meta" id="adsBalanceMeta"></span>
+        </div>
       </div>
-      <div class="ads-balance-topright">
-        <span class="ads-balance-badge ok" id="adsBalanceBadge">carregando…</span>
-        <span class="ads-balance-meta" id="adsBalanceMeta"></span>
-      </div>
+      <div class="ads-balance-metrics" id="adsBalanceMetrics"></div>
     </div>
-    <div class="ads-balance-metrics" id="adsBalanceMetrics"></div>
+
+    <!-- Bureau Assertiva -->
+    <div class="bureau-card" id="bureauCard">
+      <div class="bureau-card-top">
+        <div class="bureau-card-main">
+          <div>
+            <div class="bureau-card-label">🧾 Bureau Assertiva — mês atual</div>
+            <div class="bureau-card-value" id="bureauCardValue">—</div>
+          </div>
+          <div class="bureau-card-spark" id="bureauCardSpark"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="bureau-card-badge ok" id="bureauCardBadge">carregando…</span>
+          <span class="bureau-card-meta" id="bureauCardMeta"></span>
+        </div>
+      </div>
+      <div class="ads-balance-metrics" id="bureauCardMetrics"></div>
+    </div>
+
   </div>
 
   <!-- ROW 1: Business outcomes (CEO reads top-to-bottom) -->
@@ -1145,6 +1188,7 @@ function render() {
   buildFreshness();
   buildTodayPace();
   buildAdsBalance();
+  buildBureauCard();
   buildKPIs(T);
   buildRefundSection(T);
   buildGauges(T);
@@ -1162,6 +1206,129 @@ function render() {
   if (hint && d.length) hint.textContent = '(' + rangeStr + ')';
   // Força Chart.js a recalcular tamanhos após o layout mobile se estabilizar
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+}
+
+// ─── BUREAU ASSERTIVA CARD ────────────────────────────────────────────────────
+function buildBureauCard() {
+  const card    = document.getElementById('bureauCard');
+  const valEl   = document.getElementById('bureauCardValue');
+  const badge   = document.getElementById('bureauCardBadge');
+  const meta    = document.getElementById('bureauCardMeta');
+  const spark   = document.getElementById('bureauCardSpark');
+  const metrics = document.getElementById('bureauCardMetrics');
+  if (!card) return;
+
+  if (!ALL_DAYS.length) {
+    valEl.textContent  = '—';
+    badge.textContent  = 'sem dados';
+    metrics.innerHTML  = '';
+    return;
+  }
+
+  const fmtR = v => v.toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
+  const fmtN = (v, d=1) => v.toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
+
+  const sorted = [...ALL_DAYS].sort((a,b) => a.dateStr.localeCompare(b.dateStr));
+  const now    = new Date();
+  const currMo = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const prevMo = (() => {
+    const d = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  })();
+
+  const currDays = sorted.filter(d => d.dateStr.startsWith(currMo));
+  const prevDays = sorted.filter(d => d.dateStr.startsWith(prevMo));
+
+  // Acumulado mês atual
+  const currTotal = currDays.reduce((s,d) => s + (d.costBureau||0), 0);
+
+  // Total mês anterior
+  const prevTotal = prevDays.reduce((s,d) => s + (d.costBureau||0), 0);
+
+  // Projeção mês atual
+  const daysInMonth  = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const daysPassed   = currDays.filter(d => (d.costBureau||0) > 0).length || 1;
+  const dailyAvg     = currTotal / daysPassed;
+  const projection   = dailyAvg * daysInMonth;
+
+  // Média 7d (exclui hoje em aberto → penúltimo ao antepenúltimo)
+  const last7        = sorted.slice(-8, -1).filter(d => (d.costBureau||0) > 0);
+  const avg7         = last7.length ? last7.reduce((s,d) => s+(d.costBureau||0), 0) / last7.length : 0;
+
+  // Ontem
+  const yesterday    = sorted.length >= 2 ? sorted[sorted.length - 2] : null;
+  const yesterdayCost = yesterday?.costBureau || 0;
+
+  // Spike diário
+  const spikePct     = avg7 > 0 && yesterdayCost > 0 ? ((yesterdayCost - avg7) / avg7) * 100 : 0;
+  const isSpike      = spikePct >= 30;
+
+  // Variação mês vs anterior
+  const projVsPrev   = prevTotal > 0 ? ((projection - prevTotal) / prevTotal) * 100 : null;
+
+  // Valor principal = acumulado mês
+  valEl.textContent = fmtR(currTotal);
+
+  // Badge
+  let badgeClass, badgeText;
+  if (isSpike)                         { badgeClass = 'spike'; badgeText = `📈 Spike +${fmtN(spikePct)}%`; }
+  else if (projVsPrev !== null && projVsPrev > 40) { badgeClass = 'aviso'; badgeText = `⚠️ Proj. +${fmtN(projVsPrev)}%`; }
+  else                                 { badgeClass = 'ok';    badgeText = '✅ Normal'; }
+  badge.className   = 'bureau-card-badge ' + badgeClass;
+  badge.textContent = badgeText;
+
+  // Meta
+  meta.textContent = `${daysPassed} de ${daysInMonth} dias`;
+
+  // Sparkline (custo bureau por dia no mês atual)
+  const sparkVals   = currDays.map(d => d.costBureau||0);
+  const sparkMax    = Math.max(...sparkVals, 1);
+  const sparkColor  = isSpike ? '#f97316' : '#7c3aed';
+  spark.innerHTML   = sparkVals.slice(-20).map(v => {
+    const h = Math.max(2, Math.round((v / sparkMax) * 24));
+    return `<span style="height:${h}px;background:${sparkColor}"></span>`;
+  }).join('');
+
+  // 4 métricas
+  const daysClass = d => d === null ? '' : d <= 3 ? 'danger' : d <= 7 ? 'warn' : 'good';
+
+  const metricItems = [
+    {
+      label: 'Média diária (7d)',
+      value: avg7 > 0 ? fmtR(avg7) : '—',
+      sub:   `${daysPassed}d com dados no mês`,
+      cls:   '',
+    },
+    {
+      label: 'Projeção mês completo',
+      value: fmtR(projection),
+      sub:   projVsPrev !== null
+        ? (projVsPrev > 0 ? `▲ ${fmtN(projVsPrev)}% vs mês ant.` : `▼ ${fmtN(Math.abs(projVsPrev))}% vs mês ant.`)
+        : 'sem histórico anterior',
+      cls:   projVsPrev !== null && projVsPrev > 40 ? 'warn' : projVsPrev !== null && projVsPrev > 0 ? '' : 'good',
+    },
+    {
+      label: 'Mês anterior',
+      value: prevTotal > 0 ? fmtR(prevTotal) : '—',
+      sub:   prevMo,
+      cls:   '',
+    },
+    {
+      label: 'Gasto ontem',
+      value: yesterdayCost > 0 ? fmtR(yesterdayCost) : '—',
+      sub:   avg7 > 0 && yesterdayCost > 0
+        ? (spikePct > 10 ? `▲ ${fmtN(spikePct)}% acima da média` : spikePct < -10 ? `▼ ${fmtN(Math.abs(spikePct))}% abaixo da média` : '≈ dentro da média 7d')
+        : 'sem histórico',
+      cls:   isSpike ? 'warn' : '',
+    },
+  ];
+
+  metrics.innerHTML = metricItems.map(m => `
+    <div class="ads-bal-metric ${m.cls}">
+      <div class="ads-bal-metric-label">${m.label}</div>
+      <div class="ads-bal-metric-value">${m.value}</div>
+      <div class="ads-bal-metric-sub">${m.sub}</div>
+    </div>`).join('');
 }
 
 // ─── SALDO GOOGLE ADS ─────────────────────────────────────────────────────────
