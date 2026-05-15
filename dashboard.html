@@ -152,6 +152,28 @@
     .kpi-delta.neg { color: var(--red); }
     .kpi-delta.neu { color: var(--text-muted); }
     .kpi-card.alert-pulse { border-color: #fca5a5 !important; box-shadow: 0 0 0 2px rgba(220,38,38,.12) !important; }
+
+    /* ── Saldo Google Ads ─────────────────────────────────────────────────── */
+    .ads-balance-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      padding:14px 18px; display:flex; align-items:center; justify-content:space-between;
+      gap:16px; flex-wrap:wrap; margin-bottom:16px; transition:box-shadow .15s; }
+    .ads-balance-card:hover { box-shadow:var(--shadow-md); }
+    .ads-balance-left { display:flex; align-items:center; gap:14px; }
+    .ads-balance-icon { font-size:22px; line-height:1; }
+    .ads-balance-label { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); margin-bottom:3px; }
+    .ads-balance-value { font-size:24px; font-weight:700; color:var(--text-primary); letter-spacing:-.5px; }
+    .ads-balance-right { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .ads-balance-badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; }
+    .ads-balance-badge.ok       { background:#dcfce7; color:#15803d; }
+    .ads-balance-badge.aviso    { background:#fef9c3; color:#a16207; }
+    .ads-balance-badge.atencao  { background:#ffedd5; color:#c2410c; }
+    .ads-balance-badge.critico  { background:#fee2e2; color:#b91c1c; }
+    .ads-balance-spark { display:flex; align-items:flex-end; gap:2px; height:28px; }
+    .ads-balance-spark span { width:4px; border-radius:2px 2px 0 0; background:var(--blue); opacity:.7; min-height:2px; }
+    .ads-balance-meta { font-size:10.5px; color:var(--text-muted); white-space:nowrap; }
+    .ads-balance-card.pulse-critico { border-color:#fca5a5 !important; animation:ads-pulse 2s infinite; }
+    @keyframes ads-pulse { 0%,100%{box-shadow:0 0 0 2px rgba(220,38,38,.12)} 50%{box-shadow:0 0 0 5px rgba(220,38,38,.22)} }
+
     /* Day-of-week — desktop grid 2 linhas (4+3), mobile carousel */
     .dow-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
                 align-items: stretch; }
@@ -483,6 +505,23 @@
     <span id="alertText"></span>
   </div>
 
+  <!-- Saldo Google Ads -->
+  <div class="section-label">Saldo Google Ads</div>
+  <div class="ads-balance-card" id="adsBalanceCard">
+    <div class="ads-balance-left">
+      <div class="ads-balance-icon">💰</div>
+      <div>
+        <div class="ads-balance-label">Saldo disponível</div>
+        <div class="ads-balance-value" id="adsBalanceValue">—</div>
+      </div>
+    </div>
+    <div class="ads-balance-right">
+      <div class="ads-balance-spark" id="adsBalanceSpark"></div>
+      <span class="ads-balance-badge ok" id="adsBalanceBadge">carregando…</span>
+      <span class="ads-balance-meta" id="adsBalanceMeta"></span>
+    </div>
+  </div>
+
   <!-- ROW 1: Business outcomes (CEO reads top-to-bottom) -->
   <div class="section-label">Resultados Financeiros</div>
   <div class="kpi-row kpi-row-1" id="kpiRow1"></div>
@@ -682,14 +721,16 @@ async function loadSupabaseData() {
   const qs    = `date=gte.${start}&date=lte.${today}`;
 
   const gadsQs = `date=gte.${start}&date=lte.${today}`;
-  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows] = await Promise.all([
+  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows, balRows] = await Promise.all([
     supaGet(`/rest/v1/revenue_daily?${qs}&select=date,revenue,paid_orders`),
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
     supaGet(`/rest/v1/bureau_daily?${qs}&select=date,custo_bureau,lucro_bruto,margem_pct`),
     supaGet(`/rest/v1/google_ads_campaign_daily?${gadsQs}&select=date,campaign_name,cost_micros,conversions&order=date.asc`),
     supaGet(`/rest/v1/refunds_daily?${qs}&select=date,refund_count,refund_value`),
+    supaGet(`/rest/v1/ads_balance_history?select=checked_at,balance_brl,alert_level&order=checked_at.desc&limit=30`).catch(() => []),
   ]);
+  ADS_BALANCE_DATA = balRows || [];
 
   const upsMap = new Map();
   for (const u of upsRows) upsMap.set(String(u.date).slice(0,10), u);
@@ -878,8 +919,9 @@ let UPSELL_TYPE_DATA    = []; // rows: { dateStr, addonKey, label, count, revenu
 let CAMPAIGN_DAILY_DATA = []; // rows: { dateStr, campaign, cost, conversions, revenue }
 const charts = {};
 const sparkRefs = {};
-let _campSort   = { col:-1, dir:1 };  // sort state for campaign table
-let _upsellSort = { col:-1, dir:1 };  // sort state for upsell type table
+let _campSort      = { col:-1, dir:1 };  // sort state for campaign table
+let _upsellSort    = { col:-1, dir:1 };  // sort state for upsell type table
+let ADS_BALANCE_DATA = [];               // últimas leituras de saldo Google Ads
 
 // ─── DATE PICKER ─────────────────────────────────────────────────────────────
 function toggleDP() {
@@ -1092,6 +1134,7 @@ function render() {
   const T = totals();
   buildFreshness();
   buildTodayPace();
+  buildAdsBalance();
   buildKPIs(T);
   buildRefundSection(T);
   buildGauges(T);
@@ -1109,6 +1152,62 @@ function render() {
   if (hint && d.length) hint.textContent = '(' + rangeStr + ')';
   // Força Chart.js a recalcular tamanhos após o layout mobile se estabilizar
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+}
+
+// ─── SALDO GOOGLE ADS ─────────────────────────────────────────────────────────
+function buildAdsBalance() {
+  const card   = document.getElementById('adsBalanceCard');
+  const valEl  = document.getElementById('adsBalanceValue');
+  const badge  = document.getElementById('adsBalanceBadge');
+  const meta   = document.getElementById('adsBalanceMeta');
+  const spark  = document.getElementById('adsBalanceSpark');
+  if (!card) return;
+
+  if (!ADS_BALANCE_DATA.length) {
+    valEl.textContent  = '—';
+    badge.textContent  = 'sem dados';
+    badge.className    = 'ads-balance-badge ok';
+    meta.textContent   = 'Execute o cron para carregar';
+    return;
+  }
+
+  // Dado mais recente (já vem ordenado DESC)
+  const latest = ADS_BALANCE_DATA[0];
+  const bal    = parseFloat(latest.balance_brl) || 0;
+
+  // Formatar valor
+  valEl.textContent = bal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  // Status badge
+  let statusClass, statusText;
+  if (bal <= 500)  { statusClass = 'critico'; statusText = '🔴 Crítico — abaixo de R$500'; }
+  else if (bal <= 1000) { statusClass = 'atencao'; statusText = '🟠 Atenção — abaixo de R$1.000'; }
+  else if (bal <= 1500) { statusClass = 'aviso';   statusText = '🟡 Aviso — abaixo de R$1.500'; }
+  else             { statusClass = 'ok';      statusText = '✅ Saldo OK'; }
+
+  badge.className   = 'ads-balance-badge ' + statusClass;
+  badge.textContent = statusText;
+  card.classList.toggle('pulse-critico', statusClass === 'critico');
+
+  // Meta: última atualização
+  const checkedAt = new Date(latest.checked_at);
+  const diffMin   = Math.round((Date.now() - checkedAt.getTime()) / 60000);
+  const diffTxt   = diffMin < 60
+    ? `há ${diffMin} min`
+    : `há ${Math.round(diffMin/60)}h`;
+  meta.textContent = `Atualizado ${diffTxt}`;
+
+  // Sparkline com barras proporcional ao maior valor
+  const vals    = [...ADS_BALANCE_DATA].reverse().map(r => parseFloat(r.balance_brl) || 0);
+  const maxVal  = Math.max(...vals, 1);
+  const barColor = statusClass === 'critico' ? '#dc2626'
+                 : statusClass === 'atencao' ? '#f97316'
+                 : statusClass === 'aviso'   ? '#eab308'
+                 : '#2563eb';
+  spark.innerHTML = vals.slice(-20).map(v => {
+    const h = Math.max(2, Math.round((v / maxVal) * 28));
+    return `<span style="height:${h}px;background:${barColor}"></span>`;
+  }).join('');
 }
 
 // ─── KPI CARDS ────────────────────────────────────────────────────────────────
