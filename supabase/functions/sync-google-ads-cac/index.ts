@@ -10,7 +10,16 @@
  *
  * Aceita body JSON opcional:
  *   { "start": "2026-01-01", "end": "2026-04-29" }  — backfill
- *   Sem body: últimos 3 dias (incremental)
+ *   { "entity": "search_terms" | "keywords" }       — roda só 1 das 2 entidades
+ *                                                       (reduz CPU time por invocação,
+ *                                                       útil no plano Free do Supabase)
+ *                                                       OBS: com entity="search_terms",
+ *                                                       is_existing_keyword fica sempre
+ *                                                       false (não busca keyword_view,
+ *                                                       pra economizar CPU). Roda um
+ *                                                       sync de keywords depois se
+ *                                                       precisar desse campo correto.
+ *   Sem body: últimos 3 dias, ambas entidades (incremental)
  *
  * Secrets necessários (mesmos da sync-google-ads):
  *   GADS_CLIENT_ID       — OAuth client ID
@@ -135,11 +144,16 @@ Deno.serve(async (req) => {
 
   let start = daysAgo(3)
   let end   = todayISO()
+  let entity: 'search_terms' | 'keywords' | null = null
   try {
     const body = await req.json().catch(() => null)
     if (body?.start) start = body.start
     if (body?.end)   end   = body.end
+    if (body?.entity === 'search_terms' || body?.entity === 'keywords') entity = body.entity
   } catch { /* ok */ }
+
+  const wantSearchTerms = entity === null || entity === 'search_terms'
+  const wantKeywords    = entity === null || entity === 'keywords'
 
   const { data: run } = await supabase
     .from('sync_runs')
@@ -158,60 +172,69 @@ Deno.serve(async (req) => {
     const accessToken = await getAccessToken(clientId, clientSecret, refreshToken)
     const dateRange = `segments.date BETWEEN '${start}' AND '${end}'`
 
-    // ── Search Terms: clicks/impressions/cost (todas conversões agregadas, não usado) ──
-    const searchTermsRaw = await gadsSearch(accessToken, devToken, customerId, `
-      SELECT
-        segments.date,
-        campaign.id, campaign.name,
-        ad_group.id, ad_group.name,
-        search_term_view.search_term,
-        metrics.impressions, metrics.clicks, metrics.cost_micros
-      FROM search_term_view
-      WHERE ${dateRange}
-        AND campaign.status != 'REMOVED'
-      ORDER BY segments.date DESC
-    `) as SearchTermRow[]
+    // ── Monta só as queries necessárias para a(s) entidade(s) pedida(s).
+    //    Quando entity=search_terms, NÃO busca keyword_view (economiza CPU no
+    //    plano Free) — is_existing_keyword fica false por padrão nesse caso.
+    const queries: Record<string, Promise<unknown[]> | null> = {
+      searchTerms: wantSearchTerms ? gadsSearch(accessToken, devToken, customerId, `
+        SELECT
+          segments.date,
+          campaign.id, campaign.name,
+          ad_group.id, ad_group.name,
+          search_term_view.search_term,
+          metrics.impressions, metrics.clicks, metrics.cost_micros
+        FROM search_term_view
+        WHERE ${dateRange}
+          AND campaign.status != 'REMOVED'
+        ORDER BY segments.date DESC
+      `) : null,
 
-    // ── Search Terms: só conversões PURCHASE (mesmo critério do gads-intraday-script.js) ──
-    const searchTermsPurchaseRaw = await gadsSearch(accessToken, devToken, customerId, `
-      SELECT
-        segments.date, segments.conversion_action_category,
-        campaign.id, ad_group.id, search_term_view.search_term,
-        metrics.conversions
-      FROM search_term_view
-      WHERE ${dateRange}
-        AND campaign.status != 'REMOVED'
-        AND segments.conversion_action_category = 'PURCHASE'
-    `) as PurchaseRow[]
+      searchTermsPurchase: wantSearchTerms ? gadsSearch(accessToken, devToken, customerId, `
+        SELECT
+          segments.date, segments.conversion_action_category,
+          campaign.id, ad_group.id, search_term_view.search_term,
+          metrics.conversions
+        FROM search_term_view
+        WHERE ${dateRange}
+          AND campaign.status != 'REMOVED'
+          AND segments.conversion_action_category = 'PURCHASE'
+      `) : null,
+
+      keywords: wantKeywords ? gadsSearch(accessToken, devToken, customerId, `
+        SELECT
+          segments.date,
+          campaign.id, campaign.name,
+          ad_group.id, ad_group.name,
+          ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
+          ad_group_criterion.status,
+          metrics.impressions, metrics.clicks, metrics.cost_micros
+        FROM keyword_view
+        WHERE ${dateRange}
+          AND campaign.status != 'REMOVED'
+          AND ad_group_criterion.status != 'REMOVED'
+        ORDER BY segments.date DESC
+      `) : null,
+
+      keywordsPurchase: wantKeywords ? gadsSearch(accessToken, devToken, customerId, `
+        SELECT
+          segments.date, segments.conversion_action_category,
+          campaign.id, ad_group.id, ad_group_criterion.keyword.text,
+          metrics.conversions
+        FROM keyword_view
+        WHERE ${dateRange}
+          AND campaign.status != 'REMOVED'
+          AND segments.conversion_action_category = 'PURCHASE'
+      `) : null,
+    }
+
+    const [searchTermsRaw, searchTermsPurchaseRaw, keywordsRaw, keywordsPurchaseRaw] = await Promise.all([
+      queries.searchTerms ?? Promise.resolve([]),
+      queries.searchTermsPurchase ?? Promise.resolve([]),
+      queries.keywords ?? Promise.resolve([]),
+      queries.keywordsPurchase ?? Promise.resolve([]),
+    ]) as [SearchTermRow[], PurchaseRow[], KeywordRow[], PurchaseRow[]]
+
     const searchTermsPurchases = purchasesByKey(searchTermsPurchaseRaw, 'searchTermView')
-
-    // ── Keywords: clicks/impressions/cost + status/match_type ──────────────────
-    const keywordsRaw = await gadsSearch(accessToken, devToken, customerId, `
-      SELECT
-        segments.date,
-        campaign.id, campaign.name,
-        ad_group.id, ad_group.name,
-        ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
-        ad_group_criterion.status,
-        metrics.impressions, metrics.clicks, metrics.cost_micros
-      FROM keyword_view
-      WHERE ${dateRange}
-        AND campaign.status != 'REMOVED'
-        AND ad_group_criterion.status != 'REMOVED'
-      ORDER BY segments.date DESC
-    `) as KeywordRow[]
-
-    // ── Keywords: só conversões PURCHASE ────────────────────────────────────────
-    const keywordsPurchaseRaw = await gadsSearch(accessToken, devToken, customerId, `
-      SELECT
-        segments.date, segments.conversion_action_category,
-        campaign.id, ad_group.id, ad_group_criterion.keyword.text,
-        metrics.conversions
-      FROM keyword_view
-      WHERE ${dateRange}
-        AND campaign.status != 'REMOVED'
-        AND segments.conversion_action_category = 'PURCHASE'
-    `) as PurchaseRow[]
     const keywordsPurchases = purchasesByKey(keywordsPurchaseRaw, 'adGroupCriterion')
 
     // ── Keywords ativas (para is_existing_keyword nos search terms) ────────────
@@ -221,47 +244,76 @@ Deno.serve(async (req) => {
         .map(r => r.adGroupCriterion.keyword.text.toLowerCase())
     )
 
-    // ── Transforma search terms ──────────────────────────────────────────────
-    const searchTermRows = searchTermsRaw.map(r => {
-      const key = [r.segments.date, r.campaign.id, r.adGroup.id, r.searchTermView.searchTerm].join('|')
-      return {
-        date:                r.segments.date,
-        search_term:         r.searchTermView.searchTerm,
-        campaign_id:         r.campaign.id,
-        campaign_name:       r.campaign.name,
-        ad_group_id:         r.adGroup.id,
-        ad_group_name:       r.adGroup.name,
-        clicks:              parseInt(r.metrics.clicks ?? '0') || 0,
-        impressions:         parseInt(r.metrics.impressions ?? '0') || 0,
-        cost_micros:         parseInt(r.metrics.costMicros ?? '0') || 0,
-        purchases:           searchTermsPurchases.get(key) ?? 0,
-        is_existing_keyword: activeKeywordTexts.has(r.searchTermView.searchTerm.toLowerCase()),
-        raw_json:            r,
-        ingested_at:         new Date().toISOString(),
-      }
-    })
+    // ── Transforma search terms. O Google Ads pode retornar mais de uma linha
+    //    para a mesma chave (date+search_term+campaign+ad_group) por segmentação
+    //    implícita não capturada no SELECT — por isso agrega (soma) por chave em
+    //    vez de mapear 1:1, senão o upsert falha com
+    //    "ON CONFLICT DO UPDATE command cannot affect row a second time".
+    const searchTermRows = wantSearchTerms ? Array.from(
+      searchTermsRaw.reduce((acc, r) => {
+        const key = [r.segments.date, r.campaign.id, r.adGroup.id, r.searchTermView.searchTerm].join('|')
+        const existing = acc.get(key)
+        const clicks      = parseInt(r.metrics.clicks ?? '0') || 0
+        const impressions = parseInt(r.metrics.impressions ?? '0') || 0
+        const costMicros  = parseInt(r.metrics.costMicros ?? '0') || 0
+        if (existing) {
+          existing.clicks += clicks
+          existing.impressions += impressions
+          existing.cost_micros += costMicros
+        } else {
+          acc.set(key, {
+            date:                r.segments.date,
+            search_term:         r.searchTermView.searchTerm,
+            campaign_id:         r.campaign.id,
+            campaign_name:       r.campaign.name,
+            ad_group_id:         r.adGroup.id,
+            ad_group_name:       r.adGroup.name,
+            clicks,
+            impressions,
+            cost_micros:         costMicros,
+            purchases:           searchTermsPurchases.get(key) ?? 0,
+            is_existing_keyword: activeKeywordTexts.has(r.searchTermView.searchTerm.toLowerCase()),
+            ingested_at:         new Date().toISOString(),
+          })
+        }
+        return acc
+      }, new Map<string, any>()).values()
+    ) : []
 
-    // ── Transforma keywords ──────────────────────────────────────────────────
+    // ── Transforma keywords. Mesmo raciocínio de agregação por chave do bloco
+    //    acima — keyword_view também pode duplicar a mesma chave composta.
     const matchTypeMap: Record<string, string> = { BROAD: 'broad', PHRASE: 'phrase', EXACT: 'exact' }
-    const keywordRows = keywordsRaw.map(r => {
-      const key = [r.segments.date, r.campaign.id, r.adGroup.id, r.adGroupCriterion.keyword.text].join('|')
-      return {
-        date:               r.segments.date,
-        keyword:            r.adGroupCriterion.keyword.text,
-        match_type:         matchTypeMap[r.adGroupCriterion.keyword.matchType] ?? 'broad',
-        campaign_id:        r.campaign.id,
-        campaign_name:      r.campaign.name,
-        ad_group_id:        r.adGroup.id,
-        ad_group_name:      r.adGroup.name,
-        status_google_ads:  r.adGroupCriterion.status,
-        clicks:             parseInt(r.metrics.clicks ?? '0') || 0,
-        impressions:        parseInt(r.metrics.impressions ?? '0') || 0,
-        cost_micros:        parseInt(r.metrics.costMicros ?? '0') || 0,
-        purchases:          keywordsPurchases.get(key) ?? 0,
-        raw_json:           r,
-        ingested_at:        new Date().toISOString(),
-      }
-    })
+    const keywordRows = wantKeywords ? Array.from(
+      keywordsRaw.reduce((acc, r) => {
+        const key = [r.segments.date, r.campaign.id, r.adGroup.id, r.adGroupCriterion.keyword.text].join('|')
+        const existing = acc.get(key)
+        const clicks      = parseInt(r.metrics.clicks ?? '0') || 0
+        const impressions = parseInt(r.metrics.impressions ?? '0') || 0
+        const costMicros  = parseInt(r.metrics.costMicros ?? '0') || 0
+        if (existing) {
+          existing.clicks += clicks
+          existing.impressions += impressions
+          existing.cost_micros += costMicros
+        } else {
+          acc.set(key, {
+            date:               r.segments.date,
+            keyword:            r.adGroupCriterion.keyword.text,
+            match_type:         matchTypeMap[r.adGroupCriterion.keyword.matchType] ?? 'broad',
+            campaign_id:        r.campaign.id,
+            campaign_name:      r.campaign.name,
+            ad_group_id:        r.adGroup.id,
+            ad_group_name:      r.adGroup.name,
+            status_google_ads:  r.adGroupCriterion.status,
+            clicks,
+            impressions,
+            cost_micros:        costMicros,
+            purchases:          keywordsPurchases.get(key) ?? 0,
+            ingested_at:        new Date().toISOString(),
+          })
+        }
+        return acc
+      }, new Map<string, any>()).values()
+    ) : []
 
     // ── Upsert idempotente (requer UNIQUE INDEX — ver google_ads_cac_sync.sql) ──
     if (searchTermRows.length > 0) {

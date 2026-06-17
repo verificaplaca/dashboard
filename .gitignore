@@ -1,2 +1,7 @@
 .DS_Store
 supabase/.temp/
+backfill/.env
+backfill/*.csv
+backfill/_*.json
+backfill/import_log.txt
+backfill/node_modules/
