@@ -44,6 +44,13 @@
     @keyframes spin-refresh { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     .refresh-btn.loading svg { animation: spin-refresh .7s linear infinite; }
 
+    /* Link "Google Ads CAC" no header — ícone + texto, abrevia em mobile */
+    .gads-cac-link { width: auto; padding: 5px 10px; gap: 6px; font-size: 12px; font-weight: 600; }
+    .gads-cac-link span { white-space: nowrap; }
+    @media (max-width: 600px) {
+      .gads-cac-link { padding: 5px 7px; font-size: 11px; }
+    }
+
     /* Mobile header
        Linha 1: logo (esquerda) + actions (direita)
        Linha 2: controles de filtro (largura total) */
@@ -515,6 +522,10 @@
     </div>
   </div>
   <div class="header-actions">
+    <a class="refresh-btn gads-cac-link" href="google-ads-cac.html" title="Google Ads CAC" style="text-decoration:none;">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 13l3-5 3 2 3-6 3 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Google Ads CAC</span>
+    </a>
     <button class="refresh-btn" id="refreshBtn" onclick="refreshDashboard()" title="Atualizar dados (R)">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
         <path d="M13.7 2.3A7 7 0 1 0 14.9 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>

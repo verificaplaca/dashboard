@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google Ads CAC · Verifica Placa</title>
+<link rel="icon" type="image/jpeg" href="favicon-verifica-placa-2.jpg" />
+<script src="google-ads-cac-service.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --border: #e8e8e4;
+    --text-primary: #1a1a1a; --text-secondary: #6b6b6b; --text-muted: #a0a0a0;
+    --accent: #2563eb; --green: #16a34a; --green-soft: #f0fdf4;
+    --red: #dc2626; --red-soft: #fef2f2; --amber: #d97706; --amber-soft: #fffbeb;
+    --purple: #7c3aed; --purple-soft: #f5f3ff;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  }
+  body { background: var(--bg); color: var(--text-primary); min-height: 100vh;
+         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border);
+           padding: 0 28px; height: 56px; display: flex; align-items: center;
+           justify-content: space-between; position: sticky; top: 0; z-index: 100; gap: 12px; }
+  .logo { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px;
+          color: var(--text-primary); text-decoration: none; flex-shrink: 0; }
+  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px;
+               display: flex; align-items: center; justify-content: center; color: white;
+               font-size: 12px; font-weight: 800; }
+  .back-link { font-size: 12.5px; color: var(--text-secondary); text-decoration: none; }
+  .back-link:hover { color: var(--accent); }
+
+  main { padding: 24px 28px 60px; max-width: 1400px; margin: 0 auto; }
+  .page-title { font-size: 21px; font-weight: 700; }
+  .page-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+  .cards-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 20px; }
+  @media (max-width: 1100px) { .cards-row { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 640px)  { .cards-row { grid-template-columns: repeat(2, 1fr); } }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+              padding: 12px 14px; box-shadow: var(--shadow); }
+  .kpi-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+  .kpi-value { font-size: 19px; font-weight: 700; margin-top: 4px; }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-value.amber { color: var(--amber); }
+
+  .filters-row { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+  .filter-select, .filter-input { background: var(--surface); border: 1px solid var(--border);
+    border-radius: 7px; padding: 7px 10px; font-size: 12.5px; color: var(--text-primary); }
+  .filter-input { min-width: 200px; flex: 1; }
+
+  .section-label { font-size: 13px; font-weight: 600; color: var(--text-secondary);
+                    margin-top: 28px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .03em; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          box-shadow: var(--shadow); padding: 14px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--text-secondary); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .02em; }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--accent); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.reason { max-width: 260px; white-space: normal; color: var(--text-secondary); font-size: 12px; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-PROMOTE_HIGH_PRIORITY { background: var(--green-soft); color: var(--green); }
+  .badge-PROMOTE { background: var(--green-soft); color: var(--green); }
+  .badge-NEGATIVE { background: var(--red-soft); color: var(--red); }
+  .badge-NEGATIVE_REVIEW { background: var(--red-soft); color: var(--red); }
+  .badge-PAUSE { background: var(--red-soft); color: var(--red); }
+  .badge-PAUSE_NO_PURCHASE { background: var(--red-soft); color: var(--red); }
+  .badge-WATCH { background: var(--amber-soft); color: var(--amber); }
+  .badge-KEEP { background: var(--bg); color: var(--text-secondary); }
+  .badge-KEEP_OR_SCALE { background: var(--purple-soft); color: var(--purple); }
+
+  .action-btns { display: flex; gap: 4px; }
+  .action-btn { border: 1px solid var(--border); background: var(--surface); border-radius: 6px;
+                padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text-secondary); }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .action-btn.active-accepted { background: var(--green-soft); color: var(--green); border-color: var(--green); }
+  .action-btn.active-ignored  { background: var(--red-soft); color: var(--red); border-color: var(--red); }
+  .action-btn.active-reviewed { background: var(--purple-soft); color: var(--purple); border-color: var(--purple); }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
+  .disclaimer { margin-top: 10px; font-size: 11.5px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="dashboard.html">
+    <span class="logo-icon">VP</span>
+    Dashboard Verifica Placa
+  </a>
+  <a class="back-link" href="dashboard.html">← Voltar ao dashboard · Google Ads CAC</a>
+</header>
+
+<main>
+  <div class="page-title">Google Ads CAC</div>
+  <div class="page-subtitle">Análise de termos e palavras-chave com foco em custo por compra.</div>
+
+  <div class="cards-row" id="kpiRow"></div>
+
+  <div class="filters-row">
+    <select class="filter-select" id="fPeriod">
+      <option value="today">Hoje</option>
+      <option value="7d">Últimos 7 dias</option>
+      <option value="30d">Últimos 30 dias</option>
+    </select>
+    <select class="filter-select" id="fCampaign" onchange="applyFilters()">
+      <option value="">Todas campanhas</option>
+    </select>
+    <select class="filter-select" id="fAdGroup" onchange="applyFilters()">
+      <option value="">Todos ad groups</option>
+    </select>
+    <select class="filter-select" id="fRecommendation" onchange="applyFilters()">
+      <option value="">Todas recomendações</option>
+      <option value="PROMOTE_HIGH_PRIORITY">Promote (alta prioridade)</option>
+      <option value="PROMOTE">Promote</option>
+      <option value="NEGATIVE">Negativar</option>
+      <option value="NEGATIVE_REVIEW">Negativar (revisar)</option>
+      <option value="PAUSE">Pausar</option>
+      <option value="PAUSE_NO_PURCHASE">Pausar (sem compra)</option>
+      <option value="WATCH">Observar</option>
+      <option value="KEEP">Manter</option>
+      <option value="KEEP_OR_SCALE">Manter/Escalar</option>
+    </select>
+    <select class="filter-select" id="fType" onchange="applyFilters()">
+      <option value="all">Search Terms + Keywords</option>
+      <option value="search_term">Somente Search Terms</option>
+      <option value="keyword">Somente Keywords</option>
+    </select>
+    <input class="filter-input" id="fSearch" placeholder="Buscar termo/keyword..." oninput="applyFilters()" />
+  </div>
+
+  <div class="section-label">Search Terms</div>
+  <div class="card">
+    <div class="table-wrap">
+      <table id="searchTermsTable">
+        <thead><tr>
+          <th>Recomendação</th>
+          <th>Search Term</th>
+          <th>Campanha</th>
+          <th>Ad Group</th>
+          <th class="num sortable" data-col="clicks">Clicks</th>
+          <th class="num sortable" data-col="impressions">Impressions</th>
+          <th class="num">CTR</th>
+          <th class="num sortable" data-col="cost">Cost</th>
+          <th class="num sortable" data-col="purchases">Purchases</th>
+          <th class="num sortable" data-col="cpa_purchase">CPA Purchase</th>
+          <th class="num">Conversion Rate</th>
+          <th>Motivo</th>
+          <th>Ação</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="stEmpty" style="display:none">Nenhum search term no período/filtro selecionado.</div>
+  </div>
+
+  <div class="section-label">Keywords</div>
+  <div class="card">
+    <div class="table-wrap">
+      <table id="keywordsTable">
+        <thead><tr>
+          <th>Recomendação</th>
+          <th>Keyword</th>
+          <th>Match Type</th>
+          <th>Campanha</th>
+          <th>Ad Group</th>
+          <th>Status Google Ads</th>
+          <th class="num sortable" data-col="clicks">Clicks</th>
+          <th class="num sortable" data-col="impressions">Impressions</th>
+          <th class="num">CTR</th>
+          <th class="num sortable" data-col="cost">Cost</th>
+          <th class="num sortable" data-col="purchases">Purchases</th>
+          <th class="num sortable" data-col="cpa_purchase">CPA Purchase</th>
+          <th class="num">Conversion Rate</th>
+          <th>Motivo</th>
+          <th>Ação</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="kwEmpty" style="display:none">Nenhuma keyword no período/filtro selecionado.</div>
+  </div>
+
+  <div class="disclaimer">
+    V1: nenhuma ação aqui altera o Google Ads automaticamente. Botões de ação apenas registram revisão interna (aceito / ignorado / revisado).
+  </div>
+</main>
+
+<script>
+// ─── SUPABASE (mesma instância do dashboard principal) ─────────────────────
+const SUPA_URL = 'https://ftmgmfdqdqxboiktxcoj.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0bWdtZmRxZHF4Ym9pa3R4Y29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MTIwNzAsImV4cCI6MjA5Mjk4ODA3MH0.IfOKtwpBB9orGN3UnCZDG8RYEHTAEAsX0LHxV3WBfCs';
+const SUPA_HDR = { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' };
+
+async function supaGet(path) {
+  const r = await fetch(SUPA_URL + path, { headers: SUPA_HDR });
+  if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
+  return r.json();
+}
+
+async function supaPost(path, body) {
+  const r = await fetch(SUPA_URL + path, {
+    method: 'POST',
+    headers: { ...SUPA_HDR, Prefer: 'return=representation' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error('Supabase POST ' + r.status + ': ' + path);
+  return r.json();
+}
+
+// ─── CAMADA DE INTEGRAÇÃO: busca dados brutos ──────────────────────────────
+function periodToDateRange(period) {
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const today = new Date();
+  let from = new Date(today);
+  if (period === '7d') from.setDate(from.getDate() - 6);
+  else if (period === '30d') from.setDate(from.getDate() - 29);
+  // 'today' → from = today
+  return { from: fmt(from), to: fmt(today) };
+}
+
+async function fetchGoogleAdsCacData(period) {
+  const { from, to } = periodToDateRange(period);
+  const dateQs = `date=gte.${from}&date=lte.${to}`;
+
+  const [searchTermsRaw, keywordsRaw, blockedTerms, reviews] = await Promise.all([
+    supaGet(`/rest/v1/google_ads_search_terms_daily?${dateQs}&select=*`),
+    supaGet(`/rest/v1/google_ads_keywords_daily?${dateQs}&select=*`),
+    supaGet(`/rest/v1/google_ads_blocked_terms?active=eq.true&select=*`),
+    supaGet(`/rest/v1/google_ads_optimization_reviews?select=*&order=updated_at.desc`),
+  ]);
+
+  return { searchTermsRaw, keywordsRaw, blockedTerms, reviews };
+}
+
+// Upsert por (entity_type, entity_key, campaign_id, ad_group_id) — requer unique
+// constraint nessas colunas (ver supabase/google_ads_cac.sql). Evita duplicar
+// linhas de status a cada clique nos botões de ação.
+async function upsertReview(reviewPayload) {
+  const r = await fetch(SUPA_URL + '/rest/v1/google_ads_optimization_reviews?on_conflict=entity_type,entity_key,campaign_id,ad_group_id', {
+    method: 'POST',
+    headers: { ...SUPA_HDR, Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(reviewPayload),
+  });
+  if (!r.ok) throw new Error('Supabase upsert ' + r.status + ': review');
+  return r.json();
+}
+
+// ─── ESTADO GLOBAL ──────────────────────────────────────────────────────────
+let STATE = {
+  searchTerms: [],
+  keywords: [],
+  filteredSearchTerms: [],   // linhas das tabelas (respeita filtro de tipo)
+  filteredKeywords: [],      // linhas das tabelas (respeita filtro de tipo)
+  financialKeywords: [],     // cards financeiros: só período + campanha + ad group
+  recommendationSearchTerms: [], // contagens de recomendação: período + campanha + ad group + recomendação
+  recommendationKeywords: [],    // contagens de recomendação: período + campanha + ad group + recomendação
+  sort: { table: null, col: null, dir: 1 },
+};
+
+function fmtR(n) {
+  if (n === null || n === undefined) return '—';
+  return 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtPct(n) {
+  if (n === null || n === undefined) return '—';
+  return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+}
+function fmtInt(n) { return Number(n ?? 0).toLocaleString('pt-BR'); }
+
+// Escapa texto antes de inserir via innerHTML (evita XSS com dados do Google Ads/Supabase)
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ─── CARREGAMENTO PRINCIPAL ─────────────────────────────────────────────────
+async function loadAndRender() {
+  const period = document.getElementById('fPeriod').value;
+  try {
+    const { searchTermsRaw, keywordsRaw, blockedTerms, reviews } = await fetchGoogleAdsCacData(period);
+
+    // Chave composta (entity_type::entity_key::campaign_id::ad_group_id) — evita
+    // colisão entre o mesmo termo/keyword em campanhas/ad groups diferentes.
+    const reviewsMap = GoogleAdsOptimizationService.reviewsToMap(reviews);
+
+    STATE.searchTerms = GoogleAdsOptimizationService.analyzeSearchTerms(searchTermsRaw, blockedTerms, reviewsMap);
+    STATE.keywords    = GoogleAdsOptimizationService.analyzeKeywords(keywordsRaw, reviewsMap);
+
+    populateFilterOptions();
+    applyFilters();
+  } catch (err) {
+    console.error('Erro ao carregar dados Google Ads CAC:', err);
+    document.getElementById('kpiRow').innerHTML =
+      `<div class="kpi-card" style="grid-column: span 6"><div class="kpi-label">Erro ao carregar dados</div><div class="kpi-value red" style="font-size:13px">${err.message}</div></div>`;
+  }
+}
+
+function populateFilterOptions() {
+  const campaigns = new Set();
+  const adGroups = new Set();
+  for (const r of [...STATE.searchTerms, ...STATE.keywords]) {
+    if (r.campaign_name) campaigns.add(r.campaign_name);
+    if (r.ad_group_name) adGroups.add(r.ad_group_name);
+  }
+  const campSel = document.getElementById('fCampaign');
+  const agSel = document.getElementById('fAdGroup');
+  const prevCamp = campSel.value, prevAg = agSel.value;
+  campSel.innerHTML = '<option value="">Todas campanhas</option>' +
+    [...campaigns].sort().map(c => `<option value="${c}">${c}</option>`).join('');
+  agSel.innerHTML = '<option value="">Todos ad groups</option>' +
+    [...adGroups].sort().map(a => `<option value="${a}">${a}</option>`).join('');
+  campSel.value = prevCamp; agSel.value = prevAg;
+}
+
+// ─── FILTROS ────────────────────────────────────────────────────────────────
+// Cards financeiros (investimento/purchases/CAC): respeitam apenas período
+// (já aplicado no fetch) + campanha + ad group. NÃO respeitam tipo, busca nem
+// recomendação — senão escolher uma recomendação exclusiva de search terms
+// (PROMOTE/NEGATIVE/NEGATIVE_REVIEW) zeraria summaryKeywords e, com isso, os
+// cards financeiros (buildSummary usa keywords como fonte financeira).
+// Cards de contagem de recomendação: respeitam período + campanha + ad group +
+// recomendação (ignoram tipo e busca).
+function applyFilters() {
+  const campaign = document.getElementById('fCampaign').value;
+  const adGroup = document.getElementById('fAdGroup').value;
+  const recommendation = document.getElementById('fRecommendation').value;
+  const type = document.getElementById('fType').value;
+  const search = document.getElementById('fSearch').value.trim().toLowerCase();
+
+  const matches = (r, key, { withRecommendation = true, withSearch = true } = {}) => {
+    if (campaign && r.campaign_name !== campaign) return false;
+    if (adGroup && r.ad_group_name !== adGroup) return false;
+    if (withRecommendation && recommendation && r.recommendation !== recommendation) return false;
+    if (withSearch && search && !String(r[key]).toLowerCase().includes(search)) return false;
+    return true;
+  };
+
+  // Linhas das tabelas: respeitam todos os filtros, incluindo "tipo".
+  STATE.filteredSearchTerms = (type === 'keyword') ? [] : STATE.searchTerms.filter(r => matches(r, 'search_term'));
+  STATE.filteredKeywords = (type === 'search_term') ? [] : STATE.keywords.filter(r => matches(r, 'keyword'));
+
+  // Cards financeiros: só período + campanha + ad group.
+  STATE.financialKeywords = STATE.keywords.filter(r => matches(r, 'keyword', { withRecommendation: false, withSearch: false }));
+
+  // Cards de contagem de recomendação: período + campanha + ad group + recomendação.
+  STATE.recommendationSearchTerms = STATE.searchTerms.filter(r => matches(r, 'search_term', { withSearch: false }));
+  STATE.recommendationKeywords = STATE.keywords.filter(r => matches(r, 'keyword', { withSearch: false }));
+
+  renderKpis();
+  renderSearchTermsTable();
+  renderKeywordsTable();
+}
+
+// Período muda → recarrega dados do Supabase (intervalo de datas diferente).
+// Demais filtros (campanha, ad group, recomendação, tipo, busca) só re-renderizam
+// localmente via applyFilters(), sem novo fetch.
+document.getElementById('fPeriod').addEventListener('change', loadAndRender);
+
+// ─── KPI CARDS ──────────────────────────────────────────────────────────────
+// buildUiSummary local: financeiro vem só de financialKeywords (período + campanha
+// + ad group, sem recomendação/busca/tipo); contagens vêm de recommendationSearchTerms
+// e recommendationKeywords (período + campanha + ad group + recomendação).
+// Não usa GoogleAdsOptimizationService.buildSummary porque essa função recebe um
+// único par searchTerms/keywords e não distingue as duas fontes.
+function buildUiSummary({ financialKeywords, recommendationSearchTerms, recommendationKeywords }) {
+  const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  const countBy = (list, rec) => list.filter(r => r.recommendation === rec).length;
+
+  const totalCost = round2(financialKeywords.reduce((s, r) => s + r.cost, 0));
+  const totalPurchases = financialKeywords.reduce((s, r) => s + r.purchases, 0);
+  const avgCac = totalPurchases > 0 ? round2(totalCost / totalPurchases) : null;
+
+  return {
+    investimento: totalCost,
+    purchases: totalPurchases,
+    cac_medio: avgCac,
+    termos_para_promover:
+      countBy(recommendationSearchTerms, 'PROMOTE_HIGH_PRIORITY') + countBy(recommendationSearchTerms, 'PROMOTE'),
+    keywords_para_pausar:
+      countBy(recommendationKeywords, 'PAUSE') + countBy(recommendationKeywords, 'PAUSE_NO_PURCHASE'),
+    termos_para_negativar:
+      countBy(recommendationSearchTerms, 'NEGATIVE') + countBy(recommendationSearchTerms, 'NEGATIVE_REVIEW'),
+  };
+}
+
+function renderKpis() {
+  const summary = buildUiSummary({
+    financialKeywords: STATE.financialKeywords,
+    recommendationSearchTerms: STATE.recommendationSearchTerms,
+    recommendationKeywords: STATE.recommendationKeywords,
+  });
+  const cards = [
+    { label: 'Investimento Google Ads', value: fmtR(summary.investimento) },
+    { label: 'Purchases', value: fmtInt(summary.purchases) },
+    { label: 'CAC médio', value: fmtR(summary.cac_medio) },
+    { label: 'Termos para promover', value: fmtInt(summary.termos_para_promover), cls: 'green' },
+    { label: 'Keywords para pausar', value: fmtInt(summary.keywords_para_pausar), cls: 'red' },
+    { label: 'Termos para negativar', value: fmtInt(summary.termos_para_negativar), cls: 'red' },
+  ];
+  document.getElementById('kpiRow').innerHTML = cards.map(c => `
+    <div class="kpi-card">
+      <div class="kpi-label">${c.label}</div>
+      <div class="kpi-value ${c.cls || ''}">${c.value}</div>
+    </div>
+  `).join('');
+}
+
+// ─── BADGE HELPER ───────────────────────────────────────────────────────────
+function badge(rec) {
+  const labels = {
+    PROMOTE_HIGH_PRIORITY: 'Promote ★', PROMOTE: 'Promote', NEGATIVE: 'Negativar',
+    NEGATIVE_REVIEW: 'Negativar (revisar)', PAUSE: 'Pausar', PAUSE_NO_PURCHASE: 'Pausar (sem compra)',
+    WATCH: 'Observar', KEEP: 'Manter', KEEP_OR_SCALE: 'Manter/Escalar',
+  };
+  return `<span class="badge badge-${rec}">${labels[rec] || rec}</span>`;
+}
+
+// data-attributes + event delegation (sem onclick inline com dados interpolados)
+function actionButtons(entityType, entityKey, row) {
+  const status = row.review_status;
+  const dataAttrs = `data-entity-type="${escapeHtml(entityType)}" data-entity-key="${escapeHtml(entityKey)}"`
+    + ` data-campaign-id="${escapeHtml(row.campaign_id || '')}" data-campaign-name="${escapeHtml(row.campaign_name || '')}"`
+    + ` data-ad-group-id="${escapeHtml(row.ad_group_id || '')}" data-ad-group-name="${escapeHtml(row.ad_group_name || '')}"`
+    + ` data-recommendation="${escapeHtml(row.recommendation)}"`;
+  const mk = (action, label) =>
+    `<button class="action-btn ${status === action ? 'active-' + action : ''}" ${dataAttrs} data-action="${action}">${label}</button>`;
+  return `<div class="action-btns">${mk('accepted','Aceitar')}${mk('ignored','Ignorar')}${mk('reviewed','Revisado')}</div>`;
+}
+
+async function handleReview(entityType, entityKey, campaignId, campaignName, adGroupId, adGroupName, recommendation, actionTaken) {
+  try {
+    const payload = GoogleAdsOptimizationService.markAsReviewed({
+      entityType, entityKey, campaignId, campaignName, adGroupId, adGroupName, recommendation, actionTaken,
+    });
+    await upsertReview(payload);
+    // Atualiza estado local sem precisar recarregar tudo
+    const list = entityType === 'search_term' ? STATE.searchTerms : STATE.keywords;
+    const key = entityType === 'search_term' ? 'search_term' : 'keyword';
+    const reviewKey = GoogleAdsOptimizationService.makeEntityKey(entityType, entityKey, campaignId, adGroupId);
+    for (const r of list) {
+      if (r[key] === entityKey && r.review_key === reviewKey) r.review_status = actionTaken;
+    }
+    applyFilters();
+  } catch (err) {
+    alert('Erro ao salvar revisão: ' + err.message);
+  }
+}
+
+// Event delegation para os botões de ação (em vez de onclick inline por linha)
+document.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.action-btn[data-action]');
+  if (!btn) return;
+  const d = btn.dataset;
+  handleReview(
+    d.entityType,
+    d.entityKey,
+    d.campaignId || null,
+    d.campaignName || null,
+    d.adGroupId || null,
+    d.adGroupName || null,
+    d.recommendation,
+    d.action
+  );
+});
+
+// ─── TABELAS ────────────────────────────────────────────────────────────────
+function sortRows(rows, sort) {
+  if (!sort.col) return rows;
+  return [...rows].sort((a, b) => {
+    const av = a[sort.col], bv = b[sort.col];
+    const an = av === null || av === undefined ? -Infinity : Number(av);
+    const bn = bv === null || bv === undefined ? -Infinity : Number(bv);
+    return (an - bn) * sort.dir;
+  });
+}
+
+function ctr(row) {
+  if (!row.impressions) return null;
+  return round2((row.clicks / row.impressions) * 100);
+}
+function round2(n) { return Math.round(n * 100) / 100; }
+
+function renderSearchTermsTable() {
+  const tbody = document.querySelector('#searchTermsTable tbody');
+  let rows = STATE.filteredSearchTerms;
+  if (STATE.sort.table === 'st') rows = sortRows(rows, STATE.sort);
+
+  document.getElementById('stEmpty').style.display = rows.length ? 'none' : 'block';
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${badge(r.recommendation)}</td>
+      <td>${escapeHtml(r.search_term)}</td>
+      <td>${escapeHtml(r.campaign_name) || '—'}</td>
+      <td>${escapeHtml(r.ad_group_name) || '—'}</td>
+      <td class="num">${fmtInt(r.clicks)}</td>
+      <td class="num">${fmtInt(r.impressions)}</td>
+      <td class="num">${fmtPct(ctr(r))}</td>
+      <td class="num">${fmtR(r.cost)}</td>
+      <td class="num">${fmtInt(r.purchases)}</td>
+      <td class="num">${r.cpa_purchase === null ? '—' : fmtR(r.cpa_purchase)}</td>
+      <td class="num">${fmtPct(r.conversion_rate)}</td>
+      <td class="reason">${escapeHtml(r.reason)}</td>
+      <td>${actionButtons('search_term', r.search_term, r)}</td>
+    </tr>
+  `).join('');
+}
+
+function renderKeywordsTable() {
+  const tbody = document.querySelector('#keywordsTable tbody');
+  let rows = STATE.filteredKeywords;
+  if (STATE.sort.table === 'kw') rows = sortRows(rows, STATE.sort);
+
+  document.getElementById('kwEmpty').style.display = rows.length ? 'none' : 'block';
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${badge(r.recommendation)}</td>
+      <td>${escapeHtml(r.keyword)}</td>
+      <td>${escapeHtml(r.match_type) || '—'}</td>
+      <td>${escapeHtml(r.campaign_name) || '—'}</td>
+      <td>${escapeHtml(r.ad_group_name) || '—'}</td>
+      <td>${escapeHtml(r.status_google_ads) || '—'}</td>
+      <td class="num">${fmtInt(r.clicks)}</td>
+      <td class="num">${fmtInt(r.impressions)}</td>
+      <td class="num">${fmtPct(ctr(r))}</td>
+      <td class="num">${fmtR(r.cost)}</td>
+      <td class="num">${fmtInt(r.purchases)}</td>
+      <td class="num">${r.cpa_purchase === null ? '—' : fmtR(r.cpa_purchase)}</td>
+      <td class="num">${fmtPct(r.conversion_rate)}</td>
+      <td class="reason">${escapeHtml(r.reason)}</td>
+      <td>${actionButtons('keyword', r.keyword, r)}</td>
+    </tr>
+  `).join('');
+}
+
+// ─── SORT HEADERS ───────────────────────────────────────────────────────────
+document.querySelectorAll('#searchTermsTable th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    STATE.sort = STATE.sort.table === 'st' && STATE.sort.col === col
+      ? { table: 'st', col, dir: -STATE.sort.dir }
+      : { table: 'st', col, dir: 1 };
+    renderSearchTermsTable();
+  });
+});
+document.querySelectorAll('#keywordsTable th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    STATE.sort = STATE.sort.table === 'kw' && STATE.sort.col === col
+      ? { table: 'kw', col, dir: -STATE.sort.dir }
+      : { table: 'kw', col, dir: 1 };
+    renderKeywordsTable();
+  });
+});
+
+// ─── INIT ───────────────────────────────────────────────────────────────────
+loadAndRender();
+</script>
+</body>
+</html>
