@@ -136,6 +136,9 @@
     .badge.neutral { background: var(--amber-soft); color: var(--amber); }
     .kpi-value { font-size: 22px; font-weight: 700; color: var(--text-primary);
                  line-height: 1; letter-spacing: -.03em; margin-bottom: 8px; }
+    .kpi-value-secondary { font-size: 12px; font-weight: 300; color: var(--text-muted);
+                 line-height: 1.2; letter-spacing: 0; margin: -5px 0 8px; }
+    .kpi-value-secondary b { font-weight: 500; color: var(--text-secondary); }
     /* Sparkline: fixed-height wrapper so Chart.js respects the bounds */
     .kpi-spark-wrap { height: 34px; position: relative; width: 100%; }
     .kpi-spark-wrap canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
@@ -848,8 +851,11 @@ async function loadSupabaseData() {
 function mergeCostIntoAllDays() {
   // Soma custo de Ads (CSV) ao custo de bureau (já preenchido pelo Supabase)
   const costMap = new Map();
-  for (const r of CAMPAIGN_DAILY_DATA)
+  const gadsConvMap = new Map(); // conversões reportadas pelo próprio Google Ads (métrica do Ads, não pedidos pagos)
+  for (const r of CAMPAIGN_DAILY_DATA) {
     costMap.set(r.dateStr, (costMap.get(r.dateStr) || 0) + r.cost);
+    gadsConvMap.set(r.dateStr, (gadsConvMap.get(r.dateStr) || 0) + r.conversions);
+  }
   for (const d of ALL_DAYS) {
     d.cost      = costMap.get(d.dateStr) || 0;
     d.costTotal = +(d.cost + d.costBureau).toFixed(2);
@@ -857,6 +863,9 @@ function mergeCostIntoAllDays() {
     d.netProfit = +(d.revenue * netFactor(d.dateStr) - d.costTotal).toFixed(2);
     if (d.conv > 0 && d.cost      > 0) d.cac = +(d.cost      / d.conv).toFixed(2);
     if (d.conv > 0 && d.costTotal > 0) d.cpv = +(d.costTotal / d.conv).toFixed(2);
+    // CAC "Google Ads" — custo Ads ÷ conversões reportadas pelo Ads (métrica própria, diferente de paid_orders real)
+    d.gadsConv  = gadsConvMap.get(d.dateStr) || 0;
+    d.cacAds    = d.gadsConv > 0 && d.cost > 0 ? +(d.cost / d.gadsConv).toFixed(2) : null;
   }
 }
 
@@ -1076,6 +1085,7 @@ function totals() {
   const costBureau = filtered.reduce((s,d)=>s+(d.costBureau||0),  0)*costMul;
   const costTotal  = +(cost + costBureau).toFixed(2);
   const conv       = filtered.reduce((s,d)=>s+d.conv,             0)*convMul;
+  const gadsConv   = filtered.reduce((s,d)=>s+(d.gadsConv||0),    0)*convMul;
   // Lucro real = receita − custo_ads − custo_bureau
   const pft        = usingRealData
     ? filtered.reduce((s,d)=>s+(d.profit||0), 0)*revMul
@@ -1090,8 +1100,9 @@ function totals() {
   const refundCount = filtered.reduce((s,d)=>s+(d.refundCount||0),0);
   const refundValue = +filtered.reduce((s,d)=>s+(d.refundValue||0),0).toFixed(2);
   const refundRate  = (conv+refundCount)>0 ? +(refundCount/(conv+refundCount)*100).toFixed(2) : 0;
-  return { rev, cost, costBureau, costTotal, conv, pft, netPft, netPftOpt, refundCount, refundValue, refundRate,
+  return { rev, cost, costBureau, costTotal, conv, gadsConv, pft, netPft, netPftOpt, refundCount, refundValue, refundRate,
            cac: conv>0 && cost>0     ? +(cost     /conv).toFixed(2) : 0,
+           cacAds: gadsConv>0 && cost>0 ? +(cost   /gadsConv).toFixed(2) : 0,
            cpv: conv>0 && costTotal>0? +(costTotal/conv).toFixed(2) : 0,
            roas:costTotal>0?+(rev/costTotal).toFixed(2):0,
            margin:rev>0?pft/rev:0, ticket:conv>0?+(rev/conv).toFixed(2):0, convRate, upsell };
@@ -1119,16 +1130,25 @@ function campTotals() {
     if (agg.size > 0) {
       const camps = Array.from(agg.values());
       const totalRev = camps.reduce((s,c) => s + c.rev, 0);
+      // paid_orders real do período (pagamentos confirmados na Pagar.me) — não é segmentado por campanha no banco,
+      // então distribuímos proporcionalmente à participação de conversões do Google Ads de cada campanha.
+      const totalPaidOrders = filtered.reduce((s,d) => s + d.conv, 0);
+      const totalGadsConv   = camps.reduce((s,c) => s + c.conv, 0);
       return camps.map(c => {
         // Bureau proporcional à participação de receita da campanha
         const bureauShare = totalRev > 0 ? totalBureau * (c.rev / totalRev) : 0;
         const costTotal   = +(c.cost + bureauShare).toFixed(2);
         const pft         = +(c.rev - costTotal).toFixed(2);
+        const gadsConv    = c.conv; // conversões reportadas pelo Google Ads (métrica própria do Ads)
+        const realConv    = totalGadsConv > 0 ? totalPaidOrders * (gadsConv / totalGadsConv) : 0; // estimativa
         return {
           ...c, color: CAMP_COLORS[c.name] || '#6b6b6b',
           costTotal, bureauShare: +bureauShare.toFixed(2),
           pft,
-          cac:  c.conv > 0 ? +(c.cost / c.conv).toFixed(2) : 0,  // CAC = só Ads (padrão de mercado)
+          gadsConv,
+          conv: +realConv.toFixed(1), // CAC principal agora usa pedidos pagos reais (estimados por campanha)
+          cac:    realConv > 0 ? +(c.cost / realConv).toFixed(2) : 0,  // CAC real (pago) — estimado por participação
+          cacAds: gadsConv > 0 ? +(c.cost / gadsConv).toFixed(2) : 0,  // CAC Google Ads (métrica própria do Ads)
           roas: c.cost > 0 ? +(c.rev  / c.cost).toFixed(2) : 0,
           convShare: 0, costShare: 0,
         };
@@ -1147,7 +1167,7 @@ function campTotals() {
       const costTotal   = +(cost + bureauShare).toFixed(2);
       const pft = +(rev - costTotal).toFixed(2);
       return {...c, color:CAMP_COLORS[c.name], cost, costTotal, bureauShare:+bureauShare.toFixed(2),
-              conv, rev, pft, cac:conv>0?cost/conv:0, roas:cost>0?rev/cost:0};
+              conv, rev, pft, cac:conv>0?cost/conv:0, cacAds:0, gadsConv:0, roas:cost>0?rev/cost:0};
     })
     .sort((a,b)=>b.conv-a.conv);
 }
@@ -1537,7 +1557,7 @@ function buildKPIs(T) {
   const row2 = [
     { id:'ro', label:'ROAS',             value:fmtN(T.roas,2,'')+'×',   delta:d(T.roas,P?.roas,false),      sub:'retorno s/ investimento',  color:T.roas>=1?'green':T.roas>=.8?'amber':'red', dir:T.roas>=1?'up':'down', badge:T.roas>=1.5?'bom':T.roas>=1?'aceitável':'crítico', spark:filtered.map(x=>x.costTotal>0?x.revenue/x.costTotal:0), sc:'#2563eb', alert:T.roas<1, tip:'receita bruta ÷ custo total\n(R$ gerado por R$ investido)' },
     { id:'cpv', label:'CPV',             value:T.cpv>0?fmtR(T.cpv):'—', delta:d(T.cpv,P?.cpv,true),        sub:'custo_total / compras',    color:'amber', dir:'neutral', badge:'custo por venda',  spark:filtered.map(x=>x.cpv||null),                            sc:'#d97706', tip:'custo total ÷ nº de compras\n(custo médio por venda)' },
-    { id:'ca', label:'CAC',              value:T.cac>0?fmtR(T.cac):'—', delta:d(T.cac,P?.cac,true),        sub:'custo_ads / compras · meta: '+fmtR(TARGET_CPA), color:T.cac>0&&T.cac<=TARGET_CPA?'green':T.cac>0?'red':'blue', dir:T.cac>0&&T.cac<=TARGET_CPA?'up':T.cac>0?'down':'neutral', badge:T.cac>0&&T.cac<=TARGET_CPA?'dentro da meta':T.cac>0?'acima da meta':'s/ ads', spark:filtered.map(x=>x.cac), sc:T.cac>0&&T.cac<=TARGET_CPA?'#16a34a':'#dc2626', alert:T.cac>TARGET_CPA*1.15, targetPct:_tgtCac, targetReverse:false, tip:'custo Google Ads ÷ nº de compras\n(custo de aquisição por cliente)' },
+    { id:'ca', label:'CAC',              value:T.cac>0?fmtR(T.cac):'—', delta:d(T.cac,P?.cac,true),        sub:'custo_ads / compras · meta: '+fmtR(TARGET_CPA), color:T.cac>0&&T.cac<=TARGET_CPA?'green':T.cac>0?'red':'blue', dir:T.cac>0&&T.cac<=TARGET_CPA?'up':T.cac>0?'down':'neutral', badge:T.cac>0&&T.cac<=TARGET_CPA?'dentro da meta':T.cac>0?'acima da meta':'s/ ads', spark:filtered.map(x=>x.cac), sc:T.cac>0&&T.cac<=TARGET_CPA?'#16a34a':'#dc2626', alert:T.cac>TARGET_CPA*1.15, targetPct:_tgtCac, targetReverse:false, secondary:T.cacAds>0?`CAC Google Ads: <b>${fmtR(T.cacAds)}</b>`:'', tip:'custo Google Ads ÷ nº de compras\n(custo de aquisição por cliente)\n\nCAC Google Ads = custo Ads ÷ conversões reportadas pelo próprio Google Ads\n(métrica de atribuição do Ads, pode diferir de pedidos pagos confirmados)' },
     { id:'ga', label:'Gasto Google Ads', value:fmtR(T.cost),            delta:d(T.cost,P?.cost,true),       sub:'custo_ads',                color:'amber', dir:'neutral', badge:'ads',              spark:filtered.map(x=>x.cost||0),                              sc:'#f59e0b', targetPct:_tgtCost, targetReverse:true },
     { id:'gb', label:'Gasto Bureau',     value:fmtR(T.costBureau),      delta:d(T.costBureau,P?.costBureau,true), sub:'custo_bureau',       color:'amber', dir:'neutral', badge:'bureau',           spark:filtered.map(x=>x.costBureau||0),                        sc:'#d97706' },
   ];
@@ -1568,6 +1588,7 @@ function renderRow(rowId, defs) {
           <span class="badge ${k.dir}" id="kb_${k.id}"></span>
         </div>
         <div class="kpi-value" id="kv_${k.id}"></div>
+        <div class="kpi-value-secondary" id="kv2_${k.id}" style="display:none"></div>
         <div id="kd_${k.id}" class="kpi-delta"></div>
         <div class="kpi-spark-wrap"><canvas id="ks_${k.id}"></canvas></div>
         <div class="kpi-tgt" id="kt_${k.id}" style="display:none"><div class="kpi-tgt-fill" id="ktf_${k.id}"></div></div>
@@ -1578,6 +1599,9 @@ function renderRow(rowId, defs) {
   }
   defs.forEach(k => {
     document.getElementById('kv_'+k.id).textContent   = k.value;
+    const v2El = document.getElementById('kv2_'+k.id);
+    if (k.secondary) { v2El.innerHTML = k.secondary; v2El.style.display = ''; }
+    else { v2El.style.display = 'none'; }
     document.getElementById('ksub_'+k.id).textContent = k.sub;
     const b = document.getElementById('kb_'+k.id);
     b.textContent = (k.dir==='up'?'↑':k.dir==='down'?'↓':'→')+' '+k.badge;
@@ -1855,7 +1879,7 @@ function buildCharts(T) {
     }
   });
 
-  // 4. CAC per day — bars with values on top
+  // 4. CAC per day — bars with values on top + CAC Google Ads (linha secundária discreta)
   mkChart('cacChart','bar', {
     labels,
     datasets:[
@@ -1864,13 +1888,16 @@ function buildCharts(T) {
         borderRadius:3 },
       { label:'Meta', data:d.map(()=>TARGET_CPA), type:'line',
         borderColor:'#6b6b6b', borderDash:[4,3], borderWidth:1.5, pointRadius:0, fill:false },
+      { label:'CAC Google Ads', data:d.map(x=>x.cacAds), type:'line',
+        borderColor:'rgba(120,120,120,.55)', borderWidth:1.25, borderDash:[2,2],
+        pointRadius:1.5, pointBackgroundColor:'rgba(120,120,120,.55)', fill:false, order:1 },
     ]
   },{
     responsive:true, maintainAspectRatio:false,
     interaction:{mode:'index',intersect:false},
     plugins:{
       legend:{labels:{font:{size:11.5},boxWidth:10,padding:14}},
-      tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+fmtR(c.raw)}},
+      tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+(c.raw!=null?fmtR(c.raw):'—')}},
       datalabels:{
         display: ctx => ctx.datasetIndex===0 && ctx.dataset.data[ctx.dataIndex]!==null,
         anchor:'end', align:'end',
@@ -1972,17 +1999,22 @@ function buildTable() {
       <td class="num" style="color:var(--text-secondary);font-weight:600">${spendPct}</td>
       <td class="num">${fmtN(c.roas,2,'')}×</td>
       <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
-          <span style="font-size:12px;font-variant-numeric:tabular-nums;color:${col};min-width:46px;text-align:right">${fmtR(c.cac)}</span></div></td>`;
+          <div style="display:flex;flex-direction:column;align-items:flex-end;min-width:46px">
+            <span style="font-size:12px;font-variant-numeric:tabular-nums;color:${col};text-align:right">${fmtR(c.cac)}</span>
+            ${c.cacAds>0?`<span style="font-size:10px;font-weight:300;color:var(--text-muted);text-align:right">Ads: ${fmtR(c.cacAds)}</span>`:''}
+          </div></div></td>`;
     tbody.appendChild(tr);
   });
 
   // ── Linha de totais ──────────────────────────────────────────────────────────
-  const totConv = sorted.reduce((s,c)=>s+c.conv, 0);
+  const totConv    = sorted.reduce((s,c)=>s+c.conv, 0);
+  const totGadsConv= sorted.reduce((s,c)=>s+(c.gadsConv||0), 0);
   const totCost = sorted.reduce((s,c)=>s+c.cost, 0);
   const totRev  = sorted.reduce((s,c)=>s+c.rev,  0);
   const totPft  = sorted.reduce((s,c)=>s+c.pft,  0);
   const totRoas = totCost > 0 ? +(totRev/totCost).toFixed(2) : 0;
   const totCac  = totConv > 0 ? +(totCost/totConv).toFixed(2) : 0;
+  const totCacAds = totGadsConv > 0 ? +(totCost/totGadsConv).toFixed(2) : 0;
   const totCol  = totCac <= TARGET_CPA ? '#16a34a' : '#dc2626';
   const tfoot = document.createElement('tr');
   tfoot.className = 'tr-total';
@@ -1992,7 +2024,10 @@ function buildTable() {
     <td class="num">${fmtR(totCost)}</td>
     <td class="num">100%</td>
     <td class="num">${fmtN(totRoas,2,'')}×</td>
-    <td><span style="font-size:12px;font-variant-numeric:tabular-nums;color:${totCol}">${fmtR(totCac)}</span></td>`;
+    <td><div style="display:flex;flex-direction:column;align-items:flex-end">
+          <span style="font-size:12px;font-variant-numeric:tabular-nums;color:${totCol}">${fmtR(totCac)}</span>
+          ${totCacAds>0?`<span style="font-size:10px;font-weight:300;color:var(--text-muted)">Ads: ${fmtR(totCacAds)}</span>`:''}
+        </div></td>`;
   tbody.appendChild(tfoot);
 }
 
@@ -2357,25 +2392,26 @@ function buildDayOfWeek() {
 
   const DAYS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   // Aggregate by day-of-week (0=Sun … 6=Sat)
-  const byDow = Array.from({length:7}, () => ({rev:0, pft:0, cost:0, count:0}));
+  const byDow = Array.from({length:7}, () => ({rev:0, pft:0, netPft:0, cost:0, count:0}));
   filtered.forEach(d => {
     const dow = d.date.getDay();
-    byDow[dow].rev   += d.revenue;
-    byDow[dow].pft   += d.profit || 0;
-    byDow[dow].cost  += d.costTotal || 0;
-    byDow[dow].count += 1;
+    byDow[dow].rev    += d.revenue;
+    byDow[dow].pft    += d.profit || 0;
+    byDow[dow].netPft += d.netProfit || 0;
+    byDow[dow].cost   += d.costTotal || 0;
+    byDow[dow].count  += 1;
   });
   const avgs = byDow.map(b =>
     b.count > 0
-      ? { rev: b.rev/b.count, pft: b.pft/b.count, cost: b.cost/b.count, count: b.count }
-      : { rev: 0, pft: 0, cost: 0, count: 0 }
+      ? { rev: b.rev/b.count, pft: b.pft/b.count, netPft: b.netPft/b.count, cost: b.cost/b.count, count: b.count }
+      : { rev: 0, pft: 0, netPft: 0, cost: 0, count: 0 }
   );
 
-  // Best/worst by avg profit (only among days that have data)
+  // Best/worst by avg lucro líquido (only among days that have data)
   const withData = avgs.map((a,i) => ({...a, i})).filter(a => a.count > 0);
   if (!withData.length) return;
-  const bestDow  = withData.reduce((a,b) => b.pft > a.pft ? b : a).i;
-  const worstDow = withData.reduce((a,b) => b.pft < a.pft ? b : a).i;
+  const bestDow  = withData.reduce((a,b) => b.netPft > a.netPft ? b : a).i;
+  const worstDow = withData.reduce((a,b) => b.netPft < a.netPft ? b : a).i;
 
   // Render Mon→Sun (PT-BR order: 1,2,3,4,5,6,0)
   [1,2,3,4,5,6,0].forEach(dow => {
@@ -2385,7 +2421,8 @@ function buildDayOfWeek() {
     const cell = document.createElement('div');
     cell.className = 'dow-cell' + (isBest ? ' dow-best' : isWorst ? ' dow-worst' : '');
     cell.innerHTML = `<div class="dow-day">${DAYS[dow]}</div>` + (a.count > 0 ? `
-      <div class="dow-val" style="color:${a.pft>=0?'var(--green)':'var(--red)'}">${fmtR(a.pft)}</div>
+      <div class="dow-val" style="color:${a.netPft>=0?'var(--green)':'var(--red)'}">${fmtR(a.netPft)}</div>
+      <div class="dow-sub" style="font-weight:300;color:var(--text-muted)">Bruto: ${fmtR(a.pft)}</div>
       <div class="dow-sub">Receita: ${fmtR(a.rev)}</div>
       <div class="dow-sub">${a.count} dia${a.count>1?'s':''}</div>
       ${isBest  ? '<div class="dow-badge best">✓ Melhor</div>'
