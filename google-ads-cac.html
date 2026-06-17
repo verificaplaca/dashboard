@@ -130,6 +130,27 @@
 
   .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
   .disclaimer { margin-top: 10px; font-size: 11.5px; color: var(--text-muted); }
+
+  .info-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+                box-shadow: var(--shadow); margin-top: 14px; overflow: hidden; }
+  .info-toggle { width: 100%; background: none; border: none; cursor: pointer; padding: 11px 14px;
+                 display: flex; align-items: center; justify-content: space-between; font-size: 12.5px;
+                 font-weight: 600; color: var(--text-primary); }
+  .info-toggle:hover { color: var(--accent); }
+  .info-toggle .chev { color: var(--text-muted); transition: transform .15s; font-size: 11px; }
+  .info-block.open .info-toggle .chev { transform: rotate(180deg); }
+  .info-body { display: none; padding: 0 14px 14px; font-size: 12px; color: var(--text-secondary); line-height: 1.6; white-space: pre-line; }
+  .info-block.open .info-body { display: block; }
+
+  .criteria-link { background: none; border: none; cursor: pointer; font-size: 11.5px; color: var(--accent);
+                    text-decoration: underline; padding: 0; margin-top: 8px; }
+  .criteria-list { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .criteria-list.open { display: block; }
+  .criteria-item { font-size: 12px; color: var(--text-secondary); margin-bottom: 7px; line-height: 1.5; }
+  .criteria-item b { color: var(--text-primary); }
+
+  .exec-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
+  .filter-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -145,6 +166,23 @@
 <main>
   <div class="page-title">Google Ads CAC</div>
   <div class="page-subtitle">Análise de termos e palavras-chave com foco em custo por compra.</div>
+
+  <div class="info-block" id="infoBlock">
+    <button class="info-toggle" id="infoToggle">
+      <span>Como ler este painel</span>
+      <span class="chev">▾</span>
+    </button>
+    <div class="info-body">Este painel analisa dados do Google Ads com foco exclusivo em CAC de compra.
+
+As recomendações são calculadas a partir de custo, compras, CPA, volume mínimo e termos bloqueados pela estratégia. A conversão considerada é purchase; outros eventos não entram no cálculo de CAC.
+
+Search Terms são buscas reais feitas pelos usuários e ajudam a identificar termos para promover ou negativar. Keywords são palavras-chave compradas na conta e ajudam a identificar o que manter, observar ou pausar.
+
+Nenhuma recomendação altera o Google Ads automaticamente. Os botões Aceitar, Ignorar e Revisado registram apenas uma decisão interna no sistema.
+
+Termos com baixo volume devem ser tratados como sinais iniciais. Antes de aplicar mudanças relevantes na conta, revise custo, compras, CPA e intenção do termo.</div>
+  </div>
+
   <div class="updated-at" id="updatedAt">Última atualização: —</div>
 
   <div class="cards-row" id="kpiRow"></div>
@@ -152,7 +190,19 @@
   <div class="exec-block">
     <div class="exec-title">Ações recomendadas</div>
     <div class="exec-text" id="execText">Carregando...</div>
+    <div class="exec-hint">Comece pelos itens de maior custo sem compra e pelas keywords com CPA acima da meta.</div>
     <div class="exec-minis" id="execMinis"></div>
+    <button class="criteria-link" id="criteriaToggle">Ver critérios</button>
+    <div class="criteria-list" id="criteriaList">
+      <div class="criteria-item"><b>Promover alta prioridade:</b> search term com pelo menos 10 compras, custo mínimo de R$ 50 e CPA até R$ 8. Indica termo forte para virar palavra-chave.</div>
+      <div class="criteria-item"><b>Promover:</b> search term com pelo menos 5 compras, custo mínimo de R$ 20 e CPA até R$ 9. Indica termo eficiente para teste como keyword.</div>
+      <div class="criteria-item"><b>Negativar:</b> search term contém termo bloqueado pela estratégia, como "detran", "grátis", "sinesp", "despachante" ou concorrentes definidos na blocklist.</div>
+      <div class="criteria-item"><b>Revisar negativa:</b> search term consumiu verba sem gerar compra ou tem sinal de baixa intenção. Deve ser revisado antes de negativar.</div>
+      <div class="criteria-item"><b>Pausar:</b> keyword com pelo menos 5 compras, custo mínimo de R$ 30 e CPA acima de R$ 10.</div>
+      <div class="criteria-item"><b>Pausar sem compra:</b> keyword com custo mínimo de R$ 30 e nenhuma compra registrada.</div>
+      <div class="criteria-item"><b>Observar:</b> item com sinais iniciais relevantes, mas ainda sem volume suficiente para uma decisão definitiva.</div>
+      <div class="criteria-item"><b>Manter:</b> item sem recomendação crítica no período analisado.</div>
+    </div>
   </div>
 
   <div class="campaign-summary" id="campaignSummary"></div>
@@ -184,6 +234,7 @@
   </div>
 
   <div class="chips-row" id="chipsRow"></div>
+  <div class="filter-hint">Dica: o filtro padrão mostra apenas itens acionáveis. Use "Todos" para visualizar também itens sem recomendação crítica.</div>
 
   <div class="section-label">Search Terms</div>
   <div class="card">
@@ -807,6 +858,14 @@ document.querySelectorAll('#keywordsTable th.sortable').forEach(th => {
       : { table: 'kw', col, dir: 1 };
     renderKeywordsTable();
   });
+});
+
+// ─── BLOCOS DE EXPLICAÇÃO (toggle, sem afetar dados/regras) ────────────────
+document.getElementById('infoToggle').addEventListener('click', () => {
+  document.getElementById('infoBlock').classList.toggle('open');
+});
+document.getElementById('criteriaToggle').addEventListener('click', () => {
+  document.getElementById('criteriaList').classList.toggle('open');
 });
 
 // ─── INIT ───────────────────────────────────────────────────────────────────
