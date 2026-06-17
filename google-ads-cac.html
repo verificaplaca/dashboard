@@ -134,6 +134,12 @@
       <option value="keyword">Somente Keywords</option>
     </select>
     <input class="filter-input" id="fSearch" placeholder="Buscar termo/keyword..." oninput="applyFilters()" />
+    <select class="filter-select" id="fLimit" onchange="STATE.limit = parseInt(this.value, 10); renderSearchTermsTable(); renderKeywordsTable();">
+      <option value="50">50 registros</option>
+      <option value="100">100 registros</option>
+      <option value="300">300 registros</option>
+      <option value="500">500 registros</option>
+    </select>
   </div>
 
   <div class="section-label">Search Terms</div>
@@ -264,6 +270,7 @@ let STATE = {
   recommendationSearchTerms: [], // contagens de recomendação: período + campanha + ad group + recomendação
   recommendationKeywords: [],    // contagens de recomendação: período + campanha + ad group + recomendação
   sort: { table: null, col: null, dir: 1 },
+  limit: 50,   // quantidade de linhas exibidas por tabela (seletor #fLimit)
 };
 
 function fmtR(n) {
@@ -501,6 +508,8 @@ function renderSearchTermsTable() {
 
   document.getElementById('stEmpty').style.display = rows.length ? 'none' : 'block';
 
+  rows = rows.slice(0, STATE.limit);
+
   tbody.innerHTML = rows.map(r => `
     <tr>
       <td>${badge(r.recommendation)}</td>
@@ -526,6 +535,8 @@ function renderKeywordsTable() {
   if (STATE.sort.table === 'kw') rows = sortRows(rows, STATE.sort);
 
   document.getElementById('kwEmpty').style.display = rows.length ? 'none' : 'block';
+
+  rows = rows.slice(0, STATE.limit);
 
   tbody.innerHTML = rows.map(r => `
     <tr>
