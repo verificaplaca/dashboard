@@ -131,26 +131,49 @@
   .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
   .disclaimer { margin-top: 10px; font-size: 11.5px; color: var(--text-muted); }
 
-  .info-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-                box-shadow: var(--shadow); margin-top: 14px; overflow: hidden; }
-  .info-toggle { width: 100%; background: none; border: none; cursor: pointer; padding: 11px 14px;
-                 display: flex; align-items: center; justify-content: space-between; font-size: 12.5px;
-                 font-weight: 600; color: var(--text-primary); }
-  .info-toggle:hover { color: var(--accent); }
-  .info-toggle .chev { color: var(--text-muted); transition: transform .15s; font-size: 11px; }
-  .info-block.open .info-toggle .chev { transform: rotate(180deg); }
-  .info-body { display: none; padding: 0 14px 14px; font-size: 12px; color: var(--text-secondary); line-height: 1.6; white-space: pre-line; }
-  .info-block.open .info-body { display: block; }
-
-  .criteria-link { background: none; border: none; cursor: pointer; font-size: 11.5px; color: var(--accent);
-                    text-decoration: underline; padding: 0; margin-top: 8px; }
-  .criteria-list { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
-  .criteria-list.open { display: block; }
-  .criteria-item { font-size: 12px; color: var(--text-secondary); margin-bottom: 7px; line-height: 1.5; }
-  .criteria-item b { color: var(--text-primary); }
+  .premises-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+                box-shadow: var(--shadow); margin-top: 16px; padding: 14px 16px; }
+  .premises-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .premises-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media (max-width: 1100px) { .premises-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px)  { .premises-grid { grid-template-columns: 1fr; } }
+  .premise-block { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--bg); }
+  .premise-label { font-size: 10.5px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .02em; }
+  .premise-highlight { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-top: 4px; }
+  .premise-text { font-size: 11.5px; color: var(--text-secondary); margin-top: 5px; line-height: 1.45; }
+  .premise-formula { display: inline-block; margin-top: 6px; background: var(--purple-soft); color: var(--purple);
+                      font-weight: 700; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; }
+  .premise-example { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
 
   .exec-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
   .filter-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+  .exec-text-secondary { font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; }
+  .flow-block { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .flow-label { font-size: 10.5px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;
+                letter-spacing: .02em; margin-bottom: 7px; }
+  .flow-steps { display: flex; gap: 6px; flex-wrap: wrap; }
+  .flow-step { display: flex; align-items: center; gap: 5px; border: 1px solid var(--border); background: var(--bg);
+               border-radius: 999px; padding: 4px 10px; font-size: 11px; color: var(--text-secondary); }
+  .flow-step .flow-n { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+                        border-radius: 50%; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; }
+
+  .criteria-pill { background: var(--bg); border: 1px solid var(--border); cursor: pointer; font-size: 11.5px;
+                    color: var(--text-primary); font-weight: 600; padding: 6px 13px; border-radius: 999px;
+                    margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; }
+  .criteria-pill:hover { border-color: var(--accent); color: var(--accent); }
+  .criteria-pill .chev { font-size: 9px; color: var(--text-muted); transition: transform .15s; }
+  .criteria-pill.open .chev { transform: rotate(180deg); }
+  .criteria-list { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .criteria-list.open { display: block; }
+  .criteria-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; }
+  @media (max-width: 800px) { .criteria-grid { grid-template-columns: 1fr; } }
+  .criteria-item { font-size: 12px; color: var(--text-secondary); margin-bottom: 0; line-height: 1.5; }
+  .criteria-item b { color: var(--text-primary); }
+
+  .kpi-meta-delta { font-size: 10.5px; margin-top: 3px; color: var(--text-secondary); }
+  .kpi-meta-delta.bad { color: var(--red); }
+  .kpi-meta-delta.ok { color: var(--green); }
 </style>
 </head>
 <body>
@@ -167,20 +190,31 @@
   <div class="page-title">Google Ads CAC</div>
   <div class="page-subtitle">Análise de termos e palavras-chave com foco em custo por compra.</div>
 
-  <div class="info-block" id="infoBlock">
-    <button class="info-toggle" id="infoToggle">
-      <span>Como ler este painel</span>
-      <span class="chev">▾</span>
-    </button>
-    <div class="info-body">Este painel analisa dados do Google Ads com foco exclusivo em CAC de compra.
-
-As recomendações são calculadas a partir de custo, compras, CPA, volume mínimo e termos bloqueados pela estratégia. A conversão considerada é purchase; outros eventos não entram no cálculo de CAC.
-
-Search Terms são buscas reais feitas pelos usuários e ajudam a identificar termos para promover ou negativar. Keywords são palavras-chave compradas na conta e ajudam a identificar o que manter, observar ou pausar.
-
-Nenhuma recomendação altera o Google Ads automaticamente. Os botões Aceitar, Ignorar e Revisado registram apenas uma decisão interna no sistema.
-
-Termos com baixo volume devem ser tratados como sinais iniciais. Antes de aplicar mudanças relevantes na conta, revise custo, compras, CPA e intenção do termo.</div>
+  <div class="premises-card" id="premisesCard">
+    <div class="premises-title">Premissas da análise</div>
+    <div class="premises-grid" id="premisesGrid">
+      <div class="premise-block">
+        <div class="premise-label">Fonte da análise</div>
+        <div class="premise-highlight">Search Terms + Keywords</div>
+        <div class="premise-text">Search Terms mostram o que o usuário buscou. Keywords mostram o que a conta comprou.</div>
+      </div>
+      <div class="premise-block">
+        <div class="premise-label">Métrica principal</div>
+        <div class="premise-highlight">CAC por purchase</div>
+        <div class="premise-formula">CAC = Investimento ÷ Purchases</div>
+        <div class="premise-example" id="premiseExample">Exemplo: —</div>
+      </div>
+      <div class="premise-block">
+        <div class="premise-label">Meta usada</div>
+        <div class="premise-highlight">Meta de CAC: R$ 9,00</div>
+        <div class="premise-text">Abaixo da meta indica oportunidade. Acima da meta indica atenção ou pausa.</div>
+      </div>
+      <div class="premise-block">
+        <div class="premise-label">Segurança operacional</div>
+        <div class="premise-highlight">Nada é automático</div>
+        <div class="premise-text">Aceitar, Ignorar e Revisado apenas salvam uma decisão interna. Nada é alterado no Google Ads.</div>
+      </div>
+    </div>
   </div>
 
   <div class="updated-at" id="updatedAt">Última atualização: —</div>
@@ -190,18 +224,29 @@ Termos com baixo volume devem ser tratados como sinais iniciais. Antes de aplica
   <div class="exec-block">
     <div class="exec-title">Ações recomendadas</div>
     <div class="exec-text" id="execText">Carregando...</div>
-    <div class="exec-hint">Comece pelos itens de maior custo sem compra e pelas keywords com CPA acima da meta.</div>
+    <div class="exec-text-secondary">A ordem prioriza itens com maior custo, ausência de compras e CPA acima da meta.</div>
     <div class="exec-minis" id="execMinis"></div>
-    <button class="criteria-link" id="criteriaToggle">Ver critérios</button>
+    <div class="flow-block">
+      <div class="flow-label">Fluxo sugerido</div>
+      <div class="flow-steps">
+        <div class="flow-step"><span class="flow-n">1</span> Negativar termos claramente ruins</div>
+        <div class="flow-step"><span class="flow-n">2</span> Pausar keywords sem compra ou com CPA alto</div>
+        <div class="flow-step"><span class="flow-n">3</span> Promover termos com CPA abaixo da meta</div>
+        <div class="flow-step"><span class="flow-n">4</span> Marcar como revisado o que ainda precisa de amostra</div>
+      </div>
+    </div>
+    <button class="criteria-pill" id="criteriaToggle">Ver regras de decisão <span class="chev">▾</span></button>
     <div class="criteria-list" id="criteriaList">
-      <div class="criteria-item"><b>Promover alta prioridade:</b> search term com pelo menos 10 compras, custo mínimo de R$ 50 e CPA até R$ 8. Indica termo forte para virar palavra-chave.</div>
-      <div class="criteria-item"><b>Promover:</b> search term com pelo menos 5 compras, custo mínimo de R$ 20 e CPA até R$ 9. Indica termo eficiente para teste como keyword.</div>
-      <div class="criteria-item"><b>Negativar:</b> search term contém termo bloqueado pela estratégia, como "detran", "grátis", "sinesp", "despachante" ou concorrentes definidos na blocklist.</div>
-      <div class="criteria-item"><b>Revisar negativa:</b> search term consumiu verba sem gerar compra ou tem sinal de baixa intenção. Deve ser revisado antes de negativar.</div>
-      <div class="criteria-item"><b>Pausar:</b> keyword com pelo menos 5 compras, custo mínimo de R$ 30 e CPA acima de R$ 10.</div>
-      <div class="criteria-item"><b>Pausar sem compra:</b> keyword com custo mínimo de R$ 30 e nenhuma compra registrada.</div>
-      <div class="criteria-item"><b>Observar:</b> item com sinais iniciais relevantes, mas ainda sem volume suficiente para uma decisão definitiva.</div>
-      <div class="criteria-item"><b>Manter:</b> item sem recomendação crítica no período analisado.</div>
+      <div class="criteria-grid">
+        <div class="criteria-item"><b>Promover alta prioridade:</b> ≥ 10 purchases · custo ≥ R$ 50 · CPA ≤ R$ 8.</div>
+        <div class="criteria-item"><b>Promover:</b> ≥ 5 purchases · custo ≥ R$ 20 · CPA ≤ R$ 9.</div>
+        <div class="criteria-item"><b>Negativar:</b> termo contém expressão bloqueada pela estratégia.</div>
+        <div class="criteria-item"><b>Revisar negativa:</b> 0 purchases · custo ≥ R$ 20.</div>
+        <div class="criteria-item"><b>Pausar:</b> ≥ 5 purchases · custo ≥ R$ 30 · CPA > R$ 10.</div>
+        <div class="criteria-item"><b>Pausar sem compra:</b> 0 purchases · custo ≥ R$ 30.</div>
+        <div class="criteria-item"><b>Observar:</b> sinal relevante, mas ainda sem volume suficiente.</div>
+        <div class="criteria-item"><b>Manter:</b> sem recomendação crítica no período analisado.</div>
+      </div>
     </div>
   </div>
 
@@ -612,11 +657,22 @@ function renderKpis() {
   const cacWithinTarget = summary.cac_medio !== null && summary.cac_medio <= CAC_TARGET;
   const cacBadge = summary.cac_medio === null ? '' :
     `<div class="kpi-meta-badge ${cacWithinTarget ? 'ok' : 'bad'}">${cacWithinTarget ? 'Dentro da meta' : 'Acima da meta'}</div>`;
+  const cacDelta = (() => {
+    if (summary.cac_medio === null) return '';
+    const pct = Math.abs(((summary.cac_medio - CAC_TARGET) / CAC_TARGET) * 100);
+    const pctFmt = pct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    if (cacWithinTarget) {
+      return pct < 0.05
+        ? `<div class="kpi-meta-delta ok">Dentro da meta</div>`
+        : `<div class="kpi-meta-delta ok">${pctFmt}% abaixo da meta</div>`;
+    }
+    return `<div class="kpi-meta-delta bad">+${pctFmt}% acima da meta</div>`;
+  })();
 
   const cards = [
     { label: 'Investimento Google Ads', sub: 'No período selecionado', value: fmtR(summary.investimento) },
     { label: 'Purchases', sub: 'Conversões de compra', value: fmtInt(summary.purchases) },
-    { label: 'CAC médio', sub: 'Meta: R$ 9,00', value: fmtR(summary.cac_medio), extra: cacBadge },
+    { label: 'CAC médio', sub: 'Meta: R$ 9,00', value: fmtR(summary.cac_medio), extra: cacBadge + cacDelta },
     { label: 'Termos para promover', sub: 'Search terms eficientes', value: fmtInt(summary.termos_para_promover), cls: 'green' },
     { label: 'Keywords para pausar', sub: 'Acima da meta ou sem compra', value: fmtInt(summary.keywords_para_pausar), cls: 'red' },
     { label: 'Termos para negativar', sub: 'Baixa intenção ou bloqueados', value: fmtInt(summary.termos_para_negativar), cls: 'red' },
@@ -629,6 +685,19 @@ function renderKpis() {
       ${c.extra || ''}
     </div>
   `).join('');
+
+  renderPremises(summary);
+}
+
+// ─── PREMISSAS DA ANÁLISE (somente leitura, valores espelham os KPI cards) ──
+function renderPremises(summary) {
+  const el = document.getElementById('premiseExample');
+  if (!el) return;
+  if (summary.purchases > 0 && summary.cac_medio !== null) {
+    el.textContent = `Exemplo: ${fmtR(summary.investimento)} ÷ ${fmtInt(summary.purchases)} = ${fmtR(summary.cac_medio)}`;
+  } else {
+    el.textContent = 'Exemplo: sem purchases no período selecionado.';
+  }
 }
 
 // ─── BLOCO EXECUTIVO ────────────────────────────────────────────────────────
@@ -861,11 +930,9 @@ document.querySelectorAll('#keywordsTable th.sortable').forEach(th => {
 });
 
 // ─── BLOCOS DE EXPLICAÇÃO (toggle, sem afetar dados/regras) ────────────────
-document.getElementById('infoToggle').addEventListener('click', () => {
-  document.getElementById('infoBlock').classList.toggle('open');
-});
-document.getElementById('criteriaToggle').addEventListener('click', () => {
+document.getElementById('criteriaToggle').addEventListener('click', (e) => {
   document.getElementById('criteriaList').classList.toggle('open');
+  e.currentTarget.classList.toggle('open');
 });
 
 // ─── INIT ───────────────────────────────────────────────────────────────────
