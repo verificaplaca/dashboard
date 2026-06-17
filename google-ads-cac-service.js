@@ -286,11 +286,52 @@ const GoogleAdsOptimizationService = (() => {
     return map;
   }
 
+  // ── aggregateByEntity ──────────────────────────────────────────────────
+  // rawRows do Supabase vêm uma linha por dia (date + entidade + campanha +
+  // ad group). Para classificar e exibir corretamente um período (ex: 30d),
+  // soma clicks/impressions/cost_micros/purchases de todas as linhas da
+  // mesma entidade+campanha+ad group, gerando 1 linha por entidade no período.
+  // entityField: 'keyword' ou 'search_term'.
+  function aggregateByEntity(rawRows, entityField) {
+    const byKey = new Map();
+    for (const raw of rawRows) {
+      const entityValue = raw[entityField];
+      const key = [entityValue, raw.campaign_id ?? '', raw.ad_group_id ?? ''].join('::');
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, {
+          ...raw,
+          clicks: Number(raw.clicks ?? 0),
+          impressions: Number(raw.impressions ?? 0),
+          cost_micros: Number(raw.cost_micros ?? 0),
+          purchases: Number(raw.purchases ?? 0),
+          is_existing_keyword: !!raw.is_existing_keyword,
+        });
+      } else {
+        existing.clicks += Number(raw.clicks ?? 0);
+        existing.impressions += Number(raw.impressions ?? 0);
+        existing.cost_micros += Number(raw.cost_micros ?? 0);
+        existing.purchases += Number(raw.purchases ?? 0);
+        existing.is_existing_keyword = existing.is_existing_keyword || !!raw.is_existing_keyword;
+        // Mantém date/status_google_ads/match_type da linha mais recente (último dia visto).
+        if (raw.date > existing.date) {
+          existing.date = raw.date;
+          existing.status_google_ads = raw.status_google_ads;
+          existing.match_type = raw.match_type;
+        }
+      }
+    }
+    return Array.from(byKey.values());
+  }
+
   // ── Pipeline completo ─────────────────────────────────────────────────
   // Recebe dados brutos + blockedTerms + reviews já salvas, devolve tudo
   // já normalizado, classificado e com status de revisão anexado.
+  // Agrega por entidade+campanha+ad group antes de classificar, pois rawRows
+  // vem 1 linha por dia do Supabase (ver aggregateByEntity).
   function analyzeSearchTerms(rawRows, blockedTerms, reviewsByKey) {
-    return rawRows.map(raw => {
+    const aggregated = aggregateByEntity(rawRows, 'search_term');
+    return aggregated.map(raw => {
       const norm = normalizeMetrics(raw);
       const { recommendation, reason, matched_blocked_term } = classifySearchTerm(norm, blockedTerms);
       const key = makeEntityKey('search_term', norm.search_term, norm.campaign_id, norm.ad_group_id);
@@ -306,8 +347,11 @@ const GoogleAdsOptimizationService = (() => {
     });
   }
 
+  // Agrega por entidade+campanha+ad group antes de classificar, pois rawRows
+  // vem 1 linha por dia do Supabase (ver aggregateByEntity).
   function analyzeKeywords(rawRows, reviewsByKey) {
-    return rawRows.map(raw => {
+    const aggregated = aggregateByEntity(rawRows, 'keyword');
+    return aggregated.map(raw => {
       const norm = normalizeMetrics(raw);
       const { recommendation, reason } = classifyKeyword(norm);
       const key = makeEntityKey('keyword', norm.keyword, norm.campaign_id, norm.ad_group_id);
@@ -333,6 +377,7 @@ const GoogleAdsOptimizationService = (() => {
     buildSummary,
     markAsReviewed,
     reviewsToMap,
+    aggregateByEntity,
     analyzeSearchTerms,
     analyzeKeywords,
   };
