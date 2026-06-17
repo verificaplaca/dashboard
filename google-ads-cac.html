@@ -41,10 +41,44 @@
   .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
               padding: 12px 14px; box-shadow: var(--shadow); }
   .kpi-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+  .kpi-sub { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
   .kpi-value { font-size: 19px; font-weight: 700; margin-top: 4px; }
   .kpi-value.green { color: var(--green); }
   .kpi-value.red { color: var(--red); }
   .kpi-value.amber { color: var(--amber); }
+  .kpi-meta-badge { display: inline-block; margin-top: 5px; padding: 1px 7px; border-radius: 6px;
+                     font-size: 10px; font-weight: 600; }
+  .kpi-meta-badge.ok { background: var(--green-soft); color: var(--green); }
+  .kpi-meta-badge.bad { background: var(--red-soft); color: var(--red); }
+
+  .updated-at { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+
+  .exec-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+                box-shadow: var(--shadow); padding: 14px 16px; margin-top: 20px; }
+  .exec-title { font-size: 13.5px; font-weight: 700; margin-bottom: 4px; }
+  .exec-text { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 10px; }
+  .exec-minis { display: flex; gap: 8px; flex-wrap: wrap; }
+  .exec-mini { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; cursor: pointer;
+               background: var(--bg); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .exec-mini:hover { border-color: var(--accent); }
+  .exec-mini .n { font-weight: 700; font-size: 13px; }
+  .exec-mini.promote .n { color: var(--green); }
+  .exec-mini.pause .n, .exec-mini.negative .n { color: var(--red); }
+  .exec-mini.watch .n { color: var(--amber); }
+
+  .chips-row { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px;
+          padding: 6px 13px; font-size: 12px; cursor: pointer; color: var(--text-secondary); }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .campaign-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                       gap: 10px; margin-top: 10px; }
+  .camp-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+               box-shadow: var(--shadow); padding: 10px 12px; font-size: 12px; }
+  .camp-card .camp-name { font-weight: 700; font-size: 12.5px; margin-bottom: 6px; }
+  .camp-card .camp-row { display: flex; justify-content: space-between; color: var(--text-secondary); padding: 1px 0; }
+  .camp-card .camp-row b { color: var(--text-primary); font-weight: 600; }
 
   .filters-row { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
   .filter-select, .filter-input { background: var(--surface); border: 1px solid var(--border);
@@ -73,8 +107,18 @@
   .badge-PAUSE { background: var(--red-soft); color: var(--red); }
   .badge-PAUSE_NO_PURCHASE { background: var(--red-soft); color: var(--red); }
   .badge-WATCH { background: var(--amber-soft); color: var(--amber); }
-  .badge-KEEP { background: var(--bg); color: var(--text-secondary); }
+  .badge-KEEP { background: var(--bg); color: var(--text-muted); font-size: 10px; padding: 1px 6px; font-weight: 500; }
   .badge-KEEP_OR_SCALE { background: var(--purple-soft); color: var(--purple); }
+
+  tr.row-keep { opacity: .6; }
+  tr.row-keep td { color: var(--text-muted); }
+
+  .badge-prio { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 600; }
+  .badge-prio-alta { background: var(--red-soft); color: var(--red); }
+  .badge-prio-media { background: var(--amber-soft); color: var(--amber); }
+  .badge-prio-baixa { background: var(--bg); color: var(--text-muted); }
+
+  .camp-compact { cursor: help; border-bottom: 1px dashed var(--text-muted); }
 
   .action-btns { display: flex; gap: 4px; }
   .action-btn { border: 1px solid var(--border); background: var(--surface); border-radius: 6px;
@@ -101,8 +145,17 @@
 <main>
   <div class="page-title">Google Ads CAC</div>
   <div class="page-subtitle">Análise de termos e palavras-chave com foco em custo por compra.</div>
+  <div class="updated-at" id="updatedAt">Última atualização: —</div>
 
   <div class="cards-row" id="kpiRow"></div>
+
+  <div class="exec-block">
+    <div class="exec-title">Ações recomendadas</div>
+    <div class="exec-text" id="execText">Carregando...</div>
+    <div class="exec-minis" id="execMinis"></div>
+  </div>
+
+  <div class="campaign-summary" id="campaignSummary"></div>
 
   <div class="filters-row">
     <select class="filter-select" id="fPeriod">
@@ -115,18 +168,6 @@
     </select>
     <select class="filter-select" id="fAdGroup" onchange="applyFilters()">
       <option value="">Todos ad groups</option>
-    </select>
-    <select class="filter-select" id="fRecommendation" onchange="applyFilters()">
-      <option value="">Todas recomendações</option>
-      <option value="PROMOTE_HIGH_PRIORITY">Promote (alta prioridade)</option>
-      <option value="PROMOTE">Promote</option>
-      <option value="NEGATIVE">Negativar</option>
-      <option value="NEGATIVE_REVIEW">Negativar (revisar)</option>
-      <option value="PAUSE">Pausar</option>
-      <option value="PAUSE_NO_PURCHASE">Pausar (sem compra)</option>
-      <option value="WATCH">Observar</option>
-      <option value="KEEP">Manter</option>
-      <option value="KEEP_OR_SCALE">Manter/Escalar</option>
     </select>
     <select class="filter-select" id="fType" onchange="applyFilters()">
       <option value="all">Search Terms + Keywords</option>
@@ -142,12 +183,15 @@
     </select>
   </div>
 
+  <div class="chips-row" id="chipsRow"></div>
+
   <div class="section-label">Search Terms</div>
   <div class="card">
     <div class="table-wrap">
       <table id="searchTermsTable">
         <thead><tr>
           <th>Recomendação</th>
+          <th class="sortable" data-col="priority_rank">Prioridade</th>
           <th>Search Term</th>
           <th>Campanha</th>
           <th>Ad Group</th>
@@ -173,6 +217,7 @@
       <table id="keywordsTable">
         <thead><tr>
           <th>Recomendação</th>
+          <th class="sortable" data-col="priority_rank">Prioridade</th>
           <th>Keyword</th>
           <th>Match Type</th>
           <th>Campanha</th>
@@ -271,7 +316,74 @@ let STATE = {
   recommendationKeywords: [],    // contagens de recomendação: período + campanha + ad group + recomendação
   sort: { table: null, col: null, dir: 1 },
   limit: 50,   // quantidade de linhas exibidas por tabela (seletor #fLimit)
+  quickFilter: 'actions',   // 'actions' | 'PROMOTE_GROUP' | 'PAUSE_GROUP' | 'NEGATIVE_GROUP' | 'WATCH' | 'KEEP_GROUP' | 'all'
 };
+
+const CAC_TARGET = 9;
+
+// Grupos de recomendação acionáveis (define o que entra em "Ações recomendadas")
+const ACTIONABLE_RECS = [
+  'PROMOTE_HIGH_PRIORITY', 'PROMOTE', 'NEGATIVE', 'NEGATIVE_REVIEW',
+  'PAUSE', 'PAUSE_NO_PURCHASE', 'WATCH',
+];
+
+const QUICK_FILTER_GROUPS = {
+  actions: ACTIONABLE_RECS,
+  PROMOTE_GROUP: ['PROMOTE_HIGH_PRIORITY', 'PROMOTE'],
+  PAUSE_GROUP: ['PAUSE', 'PAUSE_NO_PURCHASE'],
+  NEGATIVE_GROUP: ['NEGATIVE', 'NEGATIVE_REVIEW'],
+  WATCH: ['WATCH'],
+  KEEP_GROUP: ['KEEP', 'KEEP_OR_SCALE'],
+  all: null, // sem filtro de recomendação
+};
+
+const QUICK_FILTER_LABELS = {
+  actions: 'Ações', PROMOTE_GROUP: 'Promover', PAUSE_GROUP: 'Pausar',
+  NEGATIVE_GROUP: 'Negativar', WATCH: 'Observar', KEEP_GROUP: 'Manter', all: 'Todos',
+};
+
+// Mapa de nome compacto de campanha (sigla → label exibido)
+const CAMPAIGN_COMPACT_TAGS = ['RISCO_DOC', 'MULTAS', 'ROUBO_FURTO', 'DENAT', 'RENAVAM'];
+
+function compactCampaignName(name) {
+  if (!name) return '—';
+  const upper = String(name).toUpperCase();
+  for (const tag of CAMPAIGN_COMPACT_TAGS) {
+    if (upper.includes(tag)) return tag;
+  }
+  // fallback: nome resumido (primeiras palavras)
+  const parts = String(name).split(/[\s_-]+/).filter(Boolean);
+  return parts.slice(0, 2).join(' ').slice(0, 18) || name;
+}
+
+// ── PRIORIDADE (calculada no front, não altera regras de classificação) ────
+const PRIORITY_RANK = { alta: 3, media: 2, baixa: 1 };
+
+function priorityOf(row) {
+  const rec = row.recommendation;
+  const cost = Number(row.cost) || 0;
+
+  if (rec === 'PAUSE' || rec === 'PAUSE_NO_PURCHASE' || rec === 'PROMOTE_HIGH_PRIORITY') return 'alta';
+  if (rec === 'NEGATIVE' && cost > 0) return 'alta';
+  if (rec === 'NEGATIVE_REVIEW' && cost >= 20) return 'alta';
+
+  if (rec === 'PROMOTE' || rec === 'WATCH') return 'media';
+  if (rec === 'NEGATIVE') return 'media'; // sem custo relevante (cost <= 0)
+
+  return 'baixa'; // KEEP, KEEP_OR_SCALE, NEGATIVE_REVIEW < 20, etc.
+}
+
+function priorityBadge(prio) {
+  const labels = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+  return `<span class="badge-prio badge-prio-${prio}">${labels[prio]}</span>`;
+}
+
+function withPriority(rows) {
+  return rows.map(r => {
+    const prio = priorityOf(r);
+    return { ...r, priority: prio, priority_rank: PRIORITY_RANK[prio] };
+  });
+}
 
 function fmtR(n) {
   if (n === null || n === undefined) return '—';
@@ -304,10 +416,12 @@ async function loadAndRender() {
     // colisão entre o mesmo termo/keyword em campanhas/ad groups diferentes.
     const reviewsMap = GoogleAdsOptimizationService.reviewsToMap(reviews);
 
-    STATE.searchTerms = GoogleAdsOptimizationService.analyzeSearchTerms(searchTermsRaw, blockedTerms, reviewsMap);
-    STATE.keywords    = GoogleAdsOptimizationService.analyzeKeywords(keywordsRaw, reviewsMap);
+    STATE.searchTerms = withPriority(GoogleAdsOptimizationService.analyzeSearchTerms(searchTermsRaw, blockedTerms, reviewsMap));
+    STATE.keywords    = withPriority(GoogleAdsOptimizationService.analyzeKeywords(keywordsRaw, reviewsMap));
 
+    renderUpdatedAt([...searchTermsRaw, ...keywordsRaw]);
     populateFilterOptions();
+    renderChips();
     applyFilters();
   } catch (err) {
     console.error('Erro ao carregar dados Google Ads CAC:', err);
@@ -315,6 +429,38 @@ async function loadAndRender() {
       `<div class="kpi-card" style="grid-column: span 6"><div class="kpi-label">Erro ao carregar dados</div><div class="kpi-value red" style="font-size:13px">${err.message}</div></div>`;
   }
 }
+
+function renderUpdatedAt(rawRows) {
+  const el = document.getElementById('updatedAt');
+  const timestamps = rawRows.map(r => r.updated_at).filter(Boolean).map(t => new Date(t)).filter(d => !isNaN(d));
+  if (!timestamps.length) {
+    el.textContent = 'Última atualização: indisponível';
+    return;
+  }
+  const max = new Date(Math.max(...timestamps.map(d => d.getTime())));
+  const pad = n => String(n).padStart(2, '0');
+  el.textContent = `Última atualização: ${pad(max.getDate())}/${pad(max.getMonth()+1)}/${max.getFullYear()} ${pad(max.getHours())}:${pad(max.getMinutes())}`;
+}
+
+function renderChips() {
+  const order = ['actions', 'PROMOTE_GROUP', 'PAUSE_GROUP', 'NEGATIVE_GROUP', 'WATCH', 'KEEP_GROUP', 'all'];
+  document.getElementById('chipsRow').innerHTML = order.map(key => `
+    <button class="chip ${STATE.quickFilter === key ? 'active' : ''}" data-quick-filter="${key}">${QUICK_FILTER_LABELS[key]}</button>
+  `).join('');
+}
+
+function setQuickFilter(key) {
+  STATE.quickFilter = key;
+  renderChips();
+  applyFilters();
+}
+
+document.addEventListener('click', (ev) => {
+  const chip = ev.target.closest('.chip[data-quick-filter]');
+  if (chip) setQuickFilter(chip.dataset.quickFilter);
+  const mini = ev.target.closest('.exec-mini[data-quick-filter]');
+  if (mini) setQuickFilter(mini.dataset.quickFilter);
+});
 
 function populateFilterOptions() {
   const campaigns = new Set();
@@ -344,14 +490,14 @@ function populateFilterOptions() {
 function applyFilters() {
   const campaign = document.getElementById('fCampaign').value;
   const adGroup = document.getElementById('fAdGroup').value;
-  const recommendation = document.getElementById('fRecommendation').value;
+  const allowedRecs = QUICK_FILTER_GROUPS[STATE.quickFilter]; // null = sem filtro
   const type = document.getElementById('fType').value;
   const search = document.getElementById('fSearch').value.trim().toLowerCase();
 
   const matches = (r, key, { withRecommendation = true, withSearch = true } = {}) => {
     if (campaign && r.campaign_name !== campaign) return false;
     if (adGroup && r.ad_group_name !== adGroup) return false;
-    if (withRecommendation && recommendation && r.recommendation !== recommendation) return false;
+    if (withRecommendation && allowedRecs && !allowedRecs.includes(r.recommendation)) return false;
     if (withSearch && search && !String(r[key]).toLowerCase().includes(search)) return false;
     return true;
   };
@@ -364,10 +510,12 @@ function applyFilters() {
   STATE.financialKeywords = STATE.keywords.filter(r => matches(r, 'keyword', { withRecommendation: false, withSearch: false }));
 
   // Cards de contagem de recomendação: período + campanha + ad group + recomendação.
-  STATE.recommendationSearchTerms = STATE.searchTerms.filter(r => matches(r, 'search_term', { withSearch: false }));
-  STATE.recommendationKeywords = STATE.keywords.filter(r => matches(r, 'keyword', { withSearch: false }));
+  STATE.recommendationSearchTerms = STATE.searchTerms.filter(r => matches(r, 'search_term', { withSearch: false, withRecommendation: false }));
+  STATE.recommendationKeywords = STATE.keywords.filter(r => matches(r, 'keyword', { withSearch: false, withRecommendation: false }));
 
   renderKpis();
+  renderExecBlock();
+  renderCampaignSummary();
   renderSearchTermsTable();
   renderKeywordsTable();
 }
@@ -410,30 +558,104 @@ function renderKpis() {
     recommendationSearchTerms: STATE.recommendationSearchTerms,
     recommendationKeywords: STATE.recommendationKeywords,
   });
+  const cacWithinTarget = summary.cac_medio !== null && summary.cac_medio <= CAC_TARGET;
+  const cacBadge = summary.cac_medio === null ? '' :
+    `<div class="kpi-meta-badge ${cacWithinTarget ? 'ok' : 'bad'}">${cacWithinTarget ? 'Dentro da meta' : 'Acima da meta'}</div>`;
+
   const cards = [
-    { label: 'Investimento Google Ads', value: fmtR(summary.investimento) },
-    { label: 'Purchases', value: fmtInt(summary.purchases) },
-    { label: 'CAC médio', value: fmtR(summary.cac_medio) },
-    { label: 'Termos para promover', value: fmtInt(summary.termos_para_promover), cls: 'green' },
-    { label: 'Keywords para pausar', value: fmtInt(summary.keywords_para_pausar), cls: 'red' },
-    { label: 'Termos para negativar', value: fmtInt(summary.termos_para_negativar), cls: 'red' },
+    { label: 'Investimento Google Ads', sub: 'No período selecionado', value: fmtR(summary.investimento) },
+    { label: 'Purchases', sub: 'Conversões de compra', value: fmtInt(summary.purchases) },
+    { label: 'CAC médio', sub: 'Meta: R$ 9,00', value: fmtR(summary.cac_medio), extra: cacBadge },
+    { label: 'Termos para promover', sub: 'Search terms eficientes', value: fmtInt(summary.termos_para_promover), cls: 'green' },
+    { label: 'Keywords para pausar', sub: 'Acima da meta ou sem compra', value: fmtInt(summary.keywords_para_pausar), cls: 'red' },
+    { label: 'Termos para negativar', sub: 'Baixa intenção ou bloqueados', value: fmtInt(summary.termos_para_negativar), cls: 'red' },
   ];
   document.getElementById('kpiRow').innerHTML = cards.map(c => `
     <div class="kpi-card">
       <div class="kpi-label">${c.label}</div>
+      <div class="kpi-sub">${c.sub}</div>
       <div class="kpi-value ${c.cls || ''}">${c.value}</div>
+      ${c.extra || ''}
     </div>
   `).join('');
 }
 
-// ─── BADGE HELPER ───────────────────────────────────────────────────────────
-function badge(rec) {
-  const labels = {
-    PROMOTE_HIGH_PRIORITY: 'Promote ★', PROMOTE: 'Promote', NEGATIVE: 'Negativar',
-    NEGATIVE_REVIEW: 'Negativar (revisar)', PAUSE: 'Pausar', PAUSE_NO_PURCHASE: 'Pausar (sem compra)',
-    WATCH: 'Observar', KEEP: 'Manter', KEEP_OR_SCALE: 'Manter/Escalar',
+// ─── BLOCO EXECUTIVO ────────────────────────────────────────────────────────
+function renderExecBlock() {
+  const countBy = (list, recs) => list.filter(r => recs.includes(r.recommendation)).length;
+  const promote = countBy(STATE.recommendationSearchTerms, QUICK_FILTER_GROUPS.PROMOTE_GROUP);
+  const pause = countBy(STATE.recommendationKeywords, QUICK_FILTER_GROUPS.PAUSE_GROUP);
+  const negative = countBy(STATE.recommendationSearchTerms, QUICK_FILTER_GROUPS.NEGATIVE_GROUP);
+  const watch = countBy(STATE.recommendationSearchTerms, QUICK_FILTER_GROUPS.WATCH) +
+                countBy(STATE.recommendationKeywords, QUICK_FILTER_GROUPS.WATCH);
+
+  const hasActions = (promote + pause + negative + watch) > 0;
+  document.getElementById('execText').textContent = hasActions
+    ? `Prioridade do dia: revisar ${fmtInt(pause)} keywords para pausa e ${fmtInt(negative)} termos para negativação.`
+    : 'Nenhuma ação crítica encontrada no período selecionado.';
+
+  const minis = [
+    { key: 'PROMOTE_GROUP', cls: 'promote', label: 'Promover', n: promote },
+    { key: 'PAUSE_GROUP', cls: 'pause', label: 'Pausar', n: pause },
+    { key: 'NEGATIVE_GROUP', cls: 'negative', label: 'Negativar', n: negative },
+    { key: 'WATCH', cls: 'watch', label: 'Observar', n: watch },
+  ];
+  document.getElementById('execMinis').innerHTML = minis.map(m => `
+    <div class="exec-mini ${m.cls}" data-quick-filter="${m.key}"><span class="n">${fmtInt(m.n)}</span> ${m.label}</div>
+  `).join('');
+}
+
+// ─── RESUMO POR CAMPANHA ────────────────────────────────────────────────────
+function renderCampaignSummary() {
+  const byCampaign = new Map();
+  const ensure = (name) => {
+    if (!byCampaign.has(name)) {
+      byCampaign.set(name, { name, cost: 0, purchases: 0, promote: 0, pause: 0, negative: 0 });
+    }
+    return byCampaign.get(name);
   };
-  return `<span class="badge badge-${rec}">${labels[rec] || rec}</span>`;
+
+  for (const r of STATE.financialKeywords) {
+    const c = ensure(r.campaign_name || '—');
+    c.cost += Number(r.cost) || 0;
+    c.purchases += Number(r.purchases) || 0;
+  }
+  for (const r of STATE.recommendationKeywords) {
+    const c = ensure(r.campaign_name || '—');
+    if (QUICK_FILTER_GROUPS.PAUSE_GROUP.includes(r.recommendation)) c.pause++;
+  }
+  for (const r of STATE.recommendationSearchTerms) {
+    const c = ensure(r.campaign_name || '—');
+    if (QUICK_FILTER_GROUPS.PROMOTE_GROUP.includes(r.recommendation)) c.promote++;
+    if (QUICK_FILTER_GROUPS.NEGATIVE_GROUP.includes(r.recommendation)) c.negative++;
+  }
+
+  const rows = [...byCampaign.values()].sort((a, b) => b.cost - a.cost);
+  document.getElementById('campaignSummary').innerHTML = rows.map(c => {
+    const cac = c.purchases > 0 ? fmtR(round2(c.cost / c.purchases)) : '—';
+    return `
+      <div class="camp-card">
+        <div class="camp-name" title="${escapeHtml(c.name)}">${escapeHtml(compactCampaignName(c.name))}</div>
+        <div class="camp-row"><span>Investimento</span><b>${fmtR(round2(c.cost))}</b></div>
+        <div class="camp-row"><span>Purchases</span><b>${fmtInt(c.purchases)}</b></div>
+        <div class="camp-row"><span>CAC</span><b>${cac}</b></div>
+        <div class="camp-row"><span>Promover</span><b>${fmtInt(c.promote)}</b></div>
+        <div class="camp-row"><span>Pausar</span><b>${fmtInt(c.pause)}</b></div>
+        <div class="camp-row"><span>Negativar</span><b>${fmtInt(c.negative)}</b></div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ─── BADGE HELPER ───────────────────────────────────────────────────────────
+const REC_LABELS = {
+  PROMOTE_HIGH_PRIORITY: 'Promover alta prioridade', PROMOTE: 'Promover', NEGATIVE: 'Negativar',
+  NEGATIVE_REVIEW: 'Revisar negativa', PAUSE: 'Pausar', PAUSE_NO_PURCHASE: 'Pausar sem compra',
+  WATCH: 'Observar', KEEP: 'Manter', KEEP_OR_SCALE: 'Manter/Escalar',
+};
+
+function badge(rec) {
+  return `<span class="badge badge-${rec}">${REC_LABELS[rec] || rec}</span>`;
 }
 
 // data-attributes + event delegation (sem onclick inline com dados interpolados)
@@ -485,8 +707,16 @@ document.addEventListener('click', (ev) => {
 });
 
 // ─── TABELAS ────────────────────────────────────────────────────────────────
+// Ordenação default (sem coluna escolhida pelo usuário): prioridade desc, depois cost desc.
+function defaultSort(rows) {
+  return [...rows].sort((a, b) => {
+    if (b.priority_rank !== a.priority_rank) return b.priority_rank - a.priority_rank;
+    return (Number(b.cost) || 0) - (Number(a.cost) || 0);
+  });
+}
+
 function sortRows(rows, sort) {
-  if (!sort.col) return rows;
+  if (!sort.col) return defaultSort(rows);
   return [...rows].sort((a, b) => {
     const av = a[sort.col], bv = b[sort.col];
     const an = av === null || av === undefined ? -Infinity : Number(av);
@@ -503,18 +733,18 @@ function round2(n) { return Math.round(n * 100) / 100; }
 
 function renderSearchTermsTable() {
   const tbody = document.querySelector('#searchTermsTable tbody');
-  let rows = STATE.filteredSearchTerms;
-  if (STATE.sort.table === 'st') rows = sortRows(rows, STATE.sort);
+  let rows = STATE.sort.table === 'st' ? sortRows(STATE.filteredSearchTerms, STATE.sort) : defaultSort(STATE.filteredSearchTerms);
 
   document.getElementById('stEmpty').style.display = rows.length ? 'none' : 'block';
 
   rows = rows.slice(0, STATE.limit);
 
   tbody.innerHTML = rows.map(r => `
-    <tr>
+    <tr class="${r.recommendation === 'KEEP' ? 'row-keep' : ''}">
       <td>${badge(r.recommendation)}</td>
+      <td>${priorityBadge(r.priority)}</td>
       <td>${escapeHtml(r.search_term)}</td>
-      <td>${escapeHtml(r.campaign_name) || '—'}</td>
+      <td><span class="camp-compact" title="${escapeHtml(r.campaign_name) || ''}">${escapeHtml(compactCampaignName(r.campaign_name))}</span></td>
       <td>${escapeHtml(r.ad_group_name) || '—'}</td>
       <td class="num">${fmtInt(r.clicks)}</td>
       <td class="num">${fmtInt(r.impressions)}</td>
@@ -531,19 +761,19 @@ function renderSearchTermsTable() {
 
 function renderKeywordsTable() {
   const tbody = document.querySelector('#keywordsTable tbody');
-  let rows = STATE.filteredKeywords;
-  if (STATE.sort.table === 'kw') rows = sortRows(rows, STATE.sort);
+  let rows = STATE.sort.table === 'kw' ? sortRows(STATE.filteredKeywords, STATE.sort) : defaultSort(STATE.filteredKeywords);
 
   document.getElementById('kwEmpty').style.display = rows.length ? 'none' : 'block';
 
   rows = rows.slice(0, STATE.limit);
 
   tbody.innerHTML = rows.map(r => `
-    <tr>
+    <tr class="${r.recommendation === 'KEEP' ? 'row-keep' : ''}">
       <td>${badge(r.recommendation)}</td>
+      <td>${priorityBadge(r.priority)}</td>
       <td>${escapeHtml(r.keyword)}</td>
       <td>${escapeHtml(r.match_type) || '—'}</td>
-      <td>${escapeHtml(r.campaign_name) || '—'}</td>
+      <td><span class="camp-compact" title="${escapeHtml(r.campaign_name) || ''}">${escapeHtml(compactCampaignName(r.campaign_name))}</span></td>
       <td>${escapeHtml(r.ad_group_name) || '—'}</td>
       <td>${escapeHtml(r.status_google_ads) || '—'}</td>
       <td class="num">${fmtInt(r.clicks)}</td>
