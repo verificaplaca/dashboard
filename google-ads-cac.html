@@ -392,10 +392,32 @@ const SUPA_URL = 'https://ftmgmfdqdqxboiktxcoj.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0bWdtZmRxZHF4Ym9pa3R4Y29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MTIwNzAsImV4cCI6MjA5Mjk4ODA3MH0.IfOKtwpBB9orGN3UnCZDG8RYEHTAEAsX0LHxV3WBfCs';
 const SUPA_HDR = { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' };
 
+// O PostgREST (API REST do Supabase) limita cada resposta a 1000 linhas por
+// padrão (HTTP 206 Partial Content), mesmo sem erro — fetch trata 206 como
+// "ok". Sem paginação explícita, consultas com mais de 1000 linhas (comum em
+// google_ads_search_terms_daily/keywords_daily em janelas de 7d/30d) eram
+// truncadas silenciosamente, causando números de CAC muito abaixo do real.
+// Aqui paginamos via header Range, buscando página por página até receber
+// uma página com menos de SUPA_PAGE_SIZE linhas (sinal de que é a última).
+// Não dependemos do total no content-range porque sem "Prefer: count=exact"
+// o PostgREST retorna "*" no total (não calculado).
+const SUPA_PAGE_SIZE = 1000;
+
 async function supaGet(path) {
-  const r = await fetch(SUPA_URL + path, { headers: SUPA_HDR });
-  if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
-  return r.json();
+  let allRows = [];
+  let offset = 0;
+  while (true) {
+    const r = await fetch(SUPA_URL + path, {
+      headers: { ...SUPA_HDR, Range: `${offset}-${offset + SUPA_PAGE_SIZE - 1}` },
+    });
+    if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
+    const page = await r.json();
+    allRows = allRows.concat(page);
+
+    if (page.length < SUPA_PAGE_SIZE) break; // última página (incompleta ou vazia)
+    offset += SUPA_PAGE_SIZE;
+  }
+  return allRows;
 }
 
 async function supaPost(path, body) {
