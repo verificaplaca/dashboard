@@ -178,9 +178,41 @@
   .kpi-meta-delta { font-size: 10.5px; margin-top: 3px; color: var(--text-secondary); }
   .kpi-meta-delta.bad { color: var(--red); }
   .kpi-meta-delta.ok { color: var(--green); }
+
+  /* Loading overlay — exibido durante loadAndRender() (fetch após mudança de filtro/período) */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(13, 17, 23, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+  .loading-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .loading-spinner {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.18);
+    border-top-color: var(--accent, #3b82f6);
+    animation: loading-spin 0.8s linear infinite;
+  }
+  @keyframes loading-spin {
+    to { transform: rotate(360deg); }
+  }
 </style>
 </head>
 <body>
+
+<div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div></div>
 
 <header>
   <a class="logo" href="dashboard.html">
@@ -427,6 +459,7 @@ let STATE = {
   sort: { table: null, col: null, dir: 1 },
   limit: 50,   // quantidade de linhas exibidas por tabela (seletor #fLimit)
   quickFilter: 'actions',   // 'actions' | 'PROMOTE_GROUP' | 'PAUSE_GROUP' | 'NEGATIVE_GROUP' | 'WATCH' | 'KEEP_GROUP' | 'all'
+  loadToken: 0,  // incrementado a cada loadAndRender(); descarta respostas de chamadas antigas (evita race condition ao trocar filtros rápido)
 };
 
 const CAC_TARGET = 9;
@@ -517,10 +550,21 @@ function escapeHtml(value) {
 }
 
 // ─── CARREGAMENTO PRINCIPAL ─────────────────────────────────────────────────
+// loadToken: cada chamada incrementa STATE.loadToken e guarda o valor local
+// (myToken). Se, quando a requisição assíncrona terminar, STATE.loadToken já
+// tiver mudado (ou seja, uma chamada mais nova foi disparada — ex: usuário
+// trocou o filtro de período antes da primeira resposta chegar), esta
+// resposta é descartada e NÃO sobrescreve o STATE. Evita o race condition em
+// que uma resposta antiga (ex: período "Hoje") chega depois de uma nova
+// (ex: período "30 dias") e mostra dados errados na tela.
 async function loadAndRender() {
   const period = document.getElementById('fPeriod').value;
+  const myToken = ++STATE.loadToken;
+  showLoadingOverlay();
   try {
     const { searchTermsRaw, keywordsRaw, blockedTerms, reviews } = await fetchGoogleAdsCacData(period);
+
+    if (myToken !== STATE.loadToken) return; // resposta obsoleta — descarta
 
     // Chave composta (entity_type::entity_key::campaign_id::ad_group_id) — evita
     // colisão entre o mesmo termo/keyword em campanhas/ad groups diferentes.
@@ -534,10 +578,22 @@ async function loadAndRender() {
     renderChips();
     applyFilters();
   } catch (err) {
+    if (myToken !== STATE.loadToken) return; // resposta obsoleta — descarta
     console.error('Erro ao carregar dados Google Ads CAC:', err);
     document.getElementById('kpiRow').innerHTML =
       `<div class="kpi-card" style="grid-column: span 6"><div class="kpi-label">Erro ao carregar dados</div><div class="kpi-value red" style="font-size:13px">${err.message}</div></div>`;
+  } finally {
+    if (myToken === STATE.loadToken) hideLoadingOverlay();
   }
+}
+
+function showLoadingOverlay() {
+  const el = document.getElementById('loadingOverlay');
+  if (el) el.classList.add('visible');
+}
+function hideLoadingOverlay() {
+  const el = document.getElementById('loadingOverlay');
+  if (el) el.classList.remove('visible');
 }
 
 function renderUpdatedAt(rawRows) {
