@@ -1,23 +1,38 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- bureau_daily.sql
--- Função RPC get_bureau_costs_daily() — é isso que roda de verdade.
+-- Função RPC get_bureau_costs_daily(p_start, p_end) — é isso que roda de verdade.
 --
--- Cadeia real: Apps Script (pagarme-unified.js:1218 syncBureauFromSupabase,
--- disparado por trigger agendado) → POST /rest/v1/rpc/get_bureau_costs_daily
--- no Supabase → grava resultado na aba "BureauDaily" da planilha → syncDashboard
--- consolida em "Dashboard" → dashboard.html lê a tabela bureau_daily do Supabase
--- (alimentada a partir da mesma fonte) para os cards de custo/lucro bruto.
+-- ⚠️ Roda em um Supabase EXTERNO ao projeto do dashboard, não no principal:
+--    Projeto externo (bureau/checkouts): https://ozquoloetuzynnyzkado.supabase.co
+--    Projeto principal (dashboard):      https://ftmgmfdqdqxboiktxcoj.supabase.co
+--    Execute este script no SQL Editor do projeto ozquoloetuzynnyzkado — rodar
+--    no projeto principal falha com "relation checkouts does not exist" porque
+--    checkouts/consultas_placa só existem no banco externo.
+--
+-- Cadeia real: cron-job.org (3x/dia) → POST /functions/v1/sync-bureau-daily
+-- (Edge Function no projeto PRINCIPAL, fora deste repo até esta reconstrução)
+-- → essa function chama POST {BUREAU_SUPABASE_URL}/rest/v1/rpc/get_bureau_costs_daily
+-- com body {p_start, p_end} no projeto EXTERNO → recebe as linhas agregadas →
+-- faz upsert em public.bureau_daily (projeto principal, onConflict: date) →
+-- dashboard.html e check-bureau-spend leem bureau_daily do projeto principal.
+--
+-- Sem body, sync-bureau-daily manda os últimos 3 dias (incremental). Com body
+-- {"p_start":"YYYY-MM-DD","p_end":"YYYY-MM-DD"} faz backfill de um período.
 --
 -- Calcula custo de bureau por venda (Assertiva por tiers de data + CheckTudo
 -- por SKU fixo) e agrega por dia.
 --
--- Rode este script no Supabase SQL Editor sempre que houver mudança de tier de
--- preço (Assertiva) ou novo bureau — ele recria a função (CREATE OR REPLACE),
--- não precisa dropar antes. Este arquivo é a fonte da verdade versionada da
--- função; antes só existia direto no banco, sem cópia no repo.
+-- Rode este script no SQL Editor do projeto ozquoloetuzynnyzkado sempre que
+-- houver mudança de tier de preço (Assertiva) ou novo bureau — ele recria a
+-- função (CREATE OR REPLACE), não precisa dropar antes. Este arquivo é a fonte
+-- da verdade versionada da função; antes só existia direto no banco externo,
+-- sem cópia no repo.
 -- ─────────────────────────────────────────────────────────────────────────────
 
-CREATE OR REPLACE FUNCTION get_bureau_costs_daily()
+CREATE OR REPLACE FUNCTION get_bureau_costs_daily(
+  p_start date DEFAULT NULL,
+  p_end   date DEFAULT NULL
+)
 RETURNS TABLE (
   dia           date,
   vendas_pagas  bigint,
@@ -42,6 +57,8 @@ WITH vendas AS (
   WHERE (ck.paid_at IS NOT NULL OR LOWER(ck.status) = 'paid')
     AND LOWER(ck.status) <> 'refunded'          -- exclui estornos da receita
     AND ck.is_cortesia = false
+    AND (p_start IS NULL OR DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') >= p_start)
+    AND (p_end   IS NULL OR DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') <= p_end)
     AND ck.plano NOT IN (
       'basico','premium','completo',
       'bin_estadual+bin_federal+gravame',
