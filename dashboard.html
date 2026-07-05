@@ -587,12 +587,12 @@
       <div class="ads-balance-metrics" id="adsBalanceMetrics"></div>
     </div>
 
-    <!-- Bureau Assertiva -->
+    <!-- Bureau (Assertiva + CheckTudo) -->
     <div class="bureau-card" id="bureauCard">
       <div class="bureau-card-top">
         <div class="bureau-card-main">
           <div>
-            <div class="bureau-card-label">🧾 Bureau Assertiva — mês atual</div>
+            <div class="bureau-card-label">🧾 Bureau — mês atual</div>
             <div class="bureau-card-value" id="bureauCardValue">—</div>
           </div>
           <div class="bureau-card-spark" id="bureauCardSpark"></div>
@@ -603,22 +603,12 @@
         </div>
       </div>
       <div class="ads-balance-metrics" id="bureauCardMetrics"></div>
-    </div>
-
-  </div>
-
-  <!-- Bureau por Tipo: Assertiva vs CheckTudo (os dois ligados em paralelo) -->
-  <div class="bureau-card" id="bureauTypeCard" style="margin-bottom:16px;">
-    <div class="bureau-card-top">
-      <div class="bureau-card-main">
-        <div>
-          <div class="bureau-card-label">🧾 Bureau por Tipo — mês atual</div>
-          <div class="bureau-card-value" id="bureauTypeCardValue">—</div>
-        </div>
+      <div class="bureau-type-divider" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+        <div class="bureau-card-label" style="margin-bottom:8px;">Split por bureau</div>
+        <div class="bureau-type-grid" id="bureauTypeCardGrid"></div>
       </div>
-      <span class="bureau-card-meta" id="bureauTypeCardMeta"></span>
     </div>
-    <div class="bureau-type-grid" id="bureauTypeCardGrid"></div>
+
   </div>
 
   <div class="section-label" style="margin-top:24px">Estornos</div>
@@ -1251,7 +1241,6 @@ function render() {
   buildTodayPace();
   buildAdsBalance();
   buildBureauCard();
-  buildBureauTypeCard();
   buildKPIs(T);
   buildRefundSection(T);
   buildGauges(T);
@@ -1408,23 +1397,20 @@ function buildBureauCard() {
       <div class="ads-bal-metric-value">${m.value}</div>
       <div class="ads-bal-metric-sub">${m.sub}</div>
     </div>`).join('');
+
+  buildBureauTypeGrid();
 }
 
-// ─── BUREAU POR TIPO (Assertiva vs CheckTudo) ────────────────────────────────
+// ─── BUREAU POR TIPO (Assertiva vs CheckTudo) — split dentro do card principal ─
 const BUREAU_TYPE_LABELS = { assertiva: 'Assertiva', checktudo: 'CheckTudo' };
 const BUREAU_TYPE_COLORS = { assertiva: '#7c3aed', checktudo: '#0891b2' };
 
-function buildBureauTypeCard() {
-  const card  = document.getElementById('bureauTypeCard');
-  const valEl = document.getElementById('bureauTypeCardValue');
-  const meta  = document.getElementById('bureauTypeCardMeta');
-  const grid  = document.getElementById('bureauTypeCardGrid');
-  if (!card) return;
+function buildBureauTypeGrid() {
+  const grid = document.getElementById('bureauTypeCardGrid');
+  if (!grid) return;
 
   if (!BUREAU_TYPE_ROWS.length) {
-    valEl.textContent = '—';
-    meta.textContent  = 'sem dados (tabela bureau_by_type_daily vazia)';
-    grid.innerHTML    = '';
+    grid.innerHTML = '<div class="bureau-card-meta">sem dados (tabela bureau_by_type_daily vazia)</div>';
     return;
   }
 
@@ -1447,11 +1433,8 @@ function buildBureauTypeCard() {
   }
 
   const totalCusto = [...byBureau.values()].reduce((s,v) => s + v.custo, 0);
-  valEl.textContent = fmtR(totalCusto);
 
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-  const daysPassed  = new Set(currRows.map(r => String(r.date).slice(0,10))).size || 1;
-  meta.textContent  = `${daysPassed} de ${daysInMonth} dias`;
 
   const order = ['assertiva', 'checktudo'];
   const keys  = [...byBureau.keys()].sort((a,b) => order.indexOf(a) - order.indexOf(b));
