@@ -212,6 +212,16 @@
     .bureau-card-spark { display:flex; align-items:flex-end; gap:2px; height:24px; }
     .bureau-card-spark span { width:4px; border-radius:2px 2px 0 0; opacity:.75; min-height:2px; }
 
+    /* ── Bureau por Tipo (Assertiva vs CheckTudo) ─────────────────────────── */
+    .bureau-type-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px; }
+    @media(max-width:700px){ .bureau-type-grid { grid-template-columns:1fr; } }
+    .bureau-type-item { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
+    .bureau-type-name { font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; }
+    .bureau-type-value { font-size:19px; font-weight:700; color:var(--text-primary); }
+    .bureau-type-sub { font-size:10.5px; color:var(--text-muted); margin-top:3px; }
+    .bureau-type-bar { height:5px; border-radius:3px; background:var(--border); margin-top:8px; overflow:hidden; }
+    .bureau-type-bar-fill { height:100%; border-radius:3px; }
+
     /* Day-of-week — desktop grid 2 linhas (4+3), mobile carousel */
     .dow-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
                 align-items: stretch; }
@@ -597,6 +607,20 @@
 
   </div>
 
+  <!-- Bureau por Tipo: Assertiva vs CheckTudo (os dois ligados em paralelo) -->
+  <div class="bureau-card" id="bureauTypeCard" style="margin-bottom:16px;">
+    <div class="bureau-card-top">
+      <div class="bureau-card-main">
+        <div>
+          <div class="bureau-card-label">🧾 Bureau por Tipo — mês atual</div>
+          <div class="bureau-card-value" id="bureauTypeCardValue">—</div>
+        </div>
+      </div>
+      <span class="bureau-card-meta" id="bureauTypeCardMeta"></span>
+    </div>
+    <div class="bureau-type-grid" id="bureauTypeCardGrid"></div>
+  </div>
+
   <div class="section-label" style="margin-top:24px">Estornos</div>
   <div id="refundSection"></div>
   <script>
@@ -792,7 +816,7 @@ async function loadSupabaseData() {
   const qs    = `date=gte.${start}&date=lte.${today}`;
 
   const gadsQs = `date=gte.${start}&date=lte.${today}`;
-  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows, balRows] = await Promise.all([
+  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows, balRows, burTypeRows] = await Promise.all([
     supaGet(`/rest/v1/revenue_daily?${qs}&select=date,revenue,paid_orders`),
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
@@ -800,8 +824,10 @@ async function loadSupabaseData() {
     supaGet(`/rest/v1/google_ads_campaign_daily?${gadsQs}&select=date,campaign_name,cost_micros,conversions&order=date.asc`),
     supaGet(`/rest/v1/refunds_daily?${qs}&select=date,refund_count,refund_value`),
     supaGet(`/rest/v1/ads_balance_history?select=checked_at,balance_brl,alert_level&order=checked_at.desc&limit=30`).catch(() => []),
+    supaGet(`/rest/v1/bureau_by_type_daily?${qs}&select=date,bureau,vendido_real,custo_bureau`).catch(() => []),
   ]);
   ADS_BALANCE_DATA = balRows || [];
+  BUREAU_TYPE_ROWS = burTypeRows || [];
 
   const upsMap = new Map();
   for (const u of upsRows) upsMap.set(String(u.date).slice(0,10), u);
@@ -999,6 +1025,7 @@ const sparkRefs = {};
 let _campSort      = { col:-1, dir:1 };  // sort state for campaign table
 let _upsellSort    = { col:-1, dir:1 };  // sort state for upsell type table
 let ADS_BALANCE_DATA = [];               // últimas leituras de saldo Google Ads
+let BUREAU_TYPE_ROWS = [];                // bureau_by_type_daily: custo por bureau (Assertiva vs CheckTudo) por dia
 
 // ─── DATE PICKER ─────────────────────────────────────────────────────────────
 function toggleDP() {
@@ -1224,6 +1251,7 @@ function render() {
   buildTodayPace();
   buildAdsBalance();
   buildBureauCard();
+  buildBureauTypeCard();
   buildKPIs(T);
   buildRefundSection(T);
   buildGauges(T);
@@ -1380,6 +1408,71 @@ function buildBureauCard() {
       <div class="ads-bal-metric-value">${m.value}</div>
       <div class="ads-bal-metric-sub">${m.sub}</div>
     </div>`).join('');
+}
+
+// ─── BUREAU POR TIPO (Assertiva vs CheckTudo) ────────────────────────────────
+const BUREAU_TYPE_LABELS = { assertiva: 'Assertiva', checktudo: 'CheckTudo' };
+const BUREAU_TYPE_COLORS = { assertiva: '#7c3aed', checktudo: '#0891b2' };
+
+function buildBureauTypeCard() {
+  const card  = document.getElementById('bureauTypeCard');
+  const valEl = document.getElementById('bureauTypeCardValue');
+  const meta  = document.getElementById('bureauTypeCardMeta');
+  const grid  = document.getElementById('bureauTypeCardGrid');
+  if (!card) return;
+
+  if (!BUREAU_TYPE_ROWS.length) {
+    valEl.textContent = '—';
+    meta.textContent  = 'sem dados (tabela bureau_by_type_daily vazia)';
+    grid.innerHTML    = '';
+    return;
+  }
+
+  const fmtR = v => v.toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
+  const fmtN = (v, d=1) => v.toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
+
+  const now    = new Date();
+  const currMo = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const currRows = BUREAU_TYPE_ROWS.filter(r => String(r.date).slice(0,7) === currMo);
+
+  // Agrupa por bureau
+  const byBureau = new Map();
+  for (const r of currRows) {
+    const key = r.bureau || 'assertiva';
+    const acc = byBureau.get(key) || { custo: 0, vendido: 0, dias: new Set() };
+    acc.custo   += parseFloat(r.custo_bureau) || 0;
+    acc.vendido += parseFloat(r.vendido_real) || 0;
+    acc.dias.add(String(r.date).slice(0,10));
+    byBureau.set(key, acc);
+  }
+
+  const totalCusto = [...byBureau.values()].reduce((s,v) => s + v.custo, 0);
+  valEl.textContent = fmtR(totalCusto);
+
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const daysPassed  = new Set(currRows.map(r => String(r.date).slice(0,10))).size || 1;
+  meta.textContent  = `${daysPassed} de ${daysInMonth} dias`;
+
+  const order = ['assertiva', 'checktudo'];
+  const keys  = [...byBureau.keys()].sort((a,b) => order.indexOf(a) - order.indexOf(b));
+
+  grid.innerHTML = keys.map(key => {
+    const acc     = byBureau.get(key);
+    const label   = BUREAU_TYPE_LABELS[key] || key;
+    const color   = BUREAU_TYPE_COLORS[key] || '#6b7280';
+    const pct     = totalCusto > 0 ? (acc.custo / totalCusto) * 100 : 0;
+    const dailyAvg   = acc.dias.size ? acc.custo / acc.dias.size : 0;
+    const projection = dailyAvg * daysInMonth;
+    const pctReceita = acc.vendido > 0 ? (acc.custo / acc.vendido) * 100 : 0;
+    return `
+      <div class="bureau-type-item">
+        <div class="bureau-type-name">${label}</div>
+        <div class="bureau-type-value">${fmtR(acc.custo)}</div>
+        <div class="bureau-type-sub">${fmtN(pct)}% do custo total · proj. mês: ${fmtR(projection)}</div>
+        <div class="bureau-type-sub">${fmtN(pctReceita)}% do vendido nesse bureau</div>
+        <div class="bureau-type-bar"><div class="bureau-type-bar-fill" style="width:${Math.min(100,pct)}%;background:${color}"></div></div>
+      </div>`;
+  }).join('');
 }
 
 // ─── SALDO GOOGLE ADS ─────────────────────────────────────────────────────────
