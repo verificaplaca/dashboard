@@ -1,37 +1,37 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- bureau_daily.sql
--- Função RPC get_bureau_costs_daily(p_start, p_end) — é isso que roda de verdade.
+-- Função RPC get_bureau_costs_daily(p_start, p_end).
 --
--- ⚠️ Roda em um Supabase EXTERNO ao projeto do dashboard, não no principal:
---    Projeto externo (bureau/checkouts): https://ozquoloetuzynnyzkado.supabase.co
---    Projeto principal (dashboard):      https://ftmgmfdqdqxboiktxcoj.supabase.co
+-- ⚠️ Roda no Supabase do SITE/SISTEMA, não no da DASHBOARD:
+--    Site/Sistema (checkouts/consultas_placa): https://ozquoloetuzynnyzkado.supabase.co
+--    Dashboard (bureau_daily, dashboard.html):  https://ftmgmfdqdqxboiktxcoj.supabase.co
 --    Execute este script no SQL Editor do projeto ozquoloetuzynnyzkado — rodar
---    no projeto principal falha com "relation checkouts does not exist" porque
---    checkouts/consultas_placa só existem no banco externo.
+--    no projeto da Dashboard falha com "relation checkouts does not exist"
+--    porque checkouts/consultas_placa só existem no banco do Site/Sistema.
 --
 -- Cadeia real: cron-job.org (3x/dia) → POST /functions/v1/sync-bureau-daily
--- (Edge Function no projeto PRINCIPAL, fora deste repo até esta reconstrução)
--- → essa function chama POST {BUREAU_SUPABASE_URL}/rest/v1/rpc/get_bureau_costs_daily
--- com body {p_start, p_end} no projeto EXTERNO → recebe as linhas agregadas →
--- faz upsert em public.bureau_daily (projeto principal, onConflict: date) →
--- dashboard.html e check-bureau-spend leem bureau_daily do projeto principal.
+-- (Edge Function na Dashboard, supabase/functions/sync-bureau-daily) → chama
+-- POST {BUREAU_SUPABASE_URL}/rest/v1/rpc/get_bureau_costs_daily no Site/Sistema
+-- → recebe linhas agregadas por dia → upsert em public.bureau_daily (Dashboard,
+-- onConflict: date) → dashboard.html e check-bureau-spend leem bureau_daily
+-- da Dashboard.
 --
--- Sem body, sync-bureau-daily manda os últimos 3 dias (incremental). Com body
--- {"p_start":"YYYY-MM-DD","p_end":"YYYY-MM-DD"} faz backfill de um período.
---
--- Calcula custo de bureau por venda (Assertiva por tiers de data + CheckTudo
--- por SKU fixo) e agrega por dia.
+-- ── Status (confirmado em 2026-07-05) ────────────────────────────────────
+-- Versão validada via `SELECT pg_get_functiondef('get_bureau_costs_daily'::regproc)`
+-- rodado no Site/Sistema: já reflete tiers P1–P6 (Assertiva), bureau CheckTudo
+-- por SKU, fallback paid_at → created_at, exclusão de status='refunded',
+-- SECURITY DEFINER e defaults p_start = CURRENT_DATE - 90 dias / p_end =
+-- CURRENT_DATE. Cópia idêntica ao que está em produção — mantida aqui como
+-- fonte de verdade versionada (a função em si só existe no banco).
 --
 -- Rode este script no SQL Editor do projeto ozquoloetuzynnyzkado sempre que
 -- houver mudança de tier de preço (Assertiva) ou novo bureau — ele recria a
--- função (CREATE OR REPLACE), não precisa dropar antes. Este arquivo é a fonte
--- da verdade versionada da função; antes só existia direto no banco externo,
--- sem cópia no repo.
+-- função (CREATE OR REPLACE), não precisa dropar antes.
 -- ─────────────────────────────────────────────────────────────────────────────
 
-CREATE OR REPLACE FUNCTION get_bureau_costs_daily(
-  p_start date DEFAULT NULL,
-  p_end   date DEFAULT NULL
+CREATE OR REPLACE FUNCTION public.get_bureau_costs_daily(
+  p_start date DEFAULT ((CURRENT_DATE - '90 days'::interval))::date,
+  p_end   date DEFAULT CURRENT_DATE
 )
 RETURNS TABLE (
   dia           date,
@@ -42,11 +42,12 @@ RETURNS TABLE (
   margem_pct    numeric
 )
 LANGUAGE sql
-STABLE
-AS $$
+STABLE SECURITY DEFINER
+AS $function$
+
 WITH vendas AS (
   SELECT
-    DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') AS dia,  -- era created_at; agora paid_at (fallback p/ criação)
+    DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') AS dia,  -- era created_at puro; agora paid_at (fallback p/ criação)
     ck.plano,
     ck.bureau,
     ck.id AS checkout_id,
@@ -55,10 +56,9 @@ WITH vendas AS (
   FROM checkouts ck
   LEFT JOIN consultas_placa cp ON cp.checkout_id = ck.id
   WHERE (ck.paid_at IS NOT NULL OR LOWER(ck.status) = 'paid')
-    AND LOWER(ck.status) <> 'refunded'          -- exclui estornos da receita
+    AND LOWER(ck.status) <> 'refunded'          -- NOVO: exclui estornos da receita
     AND ck.is_cortesia = false
-    AND (p_start IS NULL OR DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') >= p_start)
-    AND (p_end   IS NULL OR DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') <= p_end)
+    AND DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') BETWEEN p_start AND p_end
     AND ck.plano NOT IN (
       'basico','premium','completo',
       'bin_estadual+bin_federal+gravame',
@@ -77,7 +77,7 @@ com_custo AS (
       WHEN v.from_cache THEN 0
       -- Produto Leilão (q68) é SEMPRE CheckTudo, independe do bureau do checkout
       WHEN v.plano = 'leilao' THEN 15.10
-      -- ═══════════ CheckTudo (plano 6k assinado) — custo por SKU ═══════════
+      -- ═══════════ NOVO: CheckTudo (plano 6k assinado) — custo por SKU ═══════════
       WHEN v.bureau = 'checktudo' THEN
         CASE v.plano
           WHEN 'padrao'             THEN 1.24   -- q1(0.21)+q3(1.03)
@@ -91,7 +91,7 @@ com_custo AS (
           WHEN 'bin_estadual+bin_estadual_owner+bin_federal+renavam+gravame+indicio_sinistro' THEN 7.57
           ELSE 0
         END
-      -- ═══════════ Assertiva — tiers por data (inalterado) ═══════════
+      -- ═══════════ Assertiva — tiers por data ═══════════
       -- ── P1: início – 17/02/2026 ──
       WHEN v.dia < '2026-02-18' THEN
         CASE v.plano
@@ -144,7 +144,7 @@ com_custo AS (
           WHEN 'bin_estadual+bin_estadual_owner+bin_federal+renavam+gravame+indicio_sinistro' THEN 17.736
           ELSE 0
         END
-      -- ── P5: 01/05 – 29/05/2026 (Plano R$ 14.000) ──
+      -- ── NOVO — P5: 01/05 – 29/05/2026 (Plano R$ 14.000) ──
       WHEN v.dia < '2026-05-30' THEN
         CASE v.plano
           WHEN 'padrao'            THEN 1.083
@@ -158,7 +158,7 @@ com_custo AS (
           WHEN 'bin_estadual+bin_estadual_owner+bin_federal+renavam+gravame+indicio_sinistro' THEN 19.342
           ELSE 0
         END
-      -- ── P6: 30/05/2026+ (Plano R$ 18.000) ──
+      -- ── NOVO — P6: 30/05/2026+ (Plano R$ 18.000) ──
       ELSE
         CASE v.plano
           WHEN 'padrao'            THEN 1.00
@@ -185,7 +185,8 @@ SELECT
 FROM com_custo
 GROUP BY dia
 ORDER BY dia DESC;
-$$;
+
+$function$;
 
 -- Breakdown por plano/bureau/dia (debug / auditoria manual — não faz parte da
 -- função RPC, é só para rodar solto no SQL Editor quando precisar investigar):

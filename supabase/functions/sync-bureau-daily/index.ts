@@ -1,24 +1,24 @@
 /**
  * sync-bureau-daily
  *
- * Busca custo diário de bureau no Supabase externo (Assertiva / checkouts)
- * e faz upsert idempotente em bureau_daily.
+ * Busca custo diário de bureau no Supabase do Site/Sistema (Assertiva / checkouts)
+ * e faz upsert idempotente em bureau_daily (Supabase da Dashboard).
  *
  * Aceita body JSON opcional:
  *   { "p_start": "2026-01-01", "p_end": "2026-04-30" }  — para backfill
  *   Sem body: últimos 3 dias (incremental diário)
  *
  * Secrets necessários:
- *   BUREAU_SUPABASE_URL — https://ozquoloetuzynnyzkado.supabase.co
- *   BUREAU_SUPABASE_KEY — anon key do Supabase externo
+ *   BUREAU_SUPABASE_URL — https://ozquoloetuzynnyzkado.supabase.co (Site/Sistema)
+ *   BUREAU_SUPABASE_KEY — anon key do Supabase do Site/Sistema
  *
- * Deploy:  supabase functions deploy sync-bureau-daily --project-ref ftmgmfdqdqxboiktxcoj
+ * Deploy:  supabase functions deploy sync-bureau-daily --project-ref ftmgmfdqdqxboiktxcoj (Dashboard)
  * Cron:    cron-job.org → POST .../functions/v1/sync-bureau-daily, 3x/dia (06h, 12h, 18h BRT)
  *          Header: Authorization: Bearer <SERVICE_ROLE_KEY>
  *
  * Depende da função RPC get_bureau_costs_daily(p_start, p_end), definida em
- * supabase/bureau_daily.sql — mas rodando no projeto EXTERNO (BUREAU_SUPABASE_URL),
- * não neste projeto.
+ * supabase/bureau_daily.sql — mas rodando no Supabase do Site/Sistema
+ * (BUREAU_SUPABASE_URL), não neste projeto (Dashboard).
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
