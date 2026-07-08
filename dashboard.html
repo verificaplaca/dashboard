@@ -338,6 +338,15 @@
     .lit-box.lit-rank   { border-color: var(--accent); }
     .lit-box.lit-rank   .lit-pct { color: var(--accent); }
     .lit-connector { width: 1px; height: 10px; background: var(--border); }
+    .lit-delta { font-size: 10px; font-weight: 600; margin-top: 3px; display: block; }
+    .lit-delta.pos { color: var(--green); }
+    .lit-delta.neg { color: var(--red); }
+    .lit-delta.neu { color: var(--text-muted); }
+
+    .lost-is-opp { display: flex; align-items: center; gap: 10px; background: var(--red-soft);
+      border: 1px solid #fecaca; border-radius: var(--radius); padding: 10px 14px;
+      font-size: 13px; color: #991b1b; margin-bottom: 14px; }
+    [data-theme="dark"] .lost-is-opp { color: #fca5a5; border-color: #7f1d1d; }
     @media (max-width: 900px) {
       /* Donut charts: troca flex:1 por altura fixa para Chart.js calcular corretamente */
       #convChart, #upsellPieChart { display: block; width: 100% !important; }
@@ -717,6 +726,7 @@
 
   <!-- Lost Impression Share -->
   <div class="section-label" style="margin-top:24px">Impression Share Perdido (Search)</div>
+  <div id="lostIsOpp" class="lost-is-opp" style="display:none"></div>
   <div class="grid-1-1">
     <div class="card">
       <div class="card-header">
@@ -731,6 +741,8 @@
             <th class="num">Lost IS Rank</th>
             <th class="num">Custo</th>
             <th class="num">Search Impr. Share</th>
+            <th class="num">Conv. Perdidas (aprox)</th>
+            <th class="num">R$ Perdido (aprox)</th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -1314,7 +1326,7 @@ function render() {
   buildFunnel();
   buildCharts(T);
   buildTable();
-  buildLostIS();
+  buildLostIS(T);
   buildDayOfWeek();
   buildUpsellTypeTable();
   const d = filtered;
@@ -2190,43 +2202,73 @@ function buildTable() {
 // para campanhas Search (NULL nas demais — Shopping/PMax/Display são ignoradas
 // aqui). "Eligible impressions" é derivado por dia/campanha: impressions ÷ IS
 // (quando IS > 0) — não dá pra somar IS diretamente entre dias/campanhas.
-function lostIsRows() {
-  if (!filtered.length) return [];
-  const minDate = filtered[0].dateStr, maxDate = filtered[filtered.length-1].dateStr;
+function lostIsRowsInRange(minDate, maxDate) {
   return CAMPAIGN_DAILY_DATA.filter(r =>
     r.dateStr >= minDate && r.dateStr <= maxDate && r.searchIS != null && r.searchIS > 0);
 }
-
-function buildLostIS() {
-  const rows = lostIsRows();
-
-  // ── Agregado por campanha (tabela) ────────────────────────────────────────
+function lostIsRows() {
+  if (!filtered.length) return [];
+  return lostIsRowsInRange(filtered[0].dateStr, filtered[filtered.length-1].dateStr);
+}
+// Agrega linhas cruas por campanha-base, retornando eligible/impr/lost/conv/cost acumulados.
+function aggLostIsByCamp(rows) {
   const byCamp = new Map();
   for (const r of rows) {
     const base = BASE_CAMPS.find(c => r.campaign.includes(c.name));
     const key = base ? base.name : r.campaign;
     const eligible = r.impressions / r.searchIS;
-    const prev = byCamp.get(key) || { name:key, cost:0, eligible:0, impr:0, lostBudget:0, lostRank:0 };
+    const prev = byCamp.get(key) || { name:key, cost:0, eligible:0, impr:0, lostBudget:0, lostRank:0, conv:0 };
     prev.cost       += r.cost;
     prev.eligible   += eligible;
     prev.impr       += r.impressions;
     prev.lostBudget += eligible * (r.budgetLostIS || 0);
     prev.lostRank   += eligible * (r.rankLostIS   || 0);
+    prev.conv       += r.conversions || 0;
     byCamp.set(key, prev);
   }
-  const campRows = Array.from(byCamp.values()).map(c => ({
-    ...c,
-    color: CAMP_COLORS[c.name] || '#6b6b6b',
-    is:         c.eligible > 0 ? c.impr       / c.eligible : 0,
-    budgetPct:  c.eligible > 0 ? c.lostBudget / c.eligible : 0,
-    rankPct:    c.eligible > 0 ? c.lostRank   / c.eligible : 0,
-  })).sort((a,b) => b.cost - a.cost);
+  return byCamp;
+}
+// Agregado geral (soma de todas as campanhas) — usado pra árvore de diagnóstico.
+function aggLostIsTotal(rows) {
+  const byCamp = aggLostIsByCamp(rows);
+  const camps = Array.from(byCamp.values());
+  const eligible = camps.reduce((s,c)=>s+c.eligible, 0);
+  const impr     = camps.reduce((s,c)=>s+c.impr, 0);
+  const lostBudget = camps.reduce((s,c)=>s+c.lostBudget, 0);
+  const lostRank   = camps.reduce((s,c)=>s+c.lostRank, 0);
+  return {
+    isPct:     eligible > 0 ? impr / eligible : 0,
+    budgetPct: eligible > 0 ? lostBudget / eligible : 0,
+    rankPct:   eligible > 0 ? lostRank / eligible : 0,
+  };
+}
+
+function buildLostIS(T) {
+  const rows = lostIsRows();
+  const ticket = T && T.ticket > 0 ? T.ticket : MONTHLY.revenue / MONTHLY.conv; // fallback se sem pedidos no período
+
+  // ── Agregado por campanha (tabela) — inclui estimativa de conv./R$ perdidos ──
+  const byCamp = aggLostIsByCamp(rows);
+  const campRows = Array.from(byCamp.values()).map(c => {
+    const is        = c.eligible > 0 ? c.impr       / c.eligible : 0;
+    const budgetPct = c.eligible > 0 ? c.lostBudget / c.eligible : 0;
+    const rankPct   = c.eligible > 0 ? c.lostRank   / c.eligible : 0;
+    // Taxa de conversão por impressão real recebida (conversões do Ads ÷ impressões reais).
+    // Aplicada às impressões perdidas pra estimar quanto teria convertido se elas tivessem existido.
+    // É uma aproximação — assume que impressão adicional converteria na mesma taxa da atual.
+    const convRate     = c.impr > 0 ? c.conv / c.impr : 0;
+    const lostConv      = (c.lostBudget + c.lostRank) * convRate;
+    const lostConvBudget= c.lostBudget * convRate;
+    const lostConvRank  = c.lostRank   * convRate;
+    const lostRev        = lostConv * ticket;
+    return { ...c, is, budgetPct, rankPct, convRate, lostConv, lostConvBudget, lostConvRank, lostRev };
+  }).sort((a,b) => b.lostRev - a.lostRev);
 
   const tbody = document.querySelector('#lostIsTable tbody');
   if (tbody) {
     tbody.innerHTML = '';
     if (!campRows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;font-size:12.5px">Sem dados de Impression Share no período (aguardando sync)</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:16px;font-size:12.5px">Sem dados de Impression Share no período (aguardando sync)</td></tr>';
     } else {
       campRows.forEach(c => {
         const tr = document.createElement('tr');
@@ -2235,21 +2277,51 @@ function buildLostIS() {
           <td class="num" style="color:var(--red);font-weight:600">${fmtN(c.budgetPct*100,0)}%</td>
           <td class="num" style="color:var(--accent);font-weight:600">${fmtN(c.rankPct*100,0)}%</td>
           <td class="num">${fmtR(c.cost)}</td>
-          <td class="num" style="color:var(--green);font-weight:600">${fmtN(c.is*100,0)}%</td>`;
+          <td class="num" style="color:var(--green);font-weight:600">${fmtN(c.is*100,0)}%</td>
+          <td class="num" title="Budget: ${fmtN(c.lostConvBudget,1)} · Rank: ${fmtN(c.lostConvRank,1)}">${fmtN(c.lostConv,1)}</td>
+          <td class="num" style="color:var(--red);font-weight:600">${fmtR(c.lostRev)}</td>`;
         tbody.appendChild(tr);
       });
     }
   }
 
+  // ── Card de maior oportunidade ─────────────────────────────────────────────
+  const opp = document.getElementById('lostIsOpp');
+  if (opp) {
+    const top = campRows[0];
+    if (!top || top.lostRev <= 0) {
+      opp.style.display = 'none';
+    } else {
+      const causa = top.lostConvBudget >= top.lostConvRank ? 'orçamento' : 'rank/qualidade do anúncio';
+      opp.style.display = 'flex';
+      opp.innerHTML = `🔴&nbsp; Maior oportunidade do período: <b>${top.name}</b> deixou de faturar
+        ~${fmtR(top.lostRev)} (${fmtN(top.lostConv,1)} conversões aprox.), principalmente por <b>${causa}</b>.`;
+    }
+  }
+
   // ── Árvore de diagnóstico (agregado geral, ponderado por impressões elegíveis) ──
-  const totEligible   = campRows.reduce((s,c)=>s+c.eligible, 0);
-  const totImpr       = campRows.reduce((s,c)=>s+c.impr, 0);
-  const totLostBudget = campRows.reduce((s,c)=>s+c.lostBudget, 0);
-  const totLostRank   = campRows.reduce((s,c)=>s+c.lostRank, 0);
-  const isPct     = totEligible > 0 ? totImpr       / totEligible : 0;
-  const lostPct   = 1 - isPct;
-  const budgetPct = totEligible > 0 ? totLostBudget / totEligible : 0;
-  const rankPct   = totEligible > 0 ? totLostRank   / totEligible : 0;
+  const curr = aggLostIsTotal(rows);
+  const lostPct = 1 - curr.isPct;
+
+  // Período anterior de mesmo tamanho (mesmo padrão de prevTotals()).
+  let prevDelta = null;
+  if (filtered.length) {
+    const n = filtered.length, minDate = filtered[0].dateStr;
+    const prevDays = ALL_DAYS.filter(d => d.dateStr < minDate).slice(-n);
+    if (prevDays.length) {
+      const prevRows = lostIsRowsInRange(prevDays[0].dateStr, prevDays[prevDays.length-1].dateStr);
+      if (prevRows.length) {
+        const prev = aggLostIsTotal(prevRows);
+        prevDelta = {
+          is:     pctDelta(curr.isPct,     prev.isPct,     false), // IS subir é bom
+          budget: pctDelta(curr.budgetPct, prev.budgetPct, true),  // perda subir é ruim
+          rank:   pctDelta(curr.rankPct,   prev.rankPct,   true),
+        };
+      }
+    }
+  }
+  const deltaHtml = d => d ? `<span class="lit-delta ${d.cls}">${d.txt}</span>` : '';
+
   const tree = document.getElementById('lostIsTree');
   if (tree) {
     if (!campRows.length) {
@@ -2257,13 +2329,13 @@ function buildLostIS() {
     } else {
       tree.innerHTML = `
         <div class="lit-row">
-          <div class="lit-box lit-is"><div class="lit-pct">${fmtN(isPct*100,0)}%</div><div class="lit-label">Impression Share</div></div>
+          <div class="lit-box lit-is"><div class="lit-pct">${fmtN(curr.isPct*100,0)}%</div><div class="lit-label">Impression Share</div>${deltaHtml(prevDelta && prevDelta.is)}</div>
           <div class="lit-box lit-lost"><div class="lit-pct">${fmtN(lostPct*100,0)}%</div><div class="lit-label">Lost Impression Share</div></div>
         </div>
         <div class="lit-connector"></div>
         <div class="lit-row">
-          <div class="lit-box lit-budget"><div class="lit-pct">${fmtN(budgetPct*100,0)}%</div><div class="lit-label">Perdido por orçamento</div></div>
-          <div class="lit-box lit-rank"><div class="lit-pct">${fmtN(rankPct*100,0)}%</div><div class="lit-label">Perdido por rank</div></div>
+          <div class="lit-box lit-budget"><div class="lit-pct">${fmtN(curr.budgetPct*100,0)}%</div><div class="lit-label">Perdido por orçamento</div>${deltaHtml(prevDelta && prevDelta.budget)}</div>
+          <div class="lit-box lit-rank"><div class="lit-pct">${fmtN(curr.rankPct*100,0)}%</div><div class="lit-label">Perdido por rank</div>${deltaHtml(prevDelta && prevDelta.rank)}</div>
         </div>`;
     }
   }
