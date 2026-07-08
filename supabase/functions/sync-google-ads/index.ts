@@ -98,6 +98,9 @@ Deno.serve(async (req) => {
         metrics.clicks,
         metrics.cost_micros,
         metrics.conversions,
+        metrics.search_impression_share,
+        metrics.search_budget_lost_impression_share,
+        metrics.search_rank_lost_impression_share,
         segments.date
       FROM campaign
       WHERE segments.date BETWEEN '${start}' AND '${end}'
@@ -135,7 +138,12 @@ Deno.serve(async (req) => {
     // ── Transforma e faz upsert ───────────────────────────────
     const rows = (results as Array<{
       campaign:  { id: string; name: string }
-      metrics:   { impressions: string; clicks: string; costMicros: string; conversions: string | number }
+      metrics:   {
+        impressions: string; clicks: string; costMicros: string; conversions: string | number
+        searchImpressionShare?: string | number
+        searchBudgetLostImpressionShare?: string | number
+        searchRankLostImpressionShare?: string | number
+      }
       segments:  { date: string }
     }>).map(r => ({
       date:          r.segments.date,
@@ -145,6 +153,13 @@ Deno.serve(async (req) => {
       clicks:        parseInt(r.metrics.clicks       ?? '0') || 0,
       cost_micros:   parseInt(r.metrics.costMicros   ?? '0') || 0,
       conversions:   parseFloat(String(r.metrics.conversions ?? '0')) || 0,
+      // Só existem para campanhas Search — vêm null/undefined para Shopping/PMax/Display.
+      search_impression_share: r.metrics.searchImpressionShare != null
+        ? parseFloat(String(r.metrics.searchImpressionShare)) : null,
+      search_budget_lost_is: r.metrics.searchBudgetLostImpressionShare != null
+        ? parseFloat(String(r.metrics.searchBudgetLostImpressionShare)) : null,
+      search_rank_lost_is: r.metrics.searchRankLostImpressionShare != null
+        ? parseFloat(String(r.metrics.searchRankLostImpressionShare)) : null,
       raw_json:      r,
       ingested_at:   new Date().toISOString(),
     }))

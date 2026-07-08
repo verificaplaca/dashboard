@@ -322,6 +322,22 @@
     .grid-1-1 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .grid-4-1 { display: grid; grid-template-columns: 4fr 1fr; gap: 10px; align-items: stretch; }
     @media (max-width: 900px) { .grid-2-1, .grid-1-1, .grid-4-1 { grid-template-columns: 1fr; } }
+
+    /* Lost Impression Share — árvore de diagnóstico */
+    .lost-is-tree { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px 0 2px; }
+    .lit-row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%; }
+    .lit-box { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; text-align: center;
+               background: var(--bg); min-width: 96px; }
+    .lit-box .lit-pct { font-size: 17px; font-weight: 700; line-height: 1.1; }
+    .lit-box .lit-label { font-size: 10.5px; color: var(--text-secondary); margin-top: 2px; }
+    .lit-box.lit-is    { border-color: var(--green); background: var(--green-soft); }
+    .lit-box.lit-is    .lit-pct { color: var(--green); }
+    .lit-box.lit-lost  { border-color: var(--red); background: var(--red-soft); }
+    .lit-box.lit-lost  .lit-pct { color: var(--red); }
+    .lit-box.lit-budget .lit-pct { color: var(--red); }
+    .lit-box.lit-rank   { border-color: var(--accent); }
+    .lit-box.lit-rank   .lit-pct { color: var(--accent); }
+    .lit-connector { width: 1px; height: 10px; background: var(--border); }
     @media (max-width: 900px) {
       /* Donut charts: troca flex:1 por altura fixa para Chart.js calcular corretamente */
       #convChart, #upsellPieChart { display: block; width: 100% !important; }
@@ -699,6 +715,51 @@
     </div>
   </div>
 
+  <!-- Lost Impression Share -->
+  <div class="section-label" style="margin-top:24px">Impression Share Perdido (Search)</div>
+  <div class="grid-1-1">
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Lost Impressions por Campanha</div>
+             <div class="card-subtitle">Só campanhas Search · período selecionado</div></div>
+      </div>
+      <div class="table-wrap">
+        <table id="lostIsTable">
+          <thead><tr>
+            <th>Campanha</th>
+            <th class="num">Lost IS Budget</th>
+            <th class="num">Lost IS Rank</th>
+            <th class="num">Custo</th>
+            <th class="num">Search Impr. Share</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Lost Impressions — Causa</div>
+             <div class="card-subtitle">Elegível → perdido → orçamento vs. rank</div></div>
+      </div>
+      <div id="lostIsTree" class="lost-is-tree"></div>
+    </div>
+  </div>
+  <div class="grid-1-1" style="margin-top:10px">
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Share de Investimento — Campanhas Search</div></div>
+      </div>
+      <div style="height:200px"><canvas id="lostIsShareChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Evolução do Lost Impression Share</div>
+             <div class="card-subtitle">% de impressões elegíveis perdidas por dia</div></div>
+      </div>
+      <div style="height:200px"><canvas id="lostIsEvolutionChart"></canvas></div>
+    </div>
+  </div>
+
   <!-- Performance por Dia da Semana (80%) + Conversões por Campanha (20%) -->
   <div class="section-label" style="margin-top:24px">Performance por Dia da Semana</div>
   <div class="grid-4-1">
@@ -811,7 +872,7 @@ async function loadSupabaseData() {
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
     supaGet(`/rest/v1/bureau_daily?${qs}&select=date,custo_bureau,lucro_bruto,margem_pct`),
-    supaGet(`/rest/v1/google_ads_campaign_daily?${gadsQs}&select=date,campaign_name,cost_micros,conversions&order=date.asc`),
+    supaGet(`/rest/v1/google_ads_campaign_daily?${gadsQs}&select=date,campaign_name,cost_micros,conversions,impressions,search_impression_share,search_budget_lost_is,search_rank_lost_is&order=date.asc`),
     supaGet(`/rest/v1/refunds_daily?${qs}&select=date,refund_count,refund_value`),
     supaGet(`/rest/v1/ads_balance_history?select=checked_at,balance_brl,alert_level&order=checked_at.desc&limit=30`).catch(() => []),
     supaGet(`/rest/v1/bureau_by_type_daily?${qs}&select=date,bureau,vendido_real,custo_bureau`).catch(() => []),
@@ -870,6 +931,11 @@ async function loadSupabaseData() {
     cost:        (parseInt(r.cost_micros) || 0) / 1_000_000,
     conversions: parseFloat(r.conversions) || 0,
     revenue:     0,
+    // Lost Impression Share — só vem preenchido para campanhas Search (NULL nas demais)
+    impressions: parseInt(r.impressions) || 0,
+    searchIS:      r.search_impression_share != null ? parseFloat(r.search_impression_share) : null,
+    budgetLostIS:  r.search_budget_lost_is    != null ? parseFloat(r.search_budget_lost_is)    : null,
+    rankLostIS:    r.search_rank_lost_is      != null ? parseFloat(r.search_rank_lost_is)      : null,
   }));
   console.log('[Dashboard] Google Ads (Supabase):', CAMPAIGN_DAILY_DATA.length, 'linhas carregadas.');
   mergeCostIntoAllDays();
@@ -1009,7 +1075,7 @@ let activePreset    = 'month';
 let activeCamp      = '';
 let usingRealData   = false;
 let UPSELL_TYPE_DATA    = []; // rows: { dateStr, addonKey, label, count, revenue }
-let CAMPAIGN_DAILY_DATA = []; // rows: { dateStr, campaign, cost, conversions, revenue }
+let CAMPAIGN_DAILY_DATA = []; // rows: { dateStr, campaign, cost, conversions, revenue, impressions, searchIS, budgetLostIS, rankLostIS }
 const charts = {};
 const sparkRefs = {};
 let _campSort      = { col:-1, dir:1 };  // sort state for campaign table
@@ -1248,6 +1314,7 @@ function render() {
   buildFunnel();
   buildCharts(T);
   buildTable();
+  buildLostIS();
   buildDayOfWeek();
   buildUpsellTypeTable();
   const d = filtered;
@@ -2116,6 +2183,127 @@ function buildTable() {
           ${totCacAds>0?`<span style="font-size:10px;font-weight:300;color:var(--text-muted)">Ads: ${fmtR(totCacAds)}</span>`:''}
         </div></td>`;
   tbody.appendChild(tfoot);
+}
+
+// ─── LOST IMPRESSION SHARE ────────────────────────────────────────────────────
+// Métricas de IS (impression_share, budget_lost_is, rank_lost_is) só existem
+// para campanhas Search (NULL nas demais — Shopping/PMax/Display são ignoradas
+// aqui). "Eligible impressions" é derivado por dia/campanha: impressions ÷ IS
+// (quando IS > 0) — não dá pra somar IS diretamente entre dias/campanhas.
+function lostIsRows() {
+  if (!filtered.length) return [];
+  const minDate = filtered[0].dateStr, maxDate = filtered[filtered.length-1].dateStr;
+  return CAMPAIGN_DAILY_DATA.filter(r =>
+    r.dateStr >= minDate && r.dateStr <= maxDate && r.searchIS != null && r.searchIS > 0);
+}
+
+function buildLostIS() {
+  const rows = lostIsRows();
+
+  // ── Agregado por campanha (tabela) ────────────────────────────────────────
+  const byCamp = new Map();
+  for (const r of rows) {
+    const base = BASE_CAMPS.find(c => r.campaign.includes(c.name));
+    const key = base ? base.name : r.campaign;
+    const eligible = r.impressions / r.searchIS;
+    const prev = byCamp.get(key) || { name:key, cost:0, eligible:0, impr:0, lostBudget:0, lostRank:0 };
+    prev.cost       += r.cost;
+    prev.eligible   += eligible;
+    prev.impr       += r.impressions;
+    prev.lostBudget += eligible * (r.budgetLostIS || 0);
+    prev.lostRank   += eligible * (r.rankLostIS   || 0);
+    byCamp.set(key, prev);
+  }
+  const campRows = Array.from(byCamp.values()).map(c => ({
+    ...c,
+    color: CAMP_COLORS[c.name] || '#6b6b6b',
+    is:         c.eligible > 0 ? c.impr       / c.eligible : 0,
+    budgetPct:  c.eligible > 0 ? c.lostBudget / c.eligible : 0,
+    rankPct:    c.eligible > 0 ? c.lostRank   / c.eligible : 0,
+  })).sort((a,b) => b.cost - a.cost);
+
+  const tbody = document.querySelector('#lostIsTable tbody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    if (!campRows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;font-size:12.5px">Sem dados de Impression Share no período (aguardando sync)</td></tr>';
+    } else {
+      campRows.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="cname"><span class="dot" style="background:${c.color}"></span>${c.name}</span></td>
+          <td class="num" style="color:var(--red);font-weight:600">${fmtN(c.budgetPct*100,0)}%</td>
+          <td class="num" style="color:var(--accent);font-weight:600">${fmtN(c.rankPct*100,0)}%</td>
+          <td class="num">${fmtR(c.cost)}</td>
+          <td class="num" style="color:var(--green);font-weight:600">${fmtN(c.is*100,0)}%</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  // ── Árvore de diagnóstico (agregado geral, ponderado por impressões elegíveis) ──
+  const totEligible   = campRows.reduce((s,c)=>s+c.eligible, 0);
+  const totImpr       = campRows.reduce((s,c)=>s+c.impr, 0);
+  const totLostBudget = campRows.reduce((s,c)=>s+c.lostBudget, 0);
+  const totLostRank   = campRows.reduce((s,c)=>s+c.lostRank, 0);
+  const isPct     = totEligible > 0 ? totImpr       / totEligible : 0;
+  const lostPct   = 1 - isPct;
+  const budgetPct = totEligible > 0 ? totLostBudget / totEligible : 0;
+  const rankPct   = totEligible > 0 ? totLostRank   / totEligible : 0;
+  const tree = document.getElementById('lostIsTree');
+  if (tree) {
+    if (!campRows.length) {
+      tree.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12.5px;padding:16px">Sem dados no período</div>';
+    } else {
+      tree.innerHTML = `
+        <div class="lit-row">
+          <div class="lit-box lit-is"><div class="lit-pct">${fmtN(isPct*100,0)}%</div><div class="lit-label">Impression Share</div></div>
+          <div class="lit-box lit-lost"><div class="lit-pct">${fmtN(lostPct*100,0)}%</div><div class="lit-label">Lost Impression Share</div></div>
+        </div>
+        <div class="lit-connector"></div>
+        <div class="lit-row">
+          <div class="lit-box lit-budget"><div class="lit-pct">${fmtN(budgetPct*100,0)}%</div><div class="lit-label">Perdido por orçamento</div></div>
+          <div class="lit-box lit-rank"><div class="lit-pct">${fmtN(rankPct*100,0)}%</div><div class="lit-label">Perdido por rank</div></div>
+        </div>`;
+    }
+  }
+
+  // ── Donut: share de investimento entre campanhas Search ───────────────────
+  const totCostSearch = campRows.reduce((s,c)=>s+c.cost, 0);
+  mkChart('lostIsShareChart', 'doughnut', {
+    labels: campRows.map(c=>c.name),
+    datasets: [{ data: campRows.map(c=>c.cost), backgroundColor: campRows.map(c=>c.color) }],
+  }, {
+    responsive:true, maintainAspectRatio:false,
+    plugins: { legend:{position:'right', labels:{boxWidth:10,font:{size:10.5}}},
+      datalabels: { color:'#fff', font:{size:10,weight:'700'},
+        formatter: v => totCostSearch>0 ? fmtN(v/totCostSearch*100,1)+'%' : '' } },
+  });
+
+  // ── Line chart: evolução diária Lost IS budget vs rank ────────────────────
+  const byDate = new Map();
+  for (const r of rows) {
+    const eligible = r.impressions / r.searchIS;
+    const prev = byDate.get(r.dateStr) || { eligible:0, lostBudget:0, lostRank:0 };
+    prev.eligible   += eligible;
+    prev.lostBudget += eligible * (r.budgetLostIS || 0);
+    prev.lostRank   += eligible * (r.rankLostIS   || 0);
+    byDate.set(r.dateStr, prev);
+  }
+  const dates = Array.from(byDate.keys()).sort();
+  mkChart('lostIsEvolutionChart', 'line', {
+    labels: dates.map(fmt2),
+    datasets: [
+      { label:'Search Lost IS (budget)', data: dates.map(d=>{ const v=byDate.get(d); return v.eligible>0?+(v.lostBudget/v.eligible*100).toFixed(1):0; }),
+        borderColor:'#dc2626', backgroundColor:'#dc2626', tension:.3, pointRadius:0, borderWidth:2 },
+      { label:'Search Lost IS (rank)', data: dates.map(d=>{ const v=byDate.get(d); return v.eligible>0?+(v.lostRank/v.eligible*100).toFixed(1):0; }),
+        borderColor:'#2563eb', backgroundColor:'#2563eb', tension:.3, pointRadius:0, borderWidth:2 },
+    ],
+  }, {
+    responsive:true, maintainAspectRatio:false,
+    scales: { y: { min:0, max:100, ticks:{ callback:v=>v+'%' } } },
+    plugins: { legend:{position:'top', labels:{boxWidth:10,font:{size:10.5}}}, datalabels:{display:false} },
+  });
 }
 
 // ─── UPSELL TYPE TABLE ───────────────────────────────────────────────────────
