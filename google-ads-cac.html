@@ -85,6 +85,35 @@
     border-radius: 7px; padding: 7px 10px; font-size: 12.5px; color: var(--text-primary); }
   .filter-input { min-width: 200px; flex: 1; }
 
+  /* Date picker — mesmo padrão do dashboard.html */
+  .date-picker-wrapper { position: relative; }
+  .date-picker-btn { display: flex; align-items: center; gap: 6px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px;
+    font-size: 12.5px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; outline: none; }
+  .date-picker-btn:hover { border-color: var(--accent); }
+  .date-dropdown { display: none; position: absolute; left: 0; top: calc(100% + 6px);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); z-index: 200; min-width: 240px; overflow: hidden; }
+  @media (max-width: 600px) {
+    .date-dropdown { position: fixed; top: auto; left: 10px; right: 10px;
+      width: auto; min-width: unset; border-radius: 12px; }
+  }
+  .date-dropdown.open { display: block; }
+  .date-presets { padding: 6px; display: flex; flex-direction: column; gap: 1px; }
+  .date-preset { padding: 7px 10px; font-size: 12.5px; border-radius: 6px; cursor: pointer;
+    color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; }
+  .date-preset:hover { background: var(--bg); color: var(--text-primary); }
+  .date-preset.active { background: #eff6ff; color: var(--accent); font-weight: 600; }
+  .date-divider { height: 1px; background: var(--border); margin: 4px 0; }
+  .date-custom { padding: 10px; display: none; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); }
+  .date-custom.visible { display: flex; }
+  .date-custom label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+  .date-custom input[type="date"] { border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 8px; font-size: 12.5px; color: var(--text-primary); outline: none; width: 100%; }
+  .date-apply { background: var(--accent); color: white; border: none; border-radius: 6px;
+    padding: 7px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; width: 100%; }
+  .date-apply:hover { background: #1d4ed8; }
+
   .section-label { font-size: 13px; font-weight: 600; color: var(--text-secondary);
                     margin-top: 28px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .03em; }
 
@@ -299,11 +328,33 @@
   <div class="campaign-summary" id="campaignSummary"></div>
 
   <div class="filters-row">
-    <select class="filter-select" id="fPeriod">
-      <option value="today">Hoje</option>
-      <option value="7d">Últimos 7 dias</option>
-      <option value="30d">Últimos 30 dias</option>
-    </select>
+    <div class="date-picker-wrapper" id="dpWrapper">
+      <button class="date-picker-btn" onclick="toggleDP()" type="button">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="11" rx="2" stroke="#6b6b6b" stroke-width="1.4"/><path d="M4 1v2M10 1v2M1 6h12" stroke="#6b6b6b" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <span id="dateLabel">Últimos 30 dias</span>
+        <svg width="9" height="5" viewBox="0 0 9 5" fill="none"><path d="M1 1l3.5 3L8 1" stroke="#6b6b6b" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </button>
+      <div class="date-dropdown" id="dateDD">
+        <div class="date-presets">
+          <div class="date-preset" onclick="setPreset('today','Hoje',event)">Hoje</div>
+          <div class="date-preset" onclick="setPreset('yesterday','Ontem',event)">Ontem</div>
+          <div class="date-preset" onclick="setPreset('week','Esta semana',event)">Esta semana</div>
+          <div class="date-preset" onclick="setPreset('7d','Últimos 7 dias',event)">Últimos 7 dias</div>
+          <div class="date-preset" onclick="setPreset('14d','Últimos 14 dias',event)">Últimos 14 dias</div>
+          <div class="date-preset active" onclick="setPreset('30d','Últimos 30 dias',event)">Últimos 30 dias</div>
+          <div class="date-preset" onclick="setPreset('month','Este mês',event)">Este mês</div>
+          <div class="date-preset" onclick="setPreset('lastmonth','Mês passado',event)">Mês passado</div>
+          <div class="date-preset" onclick="setPreset('ytd','Este ano',event)">Este ano até agora</div>
+          <div class="date-divider"></div>
+          <div class="date-preset" onclick="setPreset('custom','Personalizado',event)">Personalizado…</div>
+        </div>
+        <div class="date-custom" id="customRange">
+          <label>De</label><input type="date" id="dateFrom" value="2026-06-01"/>
+          <label>Até</label><input type="date" id="dateTo" value="2026-07-08"/>
+          <button class="date-apply" onclick="applyCustomDate()" type="button">Aplicar</button>
+        </div>
+      </div>
+    </div>
     <select class="filter-select" id="fCampaign" onchange="applyFilters()">
       <option value="">Todas campanhas</option>
     </select>
@@ -431,19 +482,11 @@ async function supaPost(path, body) {
 }
 
 // ─── CAMADA DE INTEGRAÇÃO: busca dados brutos ──────────────────────────────
-function periodToDateRange(period) {
-  const pad = n => String(n).padStart(2, '0');
-  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const today = new Date();
-  let from = new Date(today);
-  if (period === '7d') from.setDate(from.getDate() - 6);
-  else if (period === '30d') from.setDate(from.getDate() - 29);
-  // 'today' → from = today
-  return { from: fmt(from), to: fmt(today) };
-}
+// Intervalo de datas ativo. Preenchido por setPreset()/applyCustomDate() (mesmo
+// componente de date-picker do dashboard.html) — ver DATE_RANGE mais abaixo.
 
-async function fetchGoogleAdsCacData(period) {
-  const { from, to } = periodToDateRange(period);
+async function fetchGoogleAdsCacData() {
+  const { from, to } = DATE_RANGE;
   const dateQs = `date=gte.${from}&date=lte.${to}`;
 
   const [searchTermsRaw, keywordsRaw, blockedTerms, reviews] = await Promise.all([
@@ -580,11 +623,10 @@ function escapeHtml(value) {
 // que uma resposta antiga (ex: período "Hoje") chega depois de uma nova
 // (ex: período "30 dias") e mostra dados errados na tela.
 async function loadAndRender() {
-  const period = document.getElementById('fPeriod').value;
   const myToken = ++STATE.loadToken;
   showLoadingOverlay();
   try {
-    const { searchTermsRaw, keywordsRaw, blockedTerms, reviews } = await fetchGoogleAdsCacData(period);
+    const { searchTermsRaw, keywordsRaw, blockedTerms, reviews } = await fetchGoogleAdsCacData();
 
     if (myToken !== STATE.loadToken) return; // resposta obsoleta — descarta
 
@@ -708,10 +750,118 @@ function applyFilters() {
   renderKeywordsTable();
 }
 
-// Período muda → recarrega dados do Supabase (intervalo de datas diferente).
-// Demais filtros (campanha, ad group, recomendação, tipo, busca) só re-renderizam
-// localmente via applyFilters(), sem novo fetch.
-document.getElementById('fPeriod').addEventListener('change', loadAndRender);
+// ─── DATE PICKER ─────────────────────────────────────────────────────────────
+// Mesmo componente/comportamento do dashboard.html: presets recalculam from/to
+// e chamam loadAndRender() (novo fetch no Supabase, intervalo de datas diferente).
+// "Personalizado" abre os dois campos de data + botão Aplicar.
+let DATE_RANGE = { from: '', to: '' }; // preenchido no bootstrap abaixo
+
+function toggleDP() {
+  const dd  = document.getElementById('dateDD');
+  const btn = document.querySelector('.date-picker-btn');
+  if (window.innerWidth <= 600 && btn) {
+    const rect = btn.getBoundingClientRect();
+    dd.style.top = (rect.bottom + 6) + 'px';
+  } else {
+    dd.style.top = '';
+  }
+  dd.classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('dpWrapper');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('dateDD').classList.remove('open');
+});
+
+// Calcula {from,to} de um preset. Extraído numa função pura para ser reaproveitado
+// tanto por setPreset() (clique do usuário) quanto pela restauração via localStorage
+// no bootstrap (sem precisar simular clique nem disparar fetch duplicado).
+function computeRangeForPreset(preset) {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const today = iso(now);
+  let from, to = today;
+  if (preset === 'today') {
+    from = today;
+  } else if (preset === 'yesterday') {
+    const d = new Date(now); d.setDate(d.getDate()-1); from = to = iso(d);
+  } else if (preset === 'week') {
+    const d = new Date(now); d.setDate(d.getDate() - d.getDay()); from = iso(d);
+  } else if (preset === '7d') {
+    const d = new Date(now); d.setDate(d.getDate()-6); from = iso(d);
+  } else if (preset === '14d') {
+    const d = new Date(now); d.setDate(d.getDate()-13); from = iso(d);
+  } else if (preset === '30d') {
+    const d = new Date(now); d.setDate(d.getDate()-29); from = iso(d);
+  } else if (preset === 'month') {
+    from = today.slice(0,7)+'-01';
+  } else if (preset === 'lastmonth') {
+    const f = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const t = new Date(now.getFullYear(), now.getMonth(), 0);
+    from = iso(f); to = iso(t);
+  } else if (preset === 'ytd') {
+    from = `${now.getFullYear()}-01-01`;
+  } else {
+    from = today;
+  }
+  return { from, to };
+}
+
+function setPreset(preset, label, e) {
+  document.getElementById('dateLabel').textContent = label;
+  document.querySelectorAll('.date-preset').forEach(el => el.classList.remove('active'));
+  if (e?.currentTarget) e.currentTarget.classList.add('active');
+  document.getElementById('customRange').classList.toggle('visible', preset === 'custom');
+  if (preset === 'custom') return;
+
+  DATE_RANGE = computeRangeForPreset(preset);
+  document.getElementById('dateDD').classList.remove('open');
+  try { localStorage.setItem('vp_gads_cac_filter', JSON.stringify({ preset, label, ...DATE_RANGE })); } catch(e){}
+  loadAndRender();
+}
+
+function applyCustomDate() {
+  const f = document.getElementById('dateFrom').value, t = document.getElementById('dateTo').value;
+  if (!f || !t) return;
+  DATE_RANGE = { from: f, to: t };
+  const pad2 = s => { const [y,m,d] = s.split('-'); return `${d}/${m}/${y.slice(2)}`; };
+  const lbl2 = `${pad2(f)} – ${pad2(t)}`;
+  document.getElementById('dateLabel').textContent = lbl2;
+  document.getElementById('dateDD').classList.remove('open');
+  try { localStorage.setItem('vp_gads_cac_filter', JSON.stringify({ preset:'custom', label:lbl2, from:f, to:t })); } catch(e){}
+  loadAndRender();
+}
+
+// Restaura filtro salvo (ou usa "Últimos 30 dias" como padrão). Só ajusta
+// DATE_RANGE/UI — o fetch acontece uma única vez, no loadAndRender() do bootstrap
+// no final do arquivo, evitando disparo duplicado.
+(function initDateRange() {
+  let restored = false;
+  try {
+    const saved = JSON.parse(localStorage.getItem('vp_gads_cac_filter') || 'null');
+    if (saved?.preset === 'custom' && saved.from && saved.to) {
+      DATE_RANGE = { from: saved.from, to: saved.to };
+      document.getElementById('dateLabel').textContent = saved.label;
+      document.getElementById('dateFrom').value = saved.from;
+      document.getElementById('dateTo').value = saved.to;
+      document.getElementById('customRange').classList.add('visible');
+      document.querySelectorAll('.date-preset').forEach(el => {
+        el.classList.toggle('active', !!el.getAttribute('onclick')?.match(/'custom'/));
+      });
+      restored = true;
+    } else if (saved?.preset) {
+      const el = document.querySelector(`.date-preset[onclick*="'${saved.preset}'"]`);
+      if (el) {
+        DATE_RANGE = computeRangeForPreset(saved.preset);
+        document.getElementById('dateLabel').textContent = saved.label;
+        document.querySelectorAll('.date-preset').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        restored = true;
+      }
+    }
+  } catch (e) {}
+  if (!restored) DATE_RANGE = computeRangeForPreset('30d');
+})();
 
 // ─── KPI CARDS ──────────────────────────────────────────────────────────────
 // buildUiSummary local: financeiro vem só de financialKeywords (período + campanha
