@@ -1157,7 +1157,7 @@ function setPreset(preset, label, e) {
   // Fallback para all data apenas quando não for filtro de dia exato
   if (!filtered.length && preset !== 'today' && preset !== 'yesterday') filtered = [...ALL_DAYS];
   document.getElementById('dateDD').classList.remove('open');
-  try { localStorage.setItem('vp_filter', JSON.stringify({ preset, label, from:fromDate, to:toDate })); } catch(e){}
+  try { sessionStorage.setItem('vp_filter', JSON.stringify({ preset, label, from:fromDate, to:toDate })); } catch(e){}
   render();
 }
 function applyCustomDate() {
@@ -1166,7 +1166,7 @@ function applyCustomDate() {
   const lbl2 = `${fmt2(f)} – ${fmt2(t)}`;
   document.getElementById('dateLabel').textContent = lbl2;
   document.getElementById('dateDD').classList.remove('open');
-  try { localStorage.setItem('vp_filter', JSON.stringify({ preset:'custom', label:lbl2, from:f, to:t })); } catch(e){}
+  try { sessionStorage.setItem('vp_filter', JSON.stringify({ preset:'custom', label:lbl2, from:f, to:t })); } catch(e){}
   render();
 }
 function applyFilters() { activeCamp = document.getElementById('campaignFilter').value; render(); }
@@ -2874,7 +2874,7 @@ async function initDashboard() {
   const _moStart = _today.slice(0,7)+'-01';
   let _restored = false;
   try {
-    const _saved = JSON.parse(localStorage.getItem('vp_filter'));
+    const _saved = JSON.parse(sessionStorage.getItem('vp_filter'));
     if (_saved && _saved.preset) {
       // Recalcula datas dinâmicas para garantir que "Hoje" e "Este mês" sempre usam a data atual
       const _iso2 = d => `${d.getFullYear()}-${_pad(d.getMonth()+1)}-${_pad(d.getDate())}`;
