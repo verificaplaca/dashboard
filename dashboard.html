@@ -865,10 +865,19 @@ function addonLabel(key) {
   return key;
 }
 
-async function supaGet(path) {
-  const r = await fetch(SUPA_URL + path, { headers: SUPA_HDR });
-  if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
-  return r.json();
+async function supaGet(path, _attempt = 1) {
+  try {
+    const r = await fetch(SUPA_URL + path, { headers: SUPA_HDR });
+    if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
+    return r.json();
+  } catch (err) {
+    // Retry: primeiro load pode pegar o Supabase "frio" (projeto pausado/acordando)
+    if (_attempt < 3) {
+      await new Promise(res => setTimeout(res, 800 * _attempt));
+      return supaGet(path, _attempt + 1);
+    }
+    throw err;
+  }
 }
 
 async function loadSupabaseData() {
@@ -984,11 +993,18 @@ function makeDays() {
   const days = [];
   let seed = 42;
   function rand() { seed = (seed * 16807 + 0) % 2147483647; return (seed - 1) / 2147483646; }
-  for (let i = 1; i <= 30; i++) {
-    const date = new Date(2026, 2, i);
+  // Gera dados demo para o mês ATUAL (não mais fixo em março/2026) — usado só como
+  // fallback se o Supabase falhar mesmo após retries em supaGet().
+  const _now      = new Date();
+  const _y        = _now.getFullYear();
+  const _m        = _now.getMonth(); // 0-indexed
+  const _daysInMo = new Date(_y, _m + 1, 0).getDate();
+  const _pad      = n => String(n).padStart(2, '0');
+  for (let i = 1; i <= _daysInMo; i++) {
+    const date = new Date(_y, _m, i);
     const isWE = date.getDay() === 0 || date.getDay() === 6;
     const w    = isWE ? 0.56 + rand()*0.08 : 1.06 + rand()*0.14;
-    days.push({ date, dateStr:`2026-03-${String(i).padStart(2,'0')}`, weight:w, isWE,
+    days.push({ date, dateStr:`${_y}-${_pad(_m+1)}-${_pad(i)}`, weight:w, isWE,
                 upsellRate: +(14 + rand()*16).toFixed(1) });
   }
   const totalW = days.reduce((s,d)=>s+d.weight,0);
