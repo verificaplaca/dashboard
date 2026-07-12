@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tracking Gateway · Verifica Placa</title>
+<link rel="icon" type="image/jpeg" href="favicon-verifica-placa-2.jpg" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --border: #e8e8e4;
+    --text-primary: #1a1a1a; --text-secondary: #6b6b6b; --text-muted: #a0a0a0;
+    --accent: #2563eb; --green: #16a34a; --green-soft: #f0fdf4;
+    --red: #dc2626; --red-soft: #fef2f2; --amber: #d97706; --amber-soft: #fffbeb;
+    --purple: #7c3aed; --purple-soft: #f5f3ff;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  }
+  body { background: var(--bg); color: var(--text-primary); min-height: 100vh;
+         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border);
+           padding: 0 28px; height: 56px; display: flex; align-items: center;
+           justify-content: space-between; position: sticky; top: 0; z-index: 100; gap: 12px; }
+  .logo { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px;
+          color: var(--text-primary); text-decoration: none; flex-shrink: 0; }
+  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px;
+               display: flex; align-items: center; justify-content: center; color: white;
+               font-size: 12px; font-weight: 800; }
+  .back-link { font-size: 12.5px; color: var(--text-secondary); text-decoration: none; }
+  .back-link:hover { color: var(--accent); }
+
+  main { padding: 24px 28px 60px; max-width: 1400px; margin: 0 auto; }
+  .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .page-title { font-size: 21px; font-weight: 700; }
+  .page-subtitle { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
+  .page-head-actions { display: flex; align-items: center; gap: 10px; }
+
+  .env-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px;
+               border-radius: 999px; font-size: 12px; font-weight: 600;
+               background: var(--green-soft); color: var(--green); }
+  .env-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .refresh-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--surface);
+                 border: 1px solid var(--border); border-radius: 7px; padding: 7px 12px;
+                 font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .section-label { font-size: 12px; font-weight: 700; color: var(--text-secondary);
+                    margin-top: 26px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .04em; }
+
+  /* ── Saúde do tracking ── */
+  .health-row { display: grid; grid-template-columns: 1.6fr repeat(5, 1fr); gap: 10px; }
+  @media (max-width: 1150px) { .health-row { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 640px)  { .health-row { grid-template-columns: repeat(2, 1fr); } }
+  .health-hero { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+                 box-shadow: var(--shadow); padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .health-hero.bad { border-color: #fca5a5; }
+  .health-icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center;
+                 justify-content: center; background: var(--green-soft); color: var(--green); font-size: 15px; }
+  .health-hero.bad .health-icon { background: var(--red-soft); color: var(--red); }
+  .health-title { font-size: 14.5px; font-weight: 700; }
+  .health-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+              padding: 12px 14px; box-shadow: var(--shadow); }
+  .kpi-label { font-size: 10.5px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
+  .kpi-value { font-size: 24px; font-weight: 700; margin-top: 6px; }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-value.amber { color: var(--amber); }
+  .kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+  .status-banner { display: flex; align-items: center; gap: 10px; border-radius: var(--radius);
+                    padding: 14px 16px; margin-top: 14px; font-size: 13px; font-weight: 500; }
+  .status-banner.ok { background: var(--green-soft); color: #166534; }
+  .status-banner.bad { background: var(--red-soft); color: #991b1b; }
+  .status-banner .ic { flex-shrink: 0; }
+
+  /* ── Canais ── */
+  .channels-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 10px; }
+  @media (max-width: 900px) { .channels-row { grid-template-columns: 1fr; } }
+  .channel-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+                  box-shadow: var(--shadow); padding: 14px 16px; }
+  .channel-head { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+  .channel-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center;
+                   justify-content: center; font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0; }
+  .channel-icon.meta { background: #1877f2; }
+  .channel-icon.ga4  { background: #7c3aed; }
+  .channel-icon.ads  { background: #ea4335; }
+  .channel-stat-row { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px;
+                       color: var(--text-secondary); padding: 4px 0; }
+  .channel-stat-row b { color: var(--text-primary); font-weight: 700; }
+  .channel-bar-wrap { height: 5px; background: var(--bg); border-radius: 4px; margin: 2px 0 8px; overflow: hidden; }
+  .channel-bar { height: 100%; border-radius: 4px; }
+  .channel-bar.ok { background: var(--green); }
+  .channel-bar.failed { background: var(--red); }
+  .channel-bar.pending { background: var(--amber); }
+  .channel-skip-note { font-size: 11px; color: var(--text-muted); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+
+  /* ── Gráfico envios por dia ── */
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+                box-shadow: var(--shadow); padding: 16px; margin-top: 10px; }
+  .chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .chart-title { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; }
+  .chart-presets { display: flex; gap: 4px; }
+  .chart-preset { border: 1px solid var(--border); background: var(--surface); border-radius: 7px;
+                  padding: 5px 11px; font-size: 12px; cursor: pointer; color: var(--text-secondary); }
+  .chart-preset.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chart-legend { display: flex; gap: 14px; margin-top: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-secondary); }
+  .chart-legend .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+  .chart-svg-wrap { margin-top: 10px; overflow-x: auto; }
+
+  /* ── Filtros / tabela pedidos ── */
+  .filters-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .filter-select, .filter-input { background: var(--surface); border: 1px solid var(--border);
+    border-radius: 7px; padding: 7px 10px; font-size: 12.5px; color: var(--text-primary); }
+  .filter-input { min-width: 220px; flex: 1; }
+  .filter-clear { border: 1px solid var(--border); background: var(--surface); border-radius: 7px;
+                  padding: 7px 12px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
+  .filter-clear:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-count { font-size: 12px; color: var(--text-muted); align-self: center; margin-left: auto; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          box-shadow: var(--shadow); padding: 14px; margin-top: 10px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; min-width: 780px; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--text-secondary); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .02em; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.order-row { cursor: pointer; }
+  tr.order-row:hover { background: var(--bg); }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge.ok      { background: var(--green-soft); color: var(--green); }
+  .badge.failed  { background: var(--red-soft); color: var(--red); }
+  .badge.pending { background: var(--amber-soft); color: var(--amber); }
+  .badge.skipped { background: var(--bg); color: var(--text-muted); }
+  .badge.full    { background: var(--green-soft); color: var(--green); }
+  .badge.partial { background: var(--amber-soft); color: var(--amber); }
+
+  .detail-row td { background: var(--bg); padding: 14px 18px; }
+  .detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: repeat(2, 1fr); } }
+  .detail-col-title { font-size: 10.5px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;
+                       letter-spacing: .03em; margin-bottom: 8px; }
+  .detail-item { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 3px 0; white-space: normal; }
+  .detail-item .k { color: var(--text-secondary); }
+  .detail-item .v { color: var(--text-primary); font-weight: 600; text-align: right; word-break: break-all; }
+  .detail-error { font-size: 11.5px; color: var(--red); margin-top: 4px; }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
+  .disclaimer { margin-top: 12px; font-size: 11.5px; color: var(--text-muted); }
+
+  /* ── CAC real vs reportado (passo 8) ── */
+  .cac-summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+  @media (max-width: 900px) { .cac-summary-row { grid-template-columns: repeat(2, 1fr); } }
+  .gap-badge { display: inline-block; margin-top: 5px; padding: 1px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 600; }
+  .gap-badge.ok  { background: var(--green-soft); color: var(--green); }
+  .gap-badge.bad { background: var(--red-soft); color: var(--red); }
+
+  .loading-overlay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(13, 17, 23, 0.55); backdrop-filter: blur(2px); z-index: 9999;
+    opacity: 0; pointer-events: none; transition: opacity 0.15s ease;
+  }
+  .loading-overlay.visible { opacity: 1; pointer-events: all; }
+  .loading-spinner { width: 42px; height: 42px; border-radius: 50%; border: 3px solid rgba(255,255,255,.18);
+                      border-top-color: var(--accent); animation: loading-spin 0.8s linear infinite; }
+  @keyframes loading-spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div></div>
+
+<header>
+  <a class="logo" href="dashboard.html">
+    <span class="logo-icon">VP</span>
+    Dashboard Verifica Placa
+  </a>
+  <a class="back-link" href="dashboard.html">← Voltar ao dashboard · Tracking Gateway</a>
+</header>
+
+<main>
+  <div class="page-head">
+    <div>
+      <div class="page-title">Tracking Gateway</div>
+      <div class="page-subtitle" id="lastSyncLabel">Última sincronização: —</div>
+    </div>
+    <div class="page-head-actions">
+      <span class="env-badge"><span class="dot"></span>Produção</span>
+      <button class="refresh-btn" onclick="loadAndRender()">↻ Atualizar</button>
+    </div>
+  </div>
+
+  <div class="section-label">Saúde do tracking (últimos 7 dias)</div>
+  <div class="health-row" id="healthRow"></div>
+  <div class="status-banner" id="statusBanner"></div>
+
+  <div class="section-label">Canais</div>
+  <div class="channels-row" id="channelsRow"></div>
+
+  <div class="chart-card">
+    <div class="chart-head">
+      <div class="chart-title">Envios por dia</div>
+      <div class="chart-presets" id="chartPresets">
+        <button class="chart-preset" data-days="7">7d</button>
+        <button class="chart-preset" data-days="14">14d</button>
+        <button class="chart-preset" data-days="30">30d</button>
+        <button class="chart-preset" data-days="90">90d</button>
+      </div>
+    </div>
+    <div class="chart-svg-wrap" id="chartSvgWrap"></div>
+    <div class="chart-legend">
+      <span><span class="sw" style="background:#60a5fa"></span>GA4 OK</span>
+      <span><span class="sw" style="background:#a78bfa"></span>Google Ads OK</span>
+      <span><span class="sw" style="background:#4ade80"></span>Meta OK</span>
+      <span><span class="sw" style="background:#f87171"></span>Falhas</span>
+    </div>
+  </div>
+
+  <div class="section-label">Pedidos processados recentemente</div>
+  <div class="filters-row">
+    <select class="filter-select" id="fStatus" onchange="applyFilters()">
+      <option value="">Status: todos</option>
+      <option value="full">Completo</option>
+      <option value="partial">Parcial / com falha</option>
+    </select>
+    <select class="filter-select" id="fChannel" onchange="applyFilters()">
+      <option value="">Canal com falha: todos</option>
+      <option value="ga4">GA4</option>
+      <option value="ads">Google Ads</option>
+      <option value="meta">Meta CAPI</option>
+    </select>
+    <input class="filter-input" id="fSearch" placeholder="Buscar por pedido ou event_id..." oninput="applyFilters()" />
+    <select class="filter-select" id="fLimit" onchange="applyFilters()">
+      <option value="50">50 registros</option>
+      <option value="100">100 registros</option>
+      <option value="300">300 registros</option>
+    </select>
+    <button class="filter-clear" onclick="clearFilters()">Limpar filtros</button>
+    <span class="filter-count" id="filterCount">0 pedido(s)</span>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table id="ordersTable">
+        <thead><tr>
+          <th>Data</th>
+          <th>Pedido</th>
+          <th class="num">Valor</th>
+          <th>Status geral</th>
+          <th>GA4</th>
+          <th>Google Ads</th>
+          <th>Meta CAPI</th>
+          <th class="num">Tentativas</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="ordersEmpty" style="display:none">Nenhum pedido no período/filtro selecionado.</div>
+  </div>
+  <div class="disclaimer">
+    "Pedido" = order_nsu do checkout (prefixo order_ = plano principal, addon_ = upsell). Não há nome de
+    cliente disponível aqui — conversion_dispatches guarda email/phone só para os dispatches (protegido por
+    RLS), essa tabela mostra a versão pública sem PII.
+  </div>
+
+  <div class="section-label">CAC real (Pagar.me) vs reportado (Google Ads)</div>
+  <div class="cac-summary-row" id="cacSummaryRow"></div>
+  <div class="card">
+    <div class="table-wrap">
+      <table id="cacTable">
+        <thead><tr>
+          <th>Data</th>
+          <th class="num">Custo Ads</th>
+          <th class="num">Pedidos pagos (Pagar.me)</th>
+          <th class="num">CAC real</th>
+          <th class="num">Conversões reportadas (Ads)</th>
+          <th class="num">CAC reportado</th>
+          <th class="num">Gap</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="cacEmpty" style="display:none">Sem dados no período.</div>
+  </div>
+  <div class="disclaimer">
+    CAC real = custo Google Ads ÷ pedidos pagos confirmados na Pagar.me (revenue_daily.paid_orders). CAC
+    reportado = custo Google Ads ÷ conversões que o próprio Google Ads contabiliza
+    (google_ads_campaign_daily.conversions). Gap positivo = Ads está subcontando conversões em relação ao
+    real (CAC reportado parece melhor do que é). Objetivo do passo 8 do plano de tracking: confirmar que
+    esse gap fecha depois dos fixes de GTM/dispatch — comparar o período atual com o período anterior aos
+    fixes.
+  </div>
+</main>
+
+<script>
+// ─── SUPABASE ────────────────────────────────────────────────────────────────
+const SUPA_URL = 'https://ftmgmfdqdqxboiktxcoj.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0bWdtZmRxZHF4Ym9pa3R4Y29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MTIwNzAsImV4cCI6MjA5Mjk4ODA3MH0.IfOKtwpBB9orGN3UnCZDG8RYEHTAEAsX0LHxV3WBfCs';
+const SUPA_HDR = { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' };
+const SUPA_PAGE_SIZE = 1000;
+
+async function supaGet(path) {
+  let allRows = [];
+  let offset = 0;
+  while (true) {
+    const r = await fetch(SUPA_URL + path, { headers: { ...SUPA_HDR, Range: `${offset}-${offset + SUPA_PAGE_SIZE - 1}` } });
+    if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
+    const page = await r.json();
+    allRows = allRows.concat(page);
+    if (page.length < SUPA_PAGE_SIZE) break;
+    offset += SUPA_PAGE_SIZE;
+  }
+  return allRows;
+}
+
+// ─── ESTADO ─────────────────────────────────────────────────────────────────
+let STATE = {
+  orders: [],          // conversion_dispatches_public, últimos N dias (janela ampla, cobre tabela + gráfico)
+  filteredOrders: [],
+  chartDays: 7,
+  loadToken: 0,
+  expandedRow: null,
+};
+
+const ORDERS_WINDOW_DAYS = 90; // busca 90d de uma vez; filtros de gráfico (7/14/30/90) recortam em memória
+
+function fmtR(n) {
+  if (n === null || n === undefined) return '—';
+  return 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtInt(n) { return Number(n ?? 0).toLocaleString('pt-BR'); }
+function fmtPct(n) {
+  if (n === null || n === undefined) return '—';
+  return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+}
+function fmtDateTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fmtDateShort(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── CARREGAMENTO ───────────────────────────────────────────────────────────
+async function loadAndRender() {
+  const myToken = ++STATE.loadToken;
+  showLoadingOverlay();
+  try {
+    const pad = n => String(n).padStart(2, '0');
+    const now = new Date();
+    const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const from90 = new Date(now); from90.setDate(from90.getDate() - ORDERS_WINDOW_DAYS);
+    const fromCac = new Date(now); fromCac.setDate(fromCac.getDate() - 29); // CAC: últimos 30 dias
+
+    const [orders, revRows, gadsRows] = await Promise.all([
+      supaGet(`/rest/v1/conversion_dispatches_public?created_at=gte.${from90.toISOString()}&select=*&order=created_at.desc`),
+      supaGet(`/rest/v1/revenue_daily?date=gte.${iso(fromCac)}&date=lte.${iso(now)}&select=date,revenue,paid_orders`),
+      supaGet(`/rest/v1/google_ads_campaign_daily?date=gte.${iso(fromCac)}&date=lte.${iso(now)}&select=date,cost_micros,conversions`),
+    ]);
+
+    if (myToken !== STATE.loadToken) return;
+
+    STATE.orders = orders;
+    renderLastSync(orders);
+    applyFilters();
+    renderHealth();
+    renderChannels();
+    renderChart();
+    renderCac(revRows, gadsRows);
+  } catch (err) {
+    if (myToken !== STATE.loadToken) return;
+    console.error('Erro ao carregar Tracking Gateway:', err);
+    document.getElementById('healthRow').innerHTML =
+      `<div class="kpi-card" style="grid-column: span 6"><div class="kpi-label">Erro ao carregar dados</div><div class="kpi-value red" style="font-size:13px">${escapeHtml(err.message)}</div>
+       <div class="kpi-sub">Se o erro for 401/404 na tabela conversion_dispatches_public, a view pública ainda não foi criada — ver 008_conversion_dispatches_public_view.sql.</div></div>`;
+  } finally {
+    if (myToken === STATE.loadToken) hideLoadingOverlay();
+  }
+}
+
+function showLoadingOverlay() { document.getElementById('loadingOverlay').classList.add('visible'); }
+function hideLoadingOverlay() { document.getElementById('loadingOverlay').classList.remove('visible'); }
+
+function renderLastSync(orders) {
+  if (!orders.length) { document.getElementById('lastSyncLabel').textContent = 'Última sincronização: sem dados'; return; }
+  const max = orders.reduce((m, o) => { const t = new Date(o.updated_at || o.created_at).getTime(); return t > m ? t : m; }, 0);
+  document.getElementById('lastSyncLabel').textContent = 'Última sincronização: ' + fmtDateTime(new Date(max).toISOString());
+}
+
+// ─── DERIVAÇÕES ─────────────────────────────────────────────────────────────
+function last7d(orders) {
+  const cutoff = Date.now() - 7 * 86400000;
+  return orders.filter(o => new Date(o.created_at).getTime() >= cutoff);
+}
+
+// Meta é tratado como "não bloqueia saúde" enquanto META_PIXEL_ID/META_ACCESS_TOKEN
+// não estiverem configurados — todo dispatch aparece meta_status='skipped' até lá
+// (ver conversion-dispatch.ts). Contar skipped como falha inflaria o card de saúde
+// artificialmente por uma pendência de configuração já conhecida, não um bug.
+function isChannelHealthy(status) { return status === 'success' || status === 'skipped'; }
+
+function orderIsFull(o) { return isChannelHealthy(o.ga4_status) && isChannelHealthy(o.ads_status) && isChannelHealthy(o.meta_status); }
+function orderHasFailure(o) { return o.ga4_status === 'failed' || o.ads_status === 'failed' || o.meta_status === 'failed' || o.ga4_status === 'pending' || o.ads_status === 'pending' || o.meta_status === 'pending'; }
+
+function renderHealth() {
+  const week = last7d(STATE.orders);
+  const total = week.length;
+  const full = week.filter(orderIsFull).length;
+  const failing = week.filter(orderHasFailure).length;
+  const quality = total > 0 ? (full / total) * 100 : null;
+  const healthy = failing === 0;
+
+  const row = document.getElementById('healthRow');
+  row.innerHTML = `
+    <div class="health-hero ${healthy ? '' : 'bad'}">
+      <div class="health-icon">${healthy ? '✓' : '!'}</div>
+      <div class="health-title">${healthy ? 'Tracking saudável' : 'Tracking com pendências'}</div>
+      <div class="health-text">${quality === null ? 'Sem pedidos no período.' :
+        `${fmtPct(quality)} dos pedidos enviados para todos os canais configurados · ${failing} com falha/pendência no período`}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Pedidos rastreados</div>
+      <div class="kpi-value">${fmtInt(total)}</div>
+      <div class="kpi-sub">últimos 7 dias</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Envio completo</div>
+      <div class="kpi-value green">${fmtInt(full)}</div>
+      <div class="kpi-sub">GA4 + Google Ads + Meta</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Pendências / falhas</div>
+      <div class="kpi-value ${failing > 0 ? 'red' : 'green'}">${fmtInt(failing)}</div>
+      <div class="kpi-sub">${failing > 0 ? 'requer atenção' : 'nenhuma ação necessária'}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Qualidade dos dados</div>
+      <div class="kpi-value">${quality === null ? '—' : fmtPct(quality)}</div>
+      <div class="kpi-sub">${full} de ${total} pedidos completos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Tentativas médias</div>
+      <div class="kpi-value amber">${total > 0 ? (week.reduce((s,o)=>s+(o.attempts||0),0)/total).toFixed(1) : '—'}</div>
+      <div class="kpi-sub">retry a cada 15min (cron-job.org)</div>
+    </div>
+  `;
+
+  const banner = document.getElementById('statusBanner');
+  if (healthy) {
+    banner.className = 'status-banner ok';
+    banner.innerHTML = `<span class="ic">✓</span> Nenhuma ação necessária no momento. Todos os pedidos do período foram enviados para os canais configurados (Meta CAPI conta como OK enquanto estiver "skipped" por falta de META_PIXEL_ID/META_ACCESS_TOKEN — ainda não habilitado).`;
+  } else {
+    banner.className = 'status-banner bad';
+    banner.innerHTML = `<span class="ic">⚠</span> ${failing} pedido(s) com falha ou pendência nos últimos 7 dias. Veja a tabela abaixo (filtro "Parcial / com falha") para os detalhes por canal.`;
+  }
+}
+
+function renderChannels() {
+  const week = last7d(STATE.orders);
+  const total = week.length;
+  const channels = [
+    { key: 'ga4', label: 'GA4', icon: 'ga4', tag: 'G4' },
+    { key: 'ads', label: 'Google Ads', icon: 'ads', tag: 'G' },
+    { key: 'meta', label: 'Meta CAPI', icon: 'meta', tag: 'f' },
+  ];
+  const row = document.getElementById('channelsRow');
+  row.innerHTML = channels.map(ch => {
+    const statuses = week.map(o => o[ch.key + '_status']);
+    const ok = statuses.filter(s => s === 'success').length;
+    const failed = statuses.filter(s => s === 'failed').length;
+    const pending = statuses.filter(s => s === 'pending').length;
+    const skipped = statuses.filter(s => s === 'skipped').length;
+    const pct = n => total > 0 ? (n / total) * 100 : 0;
+    const skipNote = skipped > 0
+      ? `<div class="channel-skip-note">${fmtInt(skipped)} pedido(s) "skipped" — canal não configurado neste ambiente ainda (não conta como falha).</div>`
+      : '';
+    return `
+      <div class="channel-card">
+        <div class="channel-head"><span class="channel-icon ${ch.icon}">${ch.tag}</span>${ch.label}</div>
+        <div class="channel-stat-row"><span>OK</span><b>${fmtInt(ok)}</b></div>
+        <div class="channel-bar-wrap"><div class="channel-bar ok" style="width:${pct(ok)}%"></div></div>
+        <div class="channel-stat-row"><span>Falha</span><b>${fmtInt(failed)}</b></div>
+        <div class="channel-bar-wrap"><div class="channel-bar failed" style="width:${pct(failed)}%"></div></div>
+        <div class="channel-stat-row"><span>Pendente</span><b>${fmtInt(pending)}</b></div>
+        <div class="channel-bar-wrap"><div class="channel-bar pending" style="width:${pct(pending)}%"></div></div>
+        ${skipNote}
+      </div>`;
+  }).join('');
+}
+
+// ─── GRÁFICO ENVIOS POR DIA (SVG, sem libs externas) ───────────────────────
+function setChartDays(days) {
+  STATE.chartDays = days;
+  document.querySelectorAll('.chart-preset').forEach(b => b.classList.toggle('active', parseInt(b.dataset.days,10) === days));
+  renderChart();
+}
+document.getElementById('chartPresets').addEventListener('click', e => {
+  const btn = e.target.closest('.chart-preset');
+  if (btn) setChartDays(parseInt(btn.dataset.days, 10));
+});
+
+function renderChart() {
+  const days = STATE.chartDays;
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - (days - 1)); cutoff.setHours(0,0,0,0);
+
+  const byDay = new Map();
+  for (const o of STATE.orders) {
+    const d = new Date(o.created_at);
+    if (d < cutoff) continue;
+    const key = d.toISOString().slice(0,10);
+    if (!byDay.has(key)) byDay.set(key, { ga4: 0, ads: 0, meta: 0, fail: 0 });
+    const b = byDay.get(key);
+    if (o.ga4_status === 'success') b.ga4++;
+    if (o.ads_status === 'success') b.ads++;
+    if (o.meta_status === 'success') b.meta++;
+    if (o.ga4_status === 'failed' || o.ads_status === 'failed' || o.meta_status === 'failed') b.fail++;
+  }
+
+  const keys = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    keys.push(d.toISOString().slice(0,10));
+  }
+
+  const bars = keys.map(k => byDay.get(k) || { ga4:0, ads:0, meta:0, fail:0 });
+  const maxTotal = Math.max(1, ...bars.map(b => b.ga4 + b.ads + b.meta + b.fail));
+
+  const w = Math.max(600, keys.length * (days > 30 ? 14 : 46));
+  const h = 220, padL = 32, padB = 26, padT = 8;
+  const chartH = h - padB - padT;
+  const barW = ((w - padL) / keys.length) * (days > 30 ? 0.6 : 0.55);
+  const gap = ((w - padL) / keys.length);
+
+  const yTicks = 4;
+  let gridSvg = '';
+  for (let i = 0; i <= yTicks; i++) {
+    const y = padT + chartH - (chartH * i / yTicks);
+    const val = Math.round(maxTotal * i / yTicks);
+    gridSvg += `<line x1="${padL}" y1="${y}" x2="${w}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    gridSvg += `<text x="${padL-6}" y="${y+3}" text-anchor="end" font-size="9.5" fill="var(--text-muted)">${val}</text>`;
+  }
+
+  let barsSvg = '';
+  bars.forEach((b, i) => {
+    const x = padL + gap * i + (gap - barW)/2;
+    const segs = [
+      { v: b.ga4,  color: '#60a5fa' },
+      { v: b.ads,  color: '#a78bfa' },
+      { v: b.meta, color: '#4ade80' },
+      { v: b.fail, color: '#f87171' },
+    ];
+    let yCursor = padT + chartH;
+    for (const seg of segs) {
+      if (seg.v <= 0) continue;
+      const segH = (seg.v / maxTotal) * chartH;
+      yCursor -= segH;
+      barsSvg += `<rect x="${x}" y="${yCursor}" width="${barW}" height="${segH}" fill="${seg.color}" rx="1.5"></rect>`;
+    }
+    if (days <= 30) {
+      const lbl = fmtDateShort(keys[i] + 'T00:00:00');
+      barsSvg += `<text x="${x + barW/2}" y="${h - 8}" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">${lbl}</text>`;
+    }
+  });
+
+  document.getElementById('chartSvgWrap').innerHTML =
+    `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="font-family:inherit">${gridSvg}${barsSvg}</svg>`;
+}
+
+// ─── TABELA DE PEDIDOS ──────────────────────────────────────────────────────
+function clearFilters() {
+  document.getElementById('fStatus').value = '';
+  document.getElementById('fChannel').value = '';
+  document.getElementById('fSearch').value = '';
+  document.getElementById('fLimit').value = '50';
+  applyFilters();
+}
+
+function applyFilters() {
+  const status = document.getElementById('fStatus').value;
+  const channel = document.getElementById('fChannel').value;
+  const search = document.getElementById('fSearch').value.trim().toLowerCase();
+  const limit = parseInt(document.getElementById('fLimit').value, 10) || 50;
+
+  let rows = STATE.orders;
+  if (status === 'full') rows = rows.filter(orderIsFull);
+  if (status === 'partial') rows = rows.filter(o => !orderIsFull(o));
+  if (channel) rows = rows.filter(o => o[channel + '_status'] === 'failed' || o[channel + '_status'] === 'pending');
+  if (search) rows = rows.filter(o =>
+    String(o.order_nsu || '').toLowerCase().includes(search) ||
+    String(o.event_id || '').toLowerCase().includes(search) ||
+    String(o.checkout_id || '').toLowerCase().includes(search));
+
+  STATE.filteredOrders = rows.slice(0, limit);
+  document.getElementById('filterCount').textContent = `${fmtInt(rows.length)} pedido(s)`;
+  renderOrdersTable();
+}
+
+function channelBadge(status) {
+  const map = { success: ['ok','OK'], failed: ['failed','Falha'], pending: ['pending','Pendente'], skipped: ['skipped','Skip'] };
+  const [cls, label] = map[status] || ['skipped', status || '—'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function renderOrdersTable() {
+  const tbody = document.querySelector('#ordersTable tbody');
+  const rows = STATE.filteredOrders;
+  document.getElementById('ordersEmpty').style.display = rows.length ? 'none' : 'block';
+
+  tbody.innerHTML = rows.map(o => {
+    const full = orderIsFull(o);
+    const statusBadge = full ? '<span class="badge full">Completo</span>' : '<span class="badge partial">Parcial</span>';
+    const isOpen = STATE.expandedRow === o.checkout_id;
+    const mainRow = `
+      <tr class="order-row" data-checkout="${escapeHtml(o.checkout_id)}">
+        <td>${fmtDateTime(o.created_at)}</td>
+        <td>${escapeHtml(o.order_nsu)}</td>
+        <td class="num">${fmtR(o.value)}</td>
+        <td>${statusBadge}</td>
+        <td>${channelBadge(o.ga4_status)}</td>
+        <td>${channelBadge(o.ads_status)}</td>
+        <td>${channelBadge(o.meta_status)}</td>
+        <td class="num">${fmtInt(o.attempts)}</td>
+      </tr>`;
+    if (!isOpen) return mainRow;
+    return mainRow + `
+      <tr class="detail-row" data-checkout-detail="${escapeHtml(o.checkout_id)}">
+        <td colspan="8">
+          <div class="detail-grid">
+            <div>
+              <div class="detail-col-title">Resumo</div>
+              <div class="detail-item"><span class="k">Pedido</span><span class="v">${escapeHtml(o.order_nsu)}</span></div>
+              <div class="detail-item"><span class="k">Checkout ID</span><span class="v">${escapeHtml(o.checkout_id)}</span></div>
+              <div class="detail-item"><span class="k">Event ID</span><span class="v">${escapeHtml(o.event_id)}</span></div>
+              <div class="detail-item"><span class="k">Valor</span><span class="v">${fmtR(o.value)} ${escapeHtml(o.currency)}</span></div>
+            </div>
+            <div>
+              <div class="detail-col-title">GA4</div>
+              <div class="detail-item"><span class="k">Status</span><span class="v">${channelBadge(o.ga4_status)}</span></div>
+              ${o.ga4_error ? `<div class="detail-error">${escapeHtml(o.ga4_error)}</div>` : ''}
+            </div>
+            <div>
+              <div class="detail-col-title">Google Ads</div>
+              <div class="detail-item"><span class="k">Status</span><span class="v">${channelBadge(o.ads_status)}</span></div>
+              ${o.ads_error ? `<div class="detail-error">${escapeHtml(o.ads_error)}</div>` : ''}
+            </div>
+            <div>
+              <div class="detail-col-title">Meta CAPI</div>
+              <div class="detail-item"><span class="k">Status</span><span class="v">${channelBadge(o.meta_status)}</span></div>
+              ${o.meta_error ? `<div class="detail-error">${escapeHtml(o.meta_error)}</div>` : ''}
+            </div>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+document.querySelector('#ordersTable tbody').addEventListener('click', e => {
+  const row = e.target.closest('tr.order-row');
+  if (!row) return;
+  const id = row.dataset.checkout;
+  STATE.expandedRow = STATE.expandedRow === id ? null : id;
+  renderOrdersTable();
+});
+
+// ─── CAC real vs reportado (passo 8) ────────────────────────────────────────
+function renderCac(revRows, gadsRows) {
+  const revMap = new Map();
+  for (const r of revRows) revMap.set(String(r.date).slice(0,10), r);
+  const costMap = new Map(), convMap = new Map();
+  for (const g of gadsRows) {
+    const key = String(g.date).slice(0,10);
+    costMap.set(key, (costMap.get(key) || 0) + (parseInt(g.cost_micros) || 0) / 1_000_000);
+    convMap.set(key, (convMap.get(key) || 0) + (parseFloat(g.conversions) || 0));
+  }
+
+  const dates = [...new Set([...revMap.keys(), ...costMap.keys()])].sort();
+  const daily = dates.map(dateStr => {
+    const rev = revMap.get(dateStr) || {};
+    const cost = costMap.get(dateStr) || 0;
+    const paidOrders = parseInt(rev.paid_orders) || 0;
+    const gadsConv = convMap.get(dateStr) || 0;
+    const cacReal = paidOrders > 0 && cost > 0 ? cost / paidOrders : null;
+    const cacReported = gadsConv > 0 && cost > 0 ? cost / gadsConv : null;
+    const gapPct = (cacReal !== null && cacReported !== null && cacReal > 0)
+      ? ((cacReal - cacReported) / cacReal) * 100 : null;
+    return { dateStr, cost, paidOrders, gadsConv, cacReal, cacReported, gapPct };
+  });
+
+  const totalCost = daily.reduce((s,d) => s + d.cost, 0);
+  const totalPaid = daily.reduce((s,d) => s + d.paidOrders, 0);
+  const totalGadsConv = daily.reduce((s,d) => s + d.gadsConv, 0);
+  const cacRealAvg = totalPaid > 0 ? totalCost / totalPaid : null;
+  const cacReportedAvg = totalGadsConv > 0 ? totalCost / totalGadsConv : null;
+  const gapAvgPct = (cacRealAvg && cacReportedAvg) ? ((cacRealAvg - cacReportedAvg) / cacRealAvg) * 100 : null;
+  const gapOk = gapAvgPct !== null && Math.abs(gapAvgPct) <= 5;
+
+  document.getElementById('cacSummaryRow').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">CAC real (30d)</div>
+      <div class="kpi-value">${fmtR(cacRealAvg)}</div>
+      <div class="kpi-sub">${fmtInt(totalPaid)} pedidos pagos · Pagar.me</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">CAC reportado (30d)</div>
+      <div class="kpi-value">${fmtR(cacReportedAvg)}</div>
+      <div class="kpi-sub">${fmtInt(totalGadsConv)} conversões · Google Ads</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Gap CAC real vs reportado</div>
+      <div class="kpi-value ${gapAvgPct === null ? '' : (gapOk ? 'green' : 'red')}">${gapAvgPct === null ? '—' : fmtPct(Math.abs(gapAvgPct))}</div>
+      <span class="gap-badge ${gapOk ? 'ok' : 'bad'}">${gapAvgPct === null ? '—' : (gapOk ? 'Gap pequeno' : 'Gap relevante')}</span>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Custo Ads (30d)</div>
+      <div class="kpi-value">${fmtR(totalCost)}</div>
+      <div class="kpi-sub">google_ads_campaign_daily</div>
+    </div>
+  `;
+
+  const tbody = document.querySelector('#cacTable tbody');
+  const sorted = [...daily].sort((a,b) => b.dateStr.localeCompare(a.dateStr));
+  document.getElementById('cacEmpty').style.display = sorted.length ? 'none' : 'block';
+  tbody.innerHTML = sorted.map(d => `
+    <tr>
+      <td>${d.dateStr.split('-').reverse().join('/')}</td>
+      <td class="num">${fmtR(d.cost)}</td>
+      <td class="num">${fmtInt(d.paidOrders)}</td>
+      <td class="num">${fmtR(d.cacReal)}</td>
+      <td class="num">${fmtInt(d.gadsConv)}</td>
+      <td class="num">${fmtR(d.cacReported)}</td>
+      <td class="num">${d.gapPct === null ? '—' : (d.gapPct >= 0 ? '+' : '') + fmtPct(d.gapPct)}</td>
+    </tr>
+  `).join('');
+}
+
+// ─── BOOTSTRAP ──────────────────────────────────────────────────────────────
+setChartDays(7);
+loadAndRender();
+</script>
+</body>
+</html>
