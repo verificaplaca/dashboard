@@ -52,11 +52,12 @@
     }
 
     /* Mobile header
-       Linha 1: logo (esquerda) + actions (direita)
+       Linha 1: hambúrguer + logo (esquerda) + actions (direita)
        Linha 2: controles de filtro (largura total) */
     @media (max-width: 600px) {
       header { height: auto; flex-wrap: wrap; align-items: center;
-               padding: 10px 14px 10px; gap: 0; row-gap: 8px; }
+               padding: 10px 14px 10px; gap: 8px; row-gap: 8px; }
+      .mobile-menu-btn { order: 0; }
       .logo           { flex: 1; order: 1; font-size: 13.5px; }
       .header-actions { order: 2; flex-shrink: 0; }
       .header-controls { order: 3; flex-basis: 100%; gap: 6px; }
@@ -526,19 +527,42 @@
     .sidebar-nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sidebar-divider { height: 1px; background: var(--border); margin: 10px 4px; }
 
-    body.sidebar-collapsed .sidebar { width: 60px; }
-    body.sidebar-collapsed .sidebar-brand-label,
-    body.sidebar-collapsed .sidebar-nav-label { display: none; }
-    body.sidebar-collapsed .sidebar-nav-item { justify-content: center; padding: 8px; }
-    body.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
-
     .view.is-hidden { display: none; }
 
+    .mobile-menu-btn { display: none; }
+    .sidebar-backdrop { display: none; }
+
+    /* Desktop: colapsa pra rail de ícones (estado salvo em localStorage) */
+    @media (min-width: 901px) {
+      body.sidebar-collapsed .sidebar { width: 60px; }
+      body.sidebar-collapsed .sidebar-brand-label,
+      body.sidebar-collapsed .sidebar-nav-label { display: none; }
+      body.sidebar-collapsed .sidebar-nav-item { justify-content: center; padding: 8px; }
+      body.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
+    }
+
+    /* Mobile/tablet: sidebar vira drawer escondido por padrão, aberto pelo
+       botão hambúrguer na topbar (mesmo padrão do nena-ops) — sem rail fixo. */
     @media (max-width: 900px) {
-      .sidebar { width: 58px; padding: 12px 6px; }
-      .sidebar-brand-label, .sidebar-nav-label { display: none; }
-      .sidebar-nav-item { justify-content: center; padding: 8px; }
       .sidebar-collapse-btn { display: none; }
+      .mobile-menu-btn {
+        display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+        border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
+        color: var(--text-primary); cursor: pointer; flex-shrink: 0; order: 0;
+      }
+      .mobile-menu-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+      .sidebar {
+        position: fixed; top: 0; left: -260px; width: 240px; height: 100vh;
+        z-index: 300; box-shadow: var(--shadow-md);
+      }
+      .sidebar-brand-label, .sidebar-nav-label { display: block; }
+      .sidebar-nav-item { justify-content: flex-start; padding: 8px 10px; }
+
+      body.mobile-sidebar-open .sidebar { left: 0; }
+      body.mobile-sidebar-open .sidebar-backdrop {
+        display: block; position: fixed; inset: 0; background: rgba(15,15,15,.4); z-index: 250;
+      }
     }
   </style>
 </head>
@@ -593,9 +617,13 @@
     </a>
   </div>
 </nav>
+<div class="sidebar-backdrop" onclick="toggleMobileSidebar(false)"></div>
 <div class="app-content">
 
 <header>
+  <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" title="Abrir menu" aria-label="Abrir menu">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+  </button>
   <a class="logo" href="#">
     Dashboard Verifica Placa
   </a>
@@ -928,6 +956,7 @@ function showView(view) {
     el.classList.toggle('active', el.dataset.view === view);
   });
   try { localStorage.setItem('vp_sidebar_view', view); } catch (e) {}
+  document.body.classList.remove('mobile-sidebar-open'); // fecha o drawer mobile ao escolher um item
   requestAnimationFrame(() => {
     if (typeof charts === 'object' && charts) Object.values(charts).forEach(c => { if (c) c.resize(); });
     if (typeof sparkRefs === 'object' && sparkRefs) Object.values(sparkRefs).forEach(c => { if (c) c.resize(); });
@@ -938,6 +967,19 @@ function toggleSidebar() {
   const collapsed = document.body.classList.toggle('sidebar-collapsed');
   try { localStorage.setItem('vp_sidebar_collapsed', collapsed ? '1' : '0'); } catch (e) {}
 }
+
+// Drawer mobile (abaixo de 900px) — estado não persiste entre reloads de propósito
+// (sidebar deve sempre abrir fechada no mobile, diferente do colapso desktop).
+function toggleMobileSidebar(force) {
+  const open = typeof force === 'boolean' ? force : !document.body.classList.contains('mobile-sidebar-open');
+  document.body.classList.toggle('mobile-sidebar-open', open);
+}
+
+// Fecha o drawer automaticamente ao trocar de tela em telas pequenas — no
+// desktop a sidebar já é fixa, então isso não tem efeito lá.
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 900) document.body.classList.remove('mobile-sidebar-open');
+});
 
 (function initSidebar() {
   let savedView = 'overview';
