@@ -500,6 +500,47 @@
       font-size:10px; font-weight:700; padding:1px 4px; color:var(--text-muted);
       letter-spacing:0; font-family:monospace; }
   </style>
+  <style>
+    /* ── Sidebar (navegação principal — Visão Geral / Campanhas / Upsell + módulos satélite) ── */
+    .app-shell { display: flex; align-items: stretch; min-height: 100vh; }
+    .app-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+    .sidebar { width: 216px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border);
+               display: flex; flex-direction: column; padding: 14px 10px; position: sticky; top: 0;
+               height: 100vh; overflow-y: auto; transition: width .15s ease; z-index: 90; }
+    .sidebar-top { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 16px; }
+    .sidebar-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .sidebar-brand-label { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-collapse-btn { background: none; border: 1px solid var(--border); border-radius: 6px; width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; }
+    .sidebar-collapse-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .sidebar-collapse-btn svg { transition: transform .15s ease; }
+
+    .sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+    .sidebar-nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+      border: none; background: none; color: var(--text-secondary); font-size: 13px; font-weight: 500;
+      cursor: pointer; text-align: left; text-decoration: none; width: 100%; }
+    .sidebar-nav-item:hover { background: var(--bg); color: var(--text-primary); }
+    .sidebar-nav-item.active { background: var(--text-primary); color: #fff; font-weight: 600; }
+    .sidebar-nav-icon { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .sidebar-nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 10px 4px; }
+
+    body.sidebar-collapsed .sidebar { width: 60px; }
+    body.sidebar-collapsed .sidebar-brand-label,
+    body.sidebar-collapsed .sidebar-nav-label { display: none; }
+    body.sidebar-collapsed .sidebar-nav-item { justify-content: center; padding: 8px; }
+    body.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
+
+    .view.is-hidden { display: none; }
+
+    @media (max-width: 900px) {
+      .sidebar { width: 58px; padding: 12px 6px; }
+      .sidebar-brand-label, .sidebar-nav-label { display: none; }
+      .sidebar-nav-item { justify-content: center; padding: 8px; }
+      .sidebar-collapse-btn { display: none; }
+    }
+  </style>
 </head>
 <body>
 
@@ -514,6 +555,45 @@
         animation:ldpulse 1s ease-in-out infinite; }
   @keyframes ldpulse { 0%,100%{opacity:.2;transform:scale(.8)} 50%{opacity:1;transform:scale(1)} }
 </style>
+
+<div class="app-shell">
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-top">
+    <div class="sidebar-brand">
+      <span class="logo-icon">VP</span>
+      <span class="sidebar-brand-label">Verifica Placa</span>
+    </div>
+    <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Recolher/expandir menu">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <div class="sidebar-nav">
+    <button class="sidebar-nav-item active" data-view="overview" onclick="showView('overview')" title="Visão Geral">
+      <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8l6-5 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7v6h8V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="sidebar-nav-label">Visão Geral</span>
+    </button>
+    <button class="sidebar-nav-item" data-view="campanhas" onclick="showView('campanhas')" title="Campanhas">
+      <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 13V8M8 13V4M13 13V6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+      <span class="sidebar-nav-label">Campanhas</span>
+    </button>
+    <button class="sidebar-nav-item" data-view="upsell" onclick="showView('upsell')" title="Upsell">
+      <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 11l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 3.5h3v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="sidebar-nav-label">Upsell</span>
+    </button>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-nav">
+    <a class="sidebar-nav-item" href="google-ads-cac.html" title="Google Ads CAC">
+      <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.2" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/></svg></span>
+      <span class="sidebar-nav-label">Google Ads CAC</span>
+    </a>
+    <a class="sidebar-nav-item" href="tracking-gateway.html" title="Tracking Gateway">
+      <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="sidebar-nav-label">Tracking Gateway</span>
+    </a>
+  </div>
+</nav>
+<div class="app-content">
 
 <header>
   <a class="logo" href="#">
@@ -557,14 +637,6 @@
     </div>
   </div>
   <div class="header-actions">
-    <a class="refresh-btn gads-cac-link" href="google-ads-cac.html" title="Google Ads CAC" style="text-decoration:none;">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 13l3-5 3 2 3-6 3 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>Google Ads CAC</span>
-    </a>
-    <a class="refresh-btn tracking-gateway-link" href="tracking-gateway.html" title="Tracking Gateway" style="text-decoration:none;">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 12 0 6 6 0 0 1-12 0Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>Tracking Gateway</span>
-    </a>
     <button class="refresh-btn" id="refreshBtn" onclick="refreshDashboard()" title="Atualizar dados (R)">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
         <path d="M13.7 2.3A7 7 0 1 0 14.9 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -577,6 +649,8 @@
 </header>
 
 <main>
+
+<div class="view" id="view-overview">
 
   <!-- Today Pace — só visível quando filtro = Hoje -->
   <div id="todayPace" style="display:none"></div>
@@ -650,6 +724,10 @@
     document.getElementById('kpiRow3').innerHTML=s.repeat(5);
   })();
   </script>
+
+  </div><!-- /view-overview -->
+
+  <div class="view is-hidden" id="view-campanhas">
 
   <!-- Health gauges -->
   <div class="section-label" style="margin-top:24px">Saúde das Campanhas</div>
@@ -792,6 +870,10 @@
     </div>
   </div>
 
+  </div><!-- /view-campanhas -->
+
+  <div class="view is-hidden" id="view-upsell">
+
   <!-- Upsell por Tipo (80%) + Pizza por Tipo (20%) -->
   <div class="section-label" style="margin-top:24px">Upsell por Tipo · Período Selecionado</div>
   <div class="grid-4-1">
@@ -818,8 +900,54 @@
     </div>
   </div>
 
+  </div><!-- /view-upsell -->
+
 </main>
 <footer id="footerBar">Verifica Placa · Dashboard · Dados de exemplo</footer>
+
+</div><!-- /app-content -->
+</div><!-- /app-shell -->
+
+<script>
+// ── Sidebar: alterna entre views (Visão Geral/Campanhas/Upsell) sem recarregar
+// a página. Charts.js criados dentro de uma view escondida (display:none) nascem
+// com largura 0 — por isso chamamos .resize() em todos os charts existentes toda
+// vez que uma view é exibida (ver `charts`/`sparkRefs`, declarados mais abaixo
+// neste mesmo script — por rodarem dentro de requestAnimationFrame, só executam
+// depois que o script inteiro já terminou de rodar uma vez, então a ordem de
+// declaração aqui não importa).
+const SIDEBAR_VIEWS = ['overview', 'campanhas', 'upsell'];
+
+function showView(view) {
+  if (!SIDEBAR_VIEWS.includes(view)) view = 'overview';
+  SIDEBAR_VIEWS.forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('is-hidden', v !== view);
+  });
+  document.querySelectorAll('.sidebar-nav-item[data-view]').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === view);
+  });
+  try { localStorage.setItem('vp_sidebar_view', view); } catch (e) {}
+  requestAnimationFrame(() => {
+    if (typeof charts === 'object' && charts) Object.values(charts).forEach(c => { if (c) c.resize(); });
+    if (typeof sparkRefs === 'object' && sparkRefs) Object.values(sparkRefs).forEach(c => { if (c) c.resize(); });
+  });
+}
+
+function toggleSidebar() {
+  const collapsed = document.body.classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem('vp_sidebar_collapsed', collapsed ? '1' : '0'); } catch (e) {}
+}
+
+(function initSidebar() {
+  let savedView = 'overview';
+  try { savedView = localStorage.getItem('vp_sidebar_view') || 'overview'; } catch (e) {}
+  showView(savedView);
+  try {
+    if (localStorage.getItem('vp_sidebar_collapsed') === '1') document.body.classList.add('sidebar-collapsed');
+  } catch (e) {}
+})();
+</script>
 
 <script>
 // ── DO NOT register ChartDataLabels globally — enable per chart ──────────────
