@@ -19,17 +19,6 @@
   body { background: var(--bg); color: var(--text-primary); min-height: 100vh;
          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
 
-  header { background: var(--surface); border-bottom: 1px solid var(--border);
-           padding: 0 28px; height: 56px; display: flex; align-items: center;
-           justify-content: space-between; position: sticky; top: 0; z-index: 100; gap: 12px; }
-  .logo { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px;
-          color: var(--text-primary); text-decoration: none; flex-shrink: 0; }
-  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px;
-               display: flex; align-items: center; justify-content: center; color: white;
-               font-size: 12px; font-weight: 800; }
-  .back-link { font-size: 12.5px; color: var(--text-secondary); text-decoration: none; }
-  .back-link:hover { color: var(--accent); }
-
   main { padding: 24px 28px 60px; max-width: 1400px; margin: 0 auto; }
   .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .page-title { font-size: 21px; font-weight: 700; }
@@ -173,13 +162,10 @@
 
 <div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div></div>
 
-<header>
-  <a class="logo" href="dashboard.html">
-    <span class="logo-icon">VP</span>
-    Dashboard Verifica Placa
-  </a>
-  <a class="back-link" href="dashboard.html">← Voltar ao dashboard · Tracking Gateway</a>
-</header>
+<!-- Sem <header> própria: esta página é embutida via iframe dentro do
+     dashboard.html (view "Tracking Gateway" na sidebar), que já tem sua
+     própria navegação. Continua acessível sozinha (ex: abrir o arquivo
+     direto), só que sem o link "Voltar ao dashboard" duplicado. -->
 
 <main>
   <div class="page-head">
