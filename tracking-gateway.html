@@ -21,10 +21,9 @@
 
   main { padding: 24px 28px 60px; max-width: 1400px; margin: 0 auto; }
   @media (max-width: 600px) {
-    /* Sem isso o conteúdo usava só ~85% da largura da tela (28px de cada
-       lado); embutida no iframe do dashboard (que já bleeda até a borda),
-       essa era a única sobra de gutter visível no mobile. */
-    main { padding: 14px 10px 40px; }
+    /* Módulo embutido via iframe: 100% da largura da tela, sem gutter
+       lateral (diferente do dashboard/campanhas/upsell, que ficam em ~90%). */
+    main { padding: 14px 0 40px; }
   }
   .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .page-title { font-size: 21px; font-weight: 700; }
@@ -197,9 +196,9 @@
   }
   .has-tip:hover::after, .has-tip.tip-open::after { opacity: 1; }
   @media (max-width: 600px) {
-    .tip-icon { width: 26px; height: 26px; font-size: 13px; top: 6px; right: 6px; }
-    .has-tip::after { font-size: 13px; padding: 10px 13px; line-height: 1.5;
-      min-width: 200px; max-width: min(280px, 78vw); }
+    .tip-icon { width: 22px; height: 22px; font-size: 12px; top: 6px; right: 6px; }
+    .has-tip::after { font-size: 12px; padding: 9px 12px; line-height: 1.5;
+      min-width: 190px; max-width: min(270px, 78vw); }
   }
 
   /* ── CAC real vs reportado (passo 8) ── */

@@ -282,7 +282,8 @@
     .pace-stat:nth-child(3n)  { border-right: none; }
     .pace-stat:nth-last-child(-n+3) { border-bottom: none; }
     .pace-lbl    { font-size: 10px; color: var(--text-muted); font-weight: 600;
-                   text-transform: uppercase; letter-spacing: .05em; }
+                   text-transform: uppercase; letter-spacing: .05em; line-height: 1.2;
+                   min-height: 2.4em; display: flex; align-items: flex-start; }
     .pace-val    { font-size: 17px; font-weight: 700; line-height: 1.2; margin-top: 2px; }
     .pace-sub    { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
     .pace-bar-wrap { padding: 4px 0 0; }
@@ -492,9 +493,9 @@
     .has-tip:hover::after,
     .has-tip.tip-open::after { opacity:1; }
     @media (max-width: 600px) {
-      .tip-icon { width:26px; height:26px; font-size:13px; top:6px; right:6px; }
-      .has-tip::after { font-size:13px; padding:10px 13px; line-height:1.5;
-        min-width:200px; max-width:min(280px, 78vw); }
+      .tip-icon { width:22px; height:22px; font-size:12px; top:6px; right:6px; }
+      .has-tip::after { font-size:12px; padding:9px 12px; line-height:1.5;
+        min-width:190px; max-width:min(270px, 78vw); }
     }
 
     /* ── Sortable Table Headers ───────────────────────────────────────────── */
@@ -577,8 +578,12 @@
       .view-embed .embed-frame { min-width: 1180px; }
     }
     @media (max-width: 600px) {
-      .embed-frame { height: calc(100vh - 120px); }
-      .view-embed { margin-left: -10px; margin-right: -10px; }
+      /* Cancela também o padding vertical do main (14px topo / 40px base)
+         para o iframe ocupar 100% do espaço vertical disponível, não só a
+         largura. Ajuste fino de --embed-mobile-offset pode ser necessário
+         depois de checar visualmente no dispositivo real. */
+      .embed-frame { height: calc(100vh - 90px); }
+      .view-embed { margin-left: -10px; margin-right: -10px; margin-top: -14px; margin-bottom: -40px; }
     }
 
     .mobile-menu-btn { display: none; }
@@ -2029,13 +2034,14 @@ function buildKPIs(T) {
 // alturas diferentes entre si). No desktop (grid de 5 colunas) não faz nada:
 // devolve os cards ao natural (min-height limpo) porque ali já ficam parecidos
 // e forçar altura do maior desperdiçaria espaço em telas largas.
-function equalizeCardHeights(containerSelector, itemSelector) {
+function equalizeCardHeights(containerSelector, itemSelector, opts) {
+  const always = !!(opts && opts.always);
   const isMobile = window.innerWidth <= 900;
   document.querySelectorAll(containerSelector).forEach(container => {
     const items = [...container.querySelectorAll(itemSelector)];
     if (!items.length) return;
     items.forEach(el => { el.style.minHeight = ''; });
-    if (!isMobile) return;
+    if (!always && !isMobile) return;
     requestAnimationFrame(() => {
       const max = Math.max(...items.map(el => el.offsetHeight));
       items.forEach(el => { el.style.minHeight = max + 'px'; });
@@ -2050,6 +2056,7 @@ window.addEventListener('resize', () => {
     equalizeCardHeights('#kpiRow1, #kpiRow2, #kpiRow3', '.kpi-card');
     equalizeCardHeights('#gaugeRow', '.gauge-card');
     equalizeCardHeights('#view-campanhas .grid-1-1', '.card');
+    equalizeCardHeights('#todayPace', '.pace-stat', { always: true });
   }, 150);
 });
 
@@ -2190,7 +2197,7 @@ function buildAlertBar(T) {
   const bar = document.getElementById('alertBar');
   const msgs = [];
   if (T.cac > TARGET_CPA*1.15)
-    msgs.push(`<strong>CAC alto:</strong> ${fmtR(T.cac)} — ${fmtN((T.cac/TARGET_CPA-1)*100,0)}% acima da meta de ${fmtR(TARGET_CPA)}`);
+    msgs.push(`<strong>CAC alto:</strong> ${fmtR(T.cac)}<br>${fmtN((T.cac/TARGET_CPA-1)*100,0)}% acima da meta de ${fmtR(TARGET_CPA)}`);
   if (T.roas < 1)
     msgs.push(`<strong>ROAS crítico:</strong> ${fmtN(T.roas,2,'')}× — cada R$1 investido retorna menos de R$1`);
   if (msgs.length) {
@@ -3054,6 +3061,7 @@ function buildTodayPace() {
         </div>
       </div>
     </div>`;
+  equalizeCardHeights('#todayPace', '.pace-stat', { always: true });
 }
 
 // ─── DAY OF WEEK ─────────────────────────────────────────────────────────────

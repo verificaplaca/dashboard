@@ -32,6 +32,10 @@
   .back-link:hover { color: var(--accent); }
 
   main { padding: 24px 28px 60px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 600px) {
+    /* Módulo embutido via iframe: 100% da largura da tela, sem gutter lateral. */
+    main { padding: 14px 0 40px; }
+  }
   .page-title { font-size: 21px; font-weight: 700; }
   .page-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
 
