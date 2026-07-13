@@ -539,6 +539,11 @@
       body.sidebar-collapsed .sidebar-nav-label { display: none; }
       body.sidebar-collapsed .sidebar-nav-item { justify-content: center; padding: 8px; }
       body.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
+      /* Colapsado: logo e botão de expandir empilham (senão o botão fica em
+         cima do ícone do logo, já que os dois teriam que dividir 60px de largura
+         lado a lado) */
+      body.sidebar-collapsed .sidebar-top { flex-direction: column; gap: 12px; padding: 2px 0 16px; }
+      body.sidebar-collapsed .sidebar-brand { justify-content: center; }
     }
 
     /* Mobile/tablet: sidebar vira drawer escondido por padrão, aberto pelo
@@ -753,10 +758,6 @@
   })();
   </script>
 
-  </div><!-- /view-overview -->
-
-  <div class="view is-hidden" id="view-campanhas">
-
   <!-- Health gauges -->
   <div class="section-label" style="margin-top:24px">Saúde das Campanhas</div>
   <div class="gauge-row" id="gaugeRow"></div>
@@ -815,6 +816,26 @@
       <div style="height:190px"><canvas id="upsellChart"></canvas></div>
     </div>
   </div>
+
+  <!-- Performance por Dia da Semana (80%) + Conversões por Campanha (20%) -->
+  <div class="section-label" style="margin-top:24px">Performance por Dia da Semana</div>
+  <div class="grid-4-1">
+    <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;">
+      <div class="dow-grid" id="dowGrid" style="flex:1;min-width:0;"></div>
+      <div class="dow-dots" id="dowDots"></div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;min-width:0;">
+      <div class="card-header">
+        <div><div class="card-title">Conversões por Campanha</div>
+             <div class="card-subtitle" id="convSub">Total do período</div></div>
+      </div>
+      <div style="flex:1;min-height:160px;position:relative;overflow:hidden;"><canvas id="convChart"></canvas></div>
+    </div>
+  </div>
+
+  </div><!-- /view-overview -->
+
+  <div class="view is-hidden" id="view-campanhas">
 
   <!-- Detalhamento por Campanha — full width -->
   <div class="section-label" style="margin-top:24px">Detalhamento por Campanha</div>
@@ -879,22 +900,6 @@
              <div class="card-subtitle">% de impressões elegíveis perdidas por dia</div></div>
       </div>
       <div style="height:200px"><canvas id="lostIsEvolutionChart"></canvas></div>
-    </div>
-  </div>
-
-  <!-- Performance por Dia da Semana (80%) + Conversões por Campanha (20%) -->
-  <div class="section-label" style="margin-top:24px">Performance por Dia da Semana</div>
-  <div class="grid-4-1">
-    <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;">
-      <div class="dow-grid" id="dowGrid" style="flex:1;min-width:0;"></div>
-      <div class="dow-dots" id="dowDots"></div>
-    </div>
-    <div class="card" style="display:flex;flex-direction:column;min-width:0;">
-      <div class="card-header">
-        <div><div class="card-title">Conversões por Campanha</div>
-             <div class="card-subtitle" id="convSub">Total do período</div></div>
-      </div>
-      <div style="flex:1;min-height:160px;position:relative;overflow:hidden;"><canvas id="convChart"></canvas></div>
     </div>
   </div>
 
