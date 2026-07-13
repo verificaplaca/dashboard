@@ -125,6 +125,11 @@
                      color: var(--text-muted); margin-bottom: 12px; margin-top: 28px; }
     .section-label:first-child { margin-top: 0; }
 
+    /* Título/subtítulo de página — mesmo padrão do tracking-gateway.html */
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .page-title { font-size: 21px; font-weight: 700; }
+    .page-subtitle { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
+
     /* KPI Rows — stretch makes all cards in a row the same height */
     .kpi-row { display: grid; gap: 10px; margin-bottom: 10px; align-items: stretch; }
     .kpi-row-1 { grid-template-columns: repeat(5, 1fr); }
@@ -339,7 +344,13 @@
     .lost-is-tree { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px 0 2px; }
     .lit-row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%; }
     .lit-box { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; text-align: center;
-               background: var(--bg); min-width: 96px; }
+               background: var(--bg); min-width: 96px; flex: 1 1 0; }
+    @media (max-width: 600px) {
+      /* Empilha as 2 linhas x 2 colunas em 1 coluna única no mobile;
+         altura/largura equalizadas via equalizeCardHeights('#lostIsTree', '.lit-box'). */
+      .lit-row { flex-direction: column; }
+      .lit-box { flex: none; }
+    }
     .lit-box .lit-pct { font-size: 17px; font-weight: 700; line-height: 1.1; }
     .lit-box .lit-label { font-size: 10.5px; color: var(--text-secondary); margin-top: 2px; }
     .lit-box.lit-is    { border-color: var(--green); background: var(--green-soft); }
@@ -720,6 +731,9 @@
             <div class="date-preset" onclick="setPreset('week','Esta semana',event)">Esta semana</div>
             <div class="date-preset" onclick="setPreset('7d','Últimos 7 dias',event)">Últimos 7 dias</div>
             <div class="date-preset" onclick="setPreset('14d','Últimos 14 dias',event)">Últimos 14 dias</div>
+            <div class="date-preset" onclick="setPreset('30d','Últimos 30 dias',event)">Últimos 30 dias</div>
+            <div class="date-preset" onclick="setPreset('60d','Últimos 60 dias',event)">Últimos 60 dias</div>
+            <div class="date-preset" onclick="setPreset('90d','Últimos 90 dias',event)">Últimos 90 dias</div>
             <div class="date-preset active" onclick="setPreset('month','Este mês',event)">Este mês <span id="currentMonthLbl" style="font-size:10px;color:var(--text-muted)"></span></div>
             <div class="date-preset" onclick="setPreset('lastmonth','Mês passado',event)">Mês passado</div>
             <div class="date-preset" onclick="setPreset('ytd','Este ano',event)">Este ano até agora</div>
@@ -751,6 +765,13 @@
 <main>
 
 <div class="view" id="view-overview">
+
+  <div class="page-head">
+    <div>
+      <div class="page-title">Visão Geral</div>
+      <div class="page-subtitle">Resumo executivo de vendas, custos e performance de campanhas.</div>
+    </div>
+  </div>
 
   <!-- Today Pace — só visível quando filtro = Hoje -->
   <div id="todayPace" style="display:none"></div>
@@ -904,6 +925,13 @@
 
   <div class="view is-hidden" id="view-campanhas">
 
+  <div class="page-head">
+    <div>
+      <div class="page-title">Campanhas</div>
+      <div class="page-subtitle">Detalhamento por campanha e diagnóstico de Impression Share perdido.</div>
+    </div>
+  </div>
+
   <!-- Detalhamento por Campanha — full width -->
   <div class="section-label" style="margin-top:24px">Detalhamento por Campanha</div>
   <div class="card">
@@ -973,6 +1001,13 @@
   </div><!-- /view-campanhas -->
 
   <div class="view is-hidden" id="view-upsell">
+
+  <div class="page-head">
+    <div>
+      <div class="page-title">Upsell</div>
+      <div class="page-subtitle">Desempenho de upsell por tipo no período selecionado.</div>
+    </div>
+  </div>
 
   <!-- Upsell por Tipo (80%) + Pizza por Tipo (20%) -->
   <div class="section-label" style="margin-top:24px">Upsell por Tipo · Período Selecionado</div>
@@ -1052,6 +1087,19 @@ function showView(view) {
   requestAnimationFrame(() => {
     if (typeof charts === 'object' && charts) Object.values(charts).forEach(c => { if (c) c.resize(); });
     if (typeof sparkRefs === 'object' && sparkRefs) Object.values(sparkRefs).forEach(c => { if (c) c.resize(); });
+    // Views escondidas (is-hidden = display:none) medem offsetHeight = 0 na
+    // primeira renderização (buildLostIS/render rodam antes do usuário abrir
+    // a aba) — sem isso, o min-height calculado fica 0 e os cards nunca
+    // ficam do mesmo tamanho até um resize da janela.
+    if (view === 'campanhas') {
+      equalizeCardHeights('#view-campanhas .grid-1-1', '.card');
+      equalizeCardHeights('#lostIsTree', '.lit-box', { always: true });
+    }
+    if (view === 'overview') {
+      equalizeCardHeights('#kpiRow1, #kpiRow2, #kpiRow3', '.kpi-card');
+      equalizeCardHeights('#gaugeRow', '.gauge-card');
+      equalizeCardHeights('#todayPace', '.pace-stat', { always: true });
+    }
   });
 }
 
@@ -1436,6 +1484,12 @@ function setPreset(preset, label, e) {
     const d = new Date(now); d.setDate(d.getDate()-6); fromDate = iso(d);
   } else if (preset === '14d') {
     const d = new Date(now); d.setDate(d.getDate()-13); fromDate = iso(d);
+  } else if (preset === '30d') {
+    const d = new Date(now); d.setDate(d.getDate()-29); fromDate = iso(d);
+  } else if (preset === '60d') {
+    const d = new Date(now); d.setDate(d.getDate()-59); fromDate = iso(d);
+  } else if (preset === '90d') {
+    const d = new Date(now); d.setDate(d.getDate()-89); fromDate = iso(d);
   } else if (preset === 'month') {
     fromDate = today.slice(0,7)+'-01';
   } else if (preset === 'lastmonth') {
@@ -2062,6 +2116,7 @@ window.addEventListener('resize', () => {
     equalizeCardHeights('#gaugeRow', '.gauge-card');
     equalizeCardHeights('#view-campanhas .grid-1-1', '.card');
     equalizeCardHeights('#todayPace', '.pace-stat', { always: true });
+    equalizeCardHeights('#lostIsTree', '.lit-box', { always: true });
   }, 150);
 });
 
@@ -2550,7 +2605,7 @@ function aggLostIsByCamp(rows) {
     const base = BASE_CAMPS.find(c => r.campaign.includes(c.name));
     const key = base ? base.name : r.campaign;
     const eligible = r.impressions / r.searchIS;
-    const prev = byCamp.get(key) || { name:key, cost:0, eligible:0, impr:0, lostBudget:0, lostRank:0, conv:0 };
+    const prev = byCamp.get(key) || { name:key, color: CAMP_COLORS[key] || '#6b6b6b', cost:0, eligible:0, impr:0, lostBudget:0, lostRank:0, conv:0 };
     prev.cost       += r.cost;
     prev.eligible   += eligible;
     prev.impr       += r.impressions;
@@ -2670,6 +2725,7 @@ function buildLostIS(T) {
           <div class="lit-box lit-budget"><div class="lit-pct">${fmtN(curr.budgetPct*100,0)}%</div><div class="lit-label">Perdido por orçamento</div>${deltaHtml(prevDelta && prevDelta.budget)}</div>
           <div class="lit-box lit-rank"><div class="lit-pct">${fmtN(curr.rankPct*100,0)}%</div><div class="lit-label">Perdido por rank</div>${deltaHtml(prevDelta && prevDelta.rank)}</div>
         </div>`;
+      equalizeCardHeights('#lostIsTree', '.lit-box', { always: true });
     }
   }
 
@@ -3222,6 +3278,9 @@ async function initDashboard() {
       else if (_saved.preset === 'week')      { const d=new Date(_now);d.setDate(d.getDate()-d.getDay());_from=_iso2(d);_to=_today; }
       else if (_saved.preset === '7d')        { const d=new Date(_now);d.setDate(d.getDate()-6);_from=_iso2(d);_to=_today; }
       else if (_saved.preset === '14d')       { const d=new Date(_now);d.setDate(d.getDate()-13);_from=_iso2(d);_to=_today; }
+      else if (_saved.preset === '30d')       { const d=new Date(_now);d.setDate(d.getDate()-29);_from=_iso2(d);_to=_today; }
+      else if (_saved.preset === '60d')       { const d=new Date(_now);d.setDate(d.getDate()-59);_from=_iso2(d);_to=_today; }
+      else if (_saved.preset === '90d')       { const d=new Date(_now);d.setDate(d.getDate()-89);_from=_iso2(d);_to=_today; }
       else if (_saved.preset === 'month')     { _from=_today.slice(0,7)+'-01';_to=_today; }
       else if (_saved.preset === 'ytd')       { _from=`${_now.getFullYear()}-01-01`;_to=_today; }
       if (_from) {

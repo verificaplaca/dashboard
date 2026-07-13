@@ -36,6 +36,7 @@
     /* Módulo embutido via iframe: 100% da largura da tela, sem gutter lateral. */
     main { padding: 14px 0 40px; }
   }
+  .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .page-title { font-size: 21px; font-weight: 700; }
   .page-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
 
@@ -289,8 +290,12 @@
 </header>
 
 <main>
-  <div class="page-title">Google Ads CAC</div>
-  <div class="page-subtitle">Análise de termos e palavras-chave com foco em custo por compra.</div>
+  <div class="page-head">
+    <div>
+      <div class="page-title">Google Ads CAC</div>
+      <div class="page-subtitle">Análise de termos e palavras-chave com foco em custo por compra.</div>
+    </div>
+  </div>
 
   <div class="premises-card" id="premisesCard">
     <div class="premises-title">Premissas da análise</div>
@@ -379,6 +384,8 @@
           <div class="date-preset" onclick="setPreset('7d','Últimos 7 dias',event)">Últimos 7 dias</div>
           <div class="date-preset" onclick="setPreset('14d','Últimos 14 dias',event)">Últimos 14 dias</div>
           <div class="date-preset" onclick="setPreset('30d','Últimos 30 dias',event)">Últimos 30 dias</div>
+          <div class="date-preset" onclick="setPreset('60d','Últimos 60 dias',event)">Últimos 60 dias</div>
+          <div class="date-preset" onclick="setPreset('90d','Últimos 90 dias',event)">Últimos 90 dias</div>
           <div class="date-preset" onclick="setPreset('month','Este mês',event)">Este mês</div>
           <div class="date-preset" onclick="setPreset('lastmonth','Mês passado',event)">Mês passado</div>
           <div class="date-preset" onclick="setPreset('ytd','Este ano',event)">Este ano até agora</div>
@@ -889,6 +896,10 @@ function computeRangeForPreset(preset) {
     const d = new Date(now); d.setDate(d.getDate()-13); from = iso(d);
   } else if (preset === '30d') {
     const d = new Date(now); d.setDate(d.getDate()-29); from = iso(d);
+  } else if (preset === '60d') {
+    const d = new Date(now); d.setDate(d.getDate()-59); from = iso(d);
+  } else if (preset === '90d') {
+    const d = new Date(now); d.setDate(d.getDate()-89); from = iso(d);
   } else if (preset === 'month') {
     from = today.slice(0,7)+'-01';
   } else if (preset === 'lastmonth') {
