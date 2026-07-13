@@ -219,6 +219,148 @@ Perguntar ao usuário antes.
 
 ---
 
+## P3 — Atribuição visível no Tracking Gateway (view 008 + tracking-gateway.html)
+
+**Problema:** `conversion_dispatches` já grava gclid/gbraid/wbraid/fbp/fbc/ga_client_id/paid_at (migration 010 + upsert no `dispatch-conversions` — confirmado no código), mas a view pública `conversion_dispatches_public` (008) não expõe essas colunas e o `tracking-gateway.html` não as renderiza. Resultado: os eventos aparecem no visual sem nenhum dado de atribuição.
+
+**Nota importante:** os valores só chegam preenchidos depois que o dev do site aplicar o patch de attribution (P1.1 / P2.6.3). Se ainda não estiver no ar, os cards mostrarão 0% — isso é o comportamento esperado e serve justamente de monitor para saber quando o patch entrou em produção.
+
+**Arquivos:** SQL no projeto do DASHBOARD (`ftmgmfdqdqxboiktxcoj`, SQL Editor) + `tracking-gateway.html`. Nenhum deploy de function.
+
+### P3.1 — Atualizar a view pública (SQL Editor do DASHBOARD)
+
+Atualizar também o arquivo `supabase/migrations/008_conversion_dispatches_public_view.sql` no repo com o mesmo conteúdo. Não expor `client_user_agent` nem `email_sha256`/`phone_sha256`.
+
+```sql
+create or replace view conversion_dispatches_public as
+select
+  checkout_id,
+  order_nsu,
+  event_id,
+  value,
+  currency,
+  ga4_status,
+  ga4_error,
+  ads_status,
+  ads_error,
+  meta_status,
+  meta_error,
+  attempts,
+  created_at,
+  updated_at,
+  paid_at,
+  gclid,
+  gbraid,
+  wbraid,
+  fbp,
+  fbc,
+  ga_client_id,
+  event_source_url
+from conversion_dispatches;
+
+grant select on conversion_dispatches_public to anon;
+```
+
+(`create or replace` só permite ADICIONAR colunas no fim — a ordem acima preserva as existentes. O fetch do gateway usa `select=*`, então nada muda no carregamento.)
+
+### P3.2 — `tracking-gateway.html`: cards de cobertura de atribuição
+
+1. No HTML, ANTES da linha `<div class="section-label">Pedidos processados recentemente</div>`, inserir:
+   ```html
+   <div class="section-label">Atribuição capturada (últimos 7 dias)</div>
+   <div class="cac-summary-row" id="attrRow"></div>
+   ```
+2. No JS, adicionar a função (perto de `renderChannels`):
+   ```js
+   function renderAttribution() {
+     const week = last7d(STATE.orders);
+     const total = week.length;
+     const pctTxt = n => total > 0 ? fmtPct((n / total) * 100) : '—';
+     const nG   = week.filter(o => o.gclid || o.gbraid || o.wbraid).length;
+     const nFbc = week.filter(o => o.fbc).length;
+     const nFbp = week.filter(o => o.fbp).length;
+     const nGa  = week.filter(o => o.ga_client_id).length;
+     const card = (label, n, tip, sub) => `
+       <div class="kpi-card has-tip" data-tip="${tip}">
+         <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
+         <div class="kpi-label">${label}</div>
+         <div class="kpi-value ${total > 0 && n === 0 ? 'amber' : ''}">${pctTxt(n)}</div>
+         <div class="kpi-sub">${fmtInt(n)} de ${fmtInt(total)} pedidos · ${sub}</div>
+       </div>`;
+     document.getElementById('attrRow').innerHTML =
+       card('Google click id', nG, 'Pedidos com gclid, gbraid ou wbraid capturado no clique do anúncio. Habilita Click Conversions no Google Ads (atribuição exata do clique).', 'gclid/gbraid/wbraid') +
+       card('Meta fbc', nFbc, 'Cookie _fbc (ou montado a partir do fbclid). É o identificador de clique do Meta — principal fator de match quality do CAPI.', 'cookie _fbc') +
+       card('Meta fbp', nFbp, 'Cookie _fbp (browser id do pixel Meta). Melhora o match quality do CAPI mesmo sem clique em anúncio.', 'cookie _fbp') +
+       card('GA4 client_id', nGa, 'Cookie _ga capturado no site. Faz o purchase server-side cair na MESMA sessão/atribuição do usuário no GA4, em vez de um client_id sintético.', 'cookie _ga');
+     equalizeCardHeights('#attrRow', '.kpi-card');
+   }
+   ```
+   Se todos os cards ficarem em 0% com pedidos no período, é sinal de que o patch de attribution ainda não está no ar no site (P2.6.3) — não é bug do gateway.
+3. Em `loadAndRender()`, logo após a linha `renderChannels();`, adicionar `renderAttribution();`.
+
+### P3.3 — `tracking-gateway.html`: coluna "Atribuição" na tabela de pedidos
+
+1. No `<thead>` de `#ordersTable`, adicionar `<th>Atribuição</th>` DEPOIS de `<th>Meta CAPI</th>` (antes de Tentativas).
+2. No CSS, trocar `min-width: 780px` da regra `table` por `min-width: 900px`.
+3. Adicionar helper no JS (perto de `channelBadge`):
+   ```js
+   function attrChips(o) {
+     const parts = [
+       { on: !!(o.gclid || o.gbraid || o.wbraid), label: 'G' },
+       { on: !!o.fbc, label: 'fbc' },
+       { on: !!o.fbp, label: 'fbp' },
+       { on: !!o.ga_client_id, label: 'GA' },
+     ];
+     if (!parts.some(p => p.on)) return '<span class="badge skipped">—</span>';
+     return parts.map(p => `<span class="badge ${p.on ? 'ok' : 'skipped'}" style="margin-right:3px">${p.label}</span>`).join('');
+   }
+   ```
+4. Em `renderOrdersTable()`, no `mainRow`, adicionar `<td>${attrChips(o)}</td>` entre o `<td>` do meta_status e o `<td class="num">` de attempts.
+5. Ainda em `renderOrdersTable()`, no detail row: trocar `colspan="8"` por `colspan="9"` e adicionar uma 5ª coluna no `.detail-grid` (depois da coluna Meta CAPI):
+   ```html
+   <div>
+     <div class="detail-col-title">Atribuição</div>
+     <div class="detail-item"><span class="k">gclid</span><span class="v">${escapeHtml(o.gclid) || '—'}</span></div>
+     <div class="detail-item"><span class="k">gbraid</span><span class="v">${escapeHtml(o.gbraid) || '—'}</span></div>
+     <div class="detail-item"><span class="k">wbraid</span><span class="v">${escapeHtml(o.wbraid) || '—'}</span></div>
+     <div class="detail-item"><span class="k">fbc</span><span class="v">${escapeHtml(o.fbc) || '—'}</span></div>
+     <div class="detail-item"><span class="k">fbp</span><span class="v">${escapeHtml(o.fbp) || '—'}</span></div>
+     <div class="detail-item"><span class="k">GA4 client_id</span><span class="v">${escapeHtml(o.ga_client_id) || '—'}</span></div>
+     <div class="detail-item"><span class="k">Pago em</span><span class="v">${o.paid_at ? fmtDateTime(o.paid_at) : '—'}</span></div>
+     <div class="detail-item"><span class="k">URL origem</span><span class="v">${escapeHtml(o.event_source_url) || '—'}</span></div>
+   </div>
+   ```
+
+### P3.4 — `tracking-gateway.html`: filtro por atribuição
+
+1. No drawer de filtros, depois do bloco do select `fChannel`, adicionar:
+   ```html
+   <div class="filter-drawer-label">Atribuição</div>
+   <select class="filter-select" id="fAttr" onchange="applyFilters()">
+     <option value="">Atribuição: todas</option>
+     <option value="com_g">Com Google click id</option>
+     <option value="sem_g">Sem Google click id</option>
+     <option value="sem_nada">Sem nenhum identificador</option>
+   </select>
+   ```
+2. Em `applyFilters()`:
+   - Ler: `const attr = document.getElementById('fAttr').value;` (junto dos outros).
+   - Depois do filtro de `channel`, adicionar:
+     ```js
+     if (attr === 'com_g') rows = rows.filter(o => o.gclid || o.gbraid || o.wbraid);
+     if (attr === 'sem_g') rows = rows.filter(o => !(o.gclid || o.gbraid || o.wbraid));
+     if (attr === 'sem_nada') rows = rows.filter(o => !(o.gclid || o.gbraid || o.wbraid || o.fbc || o.fbp || o.ga_client_id));
+     ```
+   - Incluir no contador: `const activeCount = (status ? 1 : 0) + (channel ? 1 : 0) + (attr ? 1 : 0) + (search ? 1 : 0);`
+3. Em `clearFilters()`, adicionar `document.getElementById('fAttr').value = '';`.
+
+### P3 — Validação
+1. Rodar o SQL do P3.1 e conferir: `GET /rest/v1/conversion_dispatches_public?select=checkout_id,gclid,fbp,fbc,ga_client_id&limit=5` retorna 200 com as colunas (valores podem ser null).
+2. Abrir o gateway: cards de atribuição aparecem, tabela tem a coluna nova, detalhe expandido mostra o bloco Atribuição, filtro funciona.
+3. Se % = 0 em tudo com pedidos no período: cobrar do dev o deploy do patch de attribution (P2.6.3) — o gateway agora mostra exatamente quando ele entrar no ar.
+
+---
+
 ## Ordem sugerida de execução
 1. P0-a + P0-b + P0-e (mesma sessão — mesmos arquivos, 1 deploy só)
 2. P0-f (painel Ads, guiado)
