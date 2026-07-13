@@ -84,10 +84,43 @@
   .camp-card .camp-row { display: flex; justify-content: space-between; color: var(--text-secondary); padding: 1px 0; }
   .camp-card .camp-row b { color: var(--text-primary); font-weight: 600; }
 
-  .filters-row { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+  .filters-row { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; align-items: center; }
   .filter-select, .filter-input { background: var(--surface); border: 1px solid var(--border);
     border-radius: 7px; padding: 7px 10px; font-size: 12.5px; color: var(--text-primary); }
   .filter-input { min-width: 200px; flex: 1; }
+
+  /* ── Botão único de filtros + drawer (mesmo padrão do tracking-gateway.html) ── */
+  .filters-btn { display: flex; align-items: center; gap: 7px; background: var(--surface); border: 1px solid var(--border);
+                 border-radius: 999px; padding: 8px 16px; font-size: 12.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+  .filters-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filters-badge { display: none; background: var(--accent); color: #fff; border-radius: 999px; font-size: 10.5px;
+                    font-weight: 700; padding: 1px 7px; }
+  .filters-badge.show { display: inline-block; }
+
+  .filter-drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(15,15,15,.4); z-index: 400; }
+  .filter-drawer-backdrop.open { display: block; }
+  .filter-drawer { position: fixed; top: 0; right: -360px; width: 340px; max-width: 88vw; height: 100vh;
+                    background: var(--surface); box-shadow: -4px 0 24px rgba(0,0,0,.18); z-index: 401;
+                    transition: right .22s ease; display: flex; flex-direction: column; }
+  .filter-drawer.open { right: 0; }
+  .filter-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .filter-drawer-title { font-size: 14.5px; font-weight: 700; }
+  .filter-drawer-close { border: none; background: none; font-size: 17px; color: var(--text-secondary); cursor: pointer; padding: 4px; line-height: 1; }
+  .filter-drawer-close:hover { color: var(--accent); }
+  .filter-drawer-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; }
+  .filter-drawer-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; margin-top: 12px; }
+  .filter-drawer-label:first-child { margin-top: 0; }
+  .filter-drawer .filter-select, .filter-drawer .filter-input { width: 100%; }
+  .filter-drawer-footer { padding: 14px 18px; border-top: 1px solid var(--border); }
+  .filter-clear { border: 1px solid var(--border); background: var(--surface); border-radius: 7px;
+                  padding: 7px 12px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; width: 100%; }
+  .filter-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 600px) {
+    .filter-drawer { top: auto; bottom: -100%; right: 0; left: 0; width: auto; max-width: none;
+                      height: auto; max-height: 82vh; border-radius: 16px 16px 0 0; transition: bottom .22s ease; }
+    .filter-drawer.open { bottom: 0; right: 0; }
+  }
 
   /* Date picker — mesmo padrão do dashboard.html */
   .date-picker-wrapper { position: relative; }
@@ -359,24 +392,47 @@
         </div>
       </div>
     </div>
-    <select class="filter-select" id="fCampaign" onchange="applyFilters()">
-      <option value="">Todas campanhas</option>
-    </select>
-    <select class="filter-select" id="fAdGroup" onchange="applyFilters()">
-      <option value="">Todos ad groups</option>
-    </select>
-    <select class="filter-select" id="fType" onchange="applyFilters()">
-      <option value="all">Search Terms + Keywords</option>
-      <option value="search_term">Somente Search Terms</option>
-      <option value="keyword">Somente Keywords</option>
-    </select>
-    <input class="filter-input" id="fSearch" placeholder="Buscar termo/keyword..." oninput="applyFilters()" />
-    <select class="filter-select" id="fLimit" onchange="STATE.limit = parseInt(this.value, 10); renderSearchTermsTable(); renderKeywordsTable();">
-      <option value="50">50 registros</option>
-      <option value="100">100 registros</option>
-      <option value="300">300 registros</option>
-      <option value="500">500 registros</option>
-    </select>
+    <button class="filters-btn" onclick="toggleFilterDrawer()" type="button">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M6 10h8M9 15h2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Filtros
+      <span class="filters-badge" id="filtersBadge">0</span>
+    </button>
+  </div>
+
+  <div class="filter-drawer-backdrop" id="filterDrawerBackdrop" onclick="toggleFilterDrawer(false)"></div>
+  <div class="filter-drawer" id="filterDrawer">
+    <div class="filter-drawer-head">
+      <div class="filter-drawer-title">Filtros</div>
+      <button class="filter-drawer-close" onclick="toggleFilterDrawer(false)">&times;</button>
+    </div>
+    <div class="filter-drawer-body">
+      <div class="filter-drawer-label">Campanha</div>
+      <select class="filter-select" id="fCampaign" onchange="applyFilters()">
+        <option value="">Todas campanhas</option>
+      </select>
+      <div class="filter-drawer-label">Ad group</div>
+      <select class="filter-select" id="fAdGroup" onchange="applyFilters()">
+        <option value="">Todos ad groups</option>
+      </select>
+      <div class="filter-drawer-label">Tipo</div>
+      <select class="filter-select" id="fType" onchange="applyFilters()">
+        <option value="all">Search Terms + Keywords</option>
+        <option value="search_term">Somente Search Terms</option>
+        <option value="keyword">Somente Keywords</option>
+      </select>
+      <div class="filter-drawer-label">Buscar</div>
+      <input class="filter-input" id="fSearch" placeholder="Buscar termo/keyword..." oninput="applyFilters()" />
+      <div class="filter-drawer-label">Registros exibidos</div>
+      <select class="filter-select" id="fLimit" onchange="STATE.limit = parseInt(this.value, 10); renderSearchTermsTable(); renderKeywordsTable();">
+        <option value="50">50 registros</option>
+        <option value="100">100 registros</option>
+        <option value="300">300 registros</option>
+        <option value="500">500 registros</option>
+      </select>
+    </div>
+    <div class="filter-drawer-footer">
+      <button class="filter-clear" onclick="clearFilters()" type="button">Limpar filtros</button>
+    </div>
   </div>
 
   <div class="chips-row" id="chipsRow"></div>
@@ -706,6 +762,25 @@ document.addEventListener('click', (ev) => {
   if (mini) setQuickFilter(mini.dataset.quickFilter);
 });
 
+function toggleFilterDrawer(force) {
+  const drawer = document.getElementById('filterDrawer');
+  const open = typeof force === 'boolean' ? force : !drawer.classList.contains('open');
+  drawer.classList.toggle('open', open);
+  document.getElementById('filterDrawerBackdrop').classList.toggle('open', open);
+}
+
+function clearFilters() {
+  document.getElementById('fCampaign').value = '';
+  document.getElementById('fAdGroup').value = '';
+  document.getElementById('fType').value = 'all';
+  document.getElementById('fSearch').value = '';
+  document.getElementById('fLimit').value = '50';
+  STATE.limit = 50;
+  applyFilters();
+  renderSearchTermsTable();
+  renderKeywordsTable();
+}
+
 function populateFilterOptions() {
   const campaigns = new Set();
   const adGroups = new Set();
@@ -762,6 +837,13 @@ function applyFilters() {
   renderCampaignSummary();
   renderSearchTermsTable();
   renderKeywordsTable();
+
+  const activeCount = (campaign ? 1 : 0) + (adGroup ? 1 : 0) + (type !== 'all' ? 1 : 0) + (search ? 1 : 0);
+  const badge = document.getElementById('filtersBadge');
+  if (badge) {
+    badge.textContent = activeCount;
+    badge.classList.toggle('show', activeCount > 0);
+  }
 }
 
 // ─── DATE PICKER ─────────────────────────────────────────────────────────────

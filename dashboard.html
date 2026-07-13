@@ -358,6 +358,11 @@
     .lost-is-opp { display: flex; align-items: center; gap: 10px; background: var(--red-soft);
       border: 1px solid #fecaca; border-radius: var(--radius); padding: 10px 14px;
       font-size: 13px; color: #991b1b; margin-bottom: 14px; }
+    /* .lost-is-opp-text = item flex com o texto: sem min-width:0 o item de flex
+       não encolhe abaixo da largura da frase inteira sem quebra, vazando pra
+       direita da tela no mobile (mesmo bug de grid, mas em flex). */
+    .lost-is-opp-emoji { flex-shrink: 0; }
+    .lost-is-opp-text { min-width: 0; flex: 1; }
     [data-theme="dark"] .lost-is-opp { color: #fca5a5; border-color: #7f1d1d; }
     @media (max-width: 900px) {
       /* Donut charts: troca flex:1 por altura fixa para Chart.js calcular corretamente */
@@ -2622,8 +2627,8 @@ function buildLostIS(T) {
     } else {
       const causa = top.lostConvBudget >= top.lostConvRank ? 'orçamento' : 'rank/qualidade do anúncio';
       opp.style.display = 'flex';
-      opp.innerHTML = `🔴&nbsp; Maior oportunidade do período: <b>${top.name}</b> deixou de faturar
-        ~${fmtR(top.lostRev)} (${fmtN(top.lostConv,1)} conversões aprox.), principalmente por <b>${causa}</b>.`;
+      opp.innerHTML = `<span class="lost-is-opp-emoji">🔴</span><span class="lost-is-opp-text">Maior oportunidade do período: <b>${top.name}</b> deixou de faturar
+        ~${fmtR(top.lostRev)} (${fmtN(top.lostConv,1)} conversões aprox.), principalmente por <b>${causa}</b>.</span>`;
     }
   }
 
