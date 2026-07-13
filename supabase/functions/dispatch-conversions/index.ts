@@ -27,7 +27,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { dispatchAll, type CheckoutConversionData } from '../_shared/conversion-dispatch.ts'
+import { dispatchAll, sha256Hex, type CheckoutConversionData } from '../_shared/conversion-dispatch.ts'
 
 Deno.serve(async (req) => {
   const url = new URL(req.url)
@@ -82,6 +82,12 @@ Deno.serve(async (req) => {
 
     const result = await dispatchAll(data)
 
+    // P2.3 — PII hash at rest: grava só o SHA-256 de email/phone (mesma
+    // normalização usada pelos dispatchers no fluxo fresco: email lower/trim
+    // via sha256Hex, phone sem não-dígitos antes do hash).
+    const emailSha256 = data.email ? await sha256Hex(data.email) : null
+    const phoneSha256 = data.phone ? await sha256Hex(data.phone.replace(/\D/g, '')) : null
+
     await supabase.from('conversion_dispatches').upsert({
       checkout_id: checkoutId,
       order_nsu:   data.order_nsu,
@@ -89,8 +95,18 @@ Deno.serve(async (req) => {
       value:       data.valor,
       currency:    'BRL',
       paid_at:     data.paid_at ?? null,
-      email:       data.email ?? null,
-      phone:       data.phone ?? null,
+      email_sha256: emailSha256,
+      phone_sha256: phoneSha256,
+      // P1.4 — atribuição capturada no client (P1.1); persistida aqui pro
+      // retry não depender de nova chamada de RPC no site.
+      gclid:             data.gclid ?? null,
+      gbraid:            data.gbraid ?? null,
+      wbraid:            data.wbraid ?? null,
+      fbp:               data.fbp ?? null,
+      fbc:               data.fbc ?? null,
+      ga_client_id:      data.ga_client_id ?? null,
+      event_source_url:  data.event_source_url ?? null,
+      client_user_agent: data.client_user_agent ?? null,
       ga4_status:  result.ga4.status,  ga4_error:  result.ga4.error  ?? null,
       ads_status:  result.ads.status,  ads_error:  result.ads.error  ?? null,
       meta_status: result.meta.status, meta_error: result.meta.error ?? null,

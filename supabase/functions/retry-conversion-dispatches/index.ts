@@ -6,9 +6,9 @@
  * attempts < 5, e re-tenta SÓ os canais que falharam (não reenvia os que já
  * tiveram sucesso — evita duplicar Purchase em GA4/Meta).
  *
- * Precisa re-buscar email/phone via RPC (não persistimos hash, só o dado
- * cru já vem do RPC — email/phone JÁ estão salvos em conversion_dispatches
- * desde o primeiro dispatch, então não precisa rechamar o RPC do site aqui).
+ * Não precisa rechamar o RPC do site: email_sha256/phone_sha256 (P2.3 — hash
+ * at rest, sem PII em claro) já estão salvos em conversion_dispatches desde
+ * o primeiro dispatch.
  *
  * Deploy: supabase functions deploy retry-conversion-dispatches --project-ref ftmgmfdqdqxboiktxcoj
  * Cron:   cron-job.org → POST .../functions/v1/retry-conversion-dispatches, a cada 15min
@@ -45,9 +45,22 @@ Deno.serve(async (req) => {
       checkout_id: row.checkout_id,
       order_nsu:   row.order_nsu,
       valor:       row.value,
-      email:       row.email,
-      phone:       row.phone,
+      // P2.3 — conversion_dispatches não guarda mais email/phone cru, só o
+      // hash (email_sha256/phone_sha256); os dispatchers usam o hash pronto.
+      email_sha256: row.email_sha256,
+      phone_sha256: row.phone_sha256,
       paid_at:     row.paid_at,
+      // P1.4 — atribuição persistida em conversion_dispatches no primeiro
+      // dispatch (migration 010); reaproveitada aqui sem precisar rechamar
+      // a RPC do site.
+      gclid:             row.gclid,
+      gbraid:            row.gbraid,
+      wbraid:            row.wbraid,
+      fbp:               row.fbp,
+      fbc:               row.fbc,
+      ga_client_id:      row.ga_client_id,
+      event_source_url:  row.event_source_url,
+      client_user_agent: row.client_user_agent,
     })
 
     // Só sobrescreve o status de canais que ainda não tinham tido sucesso —

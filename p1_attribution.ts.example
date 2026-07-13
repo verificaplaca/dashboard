@@ -1,0 +1,171 @@
+/**
+ * src/lib/attribution.ts
+ *
+ * Captura de atribuição (Google Ads / Meta / UTMs) no client do site VF.
+ * Ler o arquivo inteiro antes de aplicar — comentários indicam decisões de
+ * design que não devem ser alteradas sem necessidade (last-click, chaves de
+ * storage, formato do fbc sintético).
+ *
+ * Import esperado: chamar `initAttribution()` uma vez na carga do app
+ * (App.tsx ou main.tsx, o mais cedo possível — antes de qualquer navegação
+ * client-side apagar os query params da URL).
+ */
+
+const STORAGE_KEY = 'vp_attribution'
+const LANDING_PAGE_KEY = 'vp_landing_page' // sessionStorage
+
+interface StoredAttribution {
+  gclid?: string
+  gbraid?: string
+  wbraid?: string
+  fbclid?: string
+  utm_source?: string
+  utm_medium?: string
+  utm_campaign?: string
+  utm_term?: string
+  utm_content?: string
+  fbclid_ts?: number // epoch ms do momento em que o fbclid foi capturado (pro fbc sintético)
+  updated_at: number // epoch ms — último clique que sobrescreveu o objeto
+}
+
+const URL_PARAM_KEYS = [
+  'gclid',
+  'gbraid',
+  'wbraid',
+  'fbclid',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+] as const
+
+/**
+ * Deve ser chamada uma vez na carga do app (idealmente no topo do
+ * App.tsx/main.tsx, antes de qualquer redirect). Faz duas coisas:
+ * 1. Se a URL atual tiver algum param de clique (gclid/gbraid/wbraid/fbclid)
+ *    ou utm_*, sobrescreve o localStorage inteiro (last-click: um clique novo
+ *    substitui o anterior, mesmo que o anterior ainda não tenha convertido).
+ * 2. Grava landing_page no sessionStorage SÓ se ainda não existir nesta sessão
+ *    (primeira página vista na sessão atual, não sobrescreve em navegações
+ *    seguintes dentro do mesmo site).
+ */
+export function initAttribution(): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const hasAnyParam = URL_PARAM_KEYS.some((k) => params.has(k))
+
+    if (hasAnyParam) {
+      const next: StoredAttribution = { updated_at: Date.now() }
+      for (const key of URL_PARAM_KEYS) {
+        const val = params.get(key)
+        if (val) (next as Record<string, string>)[key] = val
+      }
+      if (next.fbclid) next.fbclid_ts = Date.now()
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    }
+  } catch {
+    // localStorage indisponível (modo privado/SSR) — não bloquear o app.
+  }
+
+  try {
+    if (!sessionStorage.getItem(LANDING_PAGE_KEY)) {
+      sessionStorage.setItem(LANDING_PAGE_KEY, window.location.href)
+    }
+  } catch {
+    // sessionStorage indisponível — não bloquear o app.
+  }
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+function getStoredAttribution(): StoredAttribution | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as StoredAttribution
+  } catch {
+    return null
+  }
+}
+
+export interface Attribution {
+  gclid?: string
+  gbraid?: string
+  wbraid?: string
+  fbclid?: string
+  utm_source?: string
+  utm_medium?: string
+  utm_campaign?: string
+  utm_term?: string
+  utm_content?: string
+  fbp?: string | null
+  fbc?: string | null
+  ga_client_id?: string | null
+  landing_page?: string | null
+  event_source_url: string
+  client_user_agent: string
+}
+
+/**
+ * Chamar no momento de criar o checkout (call site de criar-checkout-pagarme).
+ * Combina o que foi persistido no load (localStorage) com leituras feitas
+ * agora (cookies _fbp/_fbc/_ga, event_source_url, user agent).
+ */
+export function getAttribution(): Attribution {
+  const stored = getStoredAttribution()
+
+  const fbp = readCookie('_fbp')
+
+  // _fbc: se o cookie nativo do pixel não existir mas tivermos um fbclid
+  // salvo (ex: pixel ainda não carregou / bloqueador de terceiros), montamos
+  // o formato sintético que o Meta espera: fb.1.<timestamp_ms>.<fbclid>
+  // Ref: https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc
+  let fbc = readCookie('_fbc')
+  if (!fbc && stored?.fbclid) {
+    const ts = stored.fbclid_ts ?? stored.updated_at ?? Date.now()
+    fbc = `fb.1.${ts}.${stored.fbclid}`
+  }
+
+  // _ga formato: GA1.1.XXXXXXXXXX.YYYYYYYYYY (ou GA1.2.*, varia a versão do
+  // cookie). client_id = os DOIS ÚLTIMOS segmentos separados por ponto.
+  let gaClientId: string | null = null
+  const gaCookie = readCookie('_ga')
+  if (gaCookie) {
+    const parts = gaCookie.split('.')
+    if (parts.length >= 4) {
+      gaClientId = `${parts[parts.length - 2]}.${parts[parts.length - 1]}`
+    }
+  }
+
+  let landingPage: string | null = null
+  try {
+    landingPage = sessionStorage.getItem(LANDING_PAGE_KEY)
+  } catch {
+    // ignora
+  }
+
+  return {
+    gclid: stored?.gclid,
+    gbraid: stored?.gbraid,
+    wbraid: stored?.wbraid,
+    fbclid: stored?.fbclid,
+    utm_source: stored?.utm_source,
+    utm_medium: stored?.utm_medium,
+    utm_campaign: stored?.utm_campaign,
+    utm_term: stored?.utm_term,
+    utm_content: stored?.utm_content,
+    fbp,
+    fbc,
+    ga_client_id: gaClientId,
+    landing_page: landingPage,
+    event_source_url: typeof window !== 'undefined' ? window.location.href : '',
+    client_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+  }
+}

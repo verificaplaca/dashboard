@@ -22,6 +22,22 @@ export interface CheckoutConversionData {
   email?: string | null
   phone?: string | null
   paid_at?: string | null
+  // P2.3 — hash pronto (SHA-256), quando o dado vem do banco (retry/reconcile
+  // não guardam mais email/phone cru, só o hash). Quando ausente, os
+  // dispatchers hasheiam `email`/`phone` na hora (fluxo fresco via RPC do site).
+  email_sha256?: string | null
+  phone_sha256?: string | null
+  // P1.4 — atribuição capturada no client do site (P1.1). Tudo opcional:
+  // checkouts anteriores ao deploy do site vêm com esses campos null, e o
+  // dispatch precisa continuar funcionando com os fallbacks atuais.
+  gclid?: string | null
+  gbraid?: string | null
+  wbraid?: string | null
+  fbp?: string | null
+  fbc?: string | null
+  ga_client_id?: string | null
+  event_source_url?: string | null
+  client_user_agent?: string | null
 }
 
 export interface DispatchResult {
@@ -49,7 +65,9 @@ export function computeTransactionId(row: { checkout_id: string; order_nsu: stri
   return row.order_nsu?.startsWith('addon_') ? row.checkout_id : row.order_nsu
 }
 
-async function sha256Hex(input: string): Promise<string> {
+// Exportado: dispatch-conversions/reconcile usam pra gravar email_sha256/
+// phone_sha256 em conversion_dispatches (P2.3 — não guarda mais PII em claro).
+export async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input.trim().toLowerCase())
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
   return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
@@ -62,10 +80,12 @@ async function dispatchGA4(data: CheckoutConversionData, eventId: string): Promi
   const apiSecret      = Deno.env.get('GA4_API_SECRET')
   if (!measurementId || !apiSecret) return { status: 'skipped', error: 'GA4_MEASUREMENT_ID/GA4_API_SECRET não configurados' }
 
-  // GA4 MP exige client_id. Não temos o _ga real (não é capturado no checkout hoje),
-  // então geramos um synthetic determinístico a partir do checkout_id — o hit é registrado
-  // no GA4 mas NÃO se junta à sessão original do usuário (limitação conhecida, não é bug).
-  const clientId = `srv.${data.checkout_id.replace(/-/g, '').slice(0, 16)}`
+  // GA4 MP exige client_id. P1.4: se o site capturou o _ga real (ga_client_id),
+  // o purchase server-side se junta à sessão/atribuição original do usuário.
+  // Sem isso (checkouts antigos ou site ainda não deployado com P1.1), cai no
+  // fallback synthetic determinístico a partir do checkout_id — o hit é
+  // registrado no GA4 mas NÃO se junta à sessão original (limitação conhecida, não é bug).
+  const clientId = data.ga_client_id || `srv.${data.checkout_id.replace(/-/g, '').slice(0, 16)}`
 
   const body = {
     client_id: clientId,
@@ -113,6 +133,78 @@ async function getGadsAccessToken(): Promise<string> {
   return (await resp.json() as { access_token: string }).access_token
 }
 
+// Formata paid_at (ISO) no formato exigido pela API: 'yyyy-MM-dd HH:mm:ss+00:00'.
+// Referência (exemplo oficial da doc): '2021-01-01 12:32:45-08:00'. Usamos sempre
+// +00:00 porque paid_at é armazenado/lido como timestamptz (UTC) no Postgres.
+function formatConversionDateTime(paidAt: string): string {
+  const d = new Date(paidAt)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const y = d.getUTCFullYear()
+  const mo = pad(d.getUTCMonth() + 1)
+  const day = pad(d.getUTCDate())
+  const h = pad(d.getUTCHours())
+  const mi = pad(d.getUTCMinutes())
+  const s = pad(d.getUTCSeconds())
+  return `${y}-${mo}-${day} ${h}:${mi}:${s}+00:00`
+}
+
+// ── Google Ads — Click Conversions (com gclid/gbraid/wbraid) ───────────────
+// Doc: https://developers.google.com/google-ads/api/docs/conversions/upload-clicks
+// Confirmado via exemplo oficial (google-ads-python, examples/remarketing/upload_offline_conversion.py,
+// v24): campos do objeto ClickConversion em REST/JSON (camelCase) são
+// conversionAction, gclid | gbraid | wbraid (exatamente um dos três — não
+// combinar), conversionValue, conversionDateTime, currencyCode, orderId.
+// partialFailure vai no nível do request (mesmo padrão do uploadConversionAdjustments
+// já usado abaixo). consent é opcional (usado em jurisdições com Consent Mode) —
+// NÃO VALIDADO NA DOC se é obrigatório para esta conta; omitido por padrão.
+async function dispatchGoogleAdsClickConversion(
+  data: CheckoutConversionData,
+  customerId: string,
+  devToken: string,
+  conversionActionId: string,
+): Promise<DispatchResult['ads']> {
+  if (!data.paid_at) return { status: 'failed', error: 'paid_at ausente — obrigatório pra conversionDateTime' }
+
+  try {
+    const accessToken = await getGadsAccessToken()
+
+    const clickConversion: Record<string, unknown> = {
+      conversionAction: `customers/${customerId}/conversionActions/${conversionActionId}`,
+      conversionDateTime: formatConversionDateTime(data.paid_at),
+      conversionValue: data.valor,
+      currencyCode: 'BRL',
+      orderId: computeTransactionId(data),
+    }
+    // Exatamente um identificador de clique — prioridade gclid > gbraid > wbraid
+    // (mesma ordem do exemplo oficial; gclid nunca coexiste com os outros dois).
+    if (data.gclid) clickConversion.gclid = data.gclid
+    else if (data.gbraid) clickConversion.gbraid = data.gbraid
+    else if (data.wbraid) clickConversion.wbraid = data.wbraid
+
+    const resp = await fetch(
+      `https://googleads.googleapis.com/v24/customers/${customerId}:uploadClickConversions`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'developer-token': devToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversions: [clickConversion],
+          partialFailure: true,
+        }),
+      }
+    )
+    if (!resp.ok) return { status: 'failed', error: `Google Ads API (uploadClickConversions) HTTP ${resp.status}: ${await resp.text()}` }
+    const json = await resp.json()
+    if (json.partialFailureError) return { status: 'failed', error: JSON.stringify(json.partialFailureError) }
+    return { status: 'success' }
+  } catch (err) {
+    return { status: 'failed', error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 async function dispatchGoogleAds(data: CheckoutConversionData): Promise<DispatchResult['ads']> {
   const customerId       = Deno.env.get('GADS_CUSTOMER_ID')
   const devToken          = Deno.env.get('GADS_DEVELOPER_TOKEN')
@@ -120,15 +212,31 @@ async function dispatchGoogleAds(data: CheckoutConversionData): Promise<Dispatch
   if (!customerId || !devToken || !conversionActionId) {
     return { status: 'skipped', error: 'GADS_PURCHASE_CONVERSION_ACTION_ID não configurado (ver instrucoes-setup-passos-5-7.md)' }
   }
-  if (!data.email && !data.phone) {
+
+  // P1.4: se o site capturou algum identificador de clique, usar Click
+  // Conversions (uploadClickConversions) — atribuição mais precisa, dedup
+  // com a tag client-side awct via orderId (computeTransactionId, P0-e).
+  if (data.gclid || data.gbraid || data.wbraid) {
+    return dispatchGoogleAdsClickConversion(data, customerId, devToken, conversionActionId)
+  }
+
+  // Fallback: sem nenhum id de clique (checkout anterior ao P1.1 ou tráfego
+  // não pago) — mantém o caminho atual de Enhanced Conversions for Leads.
+  if (!data.email && !data.phone && !data.email_sha256 && !data.phone_sha256) {
     return { status: 'skipped', error: 'checkout sem email/phone (auth.users) — Enhanced Conversions for Leads exige ao menos um identificador' }
   }
 
   try {
     const accessToken = await getGadsAccessToken()
     const userIdentifiers: Record<string, unknown>[] = []
-    if (data.email) userIdentifiers.push({ hashedEmail: await sha256Hex(data.email) })
-    if (data.phone) userIdentifiers.push({ hashedPhoneNumber: await sha256Hex(data.phone) })
+    // P2.3: usa o hash já gravado (retry/reconcile) quando disponível; senão
+    // hasheia o dado cru vindo da RPC (fluxo fresco do dispatch-conversions).
+    // Normalização de phone preservada igual ao comportamento anterior (sem
+    // strip de não-dígitos) quando o hash é calculado aqui.
+    if (data.email_sha256) userIdentifiers.push({ hashedEmail: data.email_sha256 })
+    else if (data.email) userIdentifiers.push({ hashedEmail: await sha256Hex(data.email) })
+    if (data.phone_sha256) userIdentifiers.push({ hashedPhoneNumber: data.phone_sha256 })
+    else if (data.phone) userIdentifiers.push({ hashedPhoneNumber: await sha256Hex(data.phone) })
 
     // ⚠️ Ver aviso no topo do arquivo — formato não validado ao vivo.
     const resp = await fetch(
@@ -168,8 +276,19 @@ async function dispatchMeta(data: CheckoutConversionData, eventId: string): Prom
   if (!pixelId || !accessToken) return { status: 'skipped', error: 'META_PIXEL_ID/META_ACCESS_TOKEN não configurados ainda (pendente de habilitar Conversions API)' }
 
   const userData: Record<string, unknown> = {}
-  if (data.email) userData.em = [await sha256Hex(data.email)]
-  if (data.phone) userData.ph = [await sha256Hex(data.phone.replace(/\D/g, ''))]
+  // P2.3: usa o hash já gravado (retry/reconcile) quando disponível; senão
+  // hasheia o dado cru vindo da RPC (fluxo fresco do dispatch-conversions),
+  // preservando a normalização anterior (phone sem não-dígitos antes do hash).
+  if (data.email_sha256) userData.em = [data.email_sha256]
+  else if (data.email) userData.em = [await sha256Hex(data.email)]
+  if (data.phone_sha256) userData.ph = [data.phone_sha256]
+  else if (data.phone) userData.ph = [await sha256Hex(data.phone.replace(/\D/g, ''))]
+  // P1.4: fbp/fbc (cookies do Pixel, capturados no client em P1.1) e
+  // client_user_agent melhoram o match quality da CAPI. Não bloqueante —
+  // omitidos quando o checkout não trouxe esses campos (site ainda sem P1.1).
+  if (data.fbp) userData.fbp = data.fbp
+  if (data.fbc) userData.fbc = data.fbc
+  if (data.client_user_agent) userData.client_user_agent = data.client_user_agent
 
   const body = {
     data: [{
@@ -178,6 +297,7 @@ async function dispatchMeta(data: CheckoutConversionData, eventId: string): Prom
       event_time: Math.floor((data.paid_at ? new Date(data.paid_at).getTime() : Date.now()) / 1000),
       event_id: eventId,
       action_source: 'website',
+      ...(data.event_source_url ? { event_source_url: data.event_source_url } : {}),
       user_data: userData,
       custom_data: {
         currency: 'BRL',
