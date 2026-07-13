@@ -20,6 +20,12 @@
          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
 
   main { padding: 24px 28px 60px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 600px) {
+    /* Sem isso o conteúdo usava só ~85% da largura da tela (28px de cada
+       lado); embutida no iframe do dashboard (que já bleeda até a borda),
+       essa era a única sobra de gutter visível no mobile. */
+    main { padding: 14px 10px 40px; }
+  }
   .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .page-title { font-size: 21px; font-weight: 700; }
   .page-subtitle { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
@@ -40,7 +46,7 @@
   /* ── Saúde do tracking ── */
   .health-row { display: grid; grid-template-columns: 1.6fr repeat(5, 1fr); gap: 10px; }
   @media (max-width: 1150px) { .health-row { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 640px)  { .health-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px)  { .health-row { grid-template-columns: 1fr; } }
   .health-hero { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
                  box-shadow: var(--shadow); padding: 16px; display: flex; flex-direction: column; gap: 6px; }
   .health-hero.bad { border-color: #fca5a5; }
@@ -100,14 +106,44 @@
   .chart-svg-wrap { margin-top: 10px; overflow-x: auto; }
 
   /* ── Filtros / tabela pedidos ── */
-  .filters-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .filters-bar { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+  .filters-btn { display: flex; align-items: center; gap: 7px; background: var(--surface); border: 1px solid var(--border);
+                 border-radius: 999px; padding: 8px 16px; font-size: 12.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+  .filters-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filters-badge { display: none; background: var(--accent); color: #fff; border-radius: 999px; font-size: 10.5px;
+                    font-weight: 700; padding: 1px 7px; }
+  .filters-badge.show { display: inline-block; }
+  .filter-count { font-size: 12px; color: var(--text-muted); }
+
+  .filter-drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(15,15,15,.4); z-index: 400; }
+  .filter-drawer-backdrop.open { display: block; }
+  .filter-drawer { position: fixed; top: 0; right: -360px; width: 340px; max-width: 88vw; height: 100vh;
+                    background: var(--surface); box-shadow: -4px 0 24px rgba(0,0,0,.18); z-index: 401;
+                    transition: right .22s ease; display: flex; flex-direction: column; }
+  .filter-drawer.open { right: 0; }
+  .filter-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .filter-drawer-title { font-size: 14.5px; font-weight: 700; }
+  .filter-drawer-close { border: none; background: none; font-size: 17px; color: var(--text-secondary); cursor: pointer; padding: 4px; line-height: 1; }
+  .filter-drawer-close:hover { color: var(--accent); }
+  .filter-drawer-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; }
+  .filter-drawer-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; margin-top: 12px; }
+  .filter-drawer-label:first-child { margin-top: 0; }
+  .filter-drawer .filter-select, .filter-drawer .filter-input { width: 100%; }
+  .filter-drawer-footer { padding: 14px 18px; border-top: 1px solid var(--border); }
+  .filter-drawer-footer .filter-clear { width: 100%; }
+
   .filter-select, .filter-input { background: var(--surface); border: 1px solid var(--border);
     border-radius: 7px; padding: 7px 10px; font-size: 12.5px; color: var(--text-primary); }
   .filter-input { min-width: 220px; flex: 1; }
   .filter-clear { border: 1px solid var(--border); background: var(--surface); border-radius: 7px;
                   padding: 7px 12px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
   .filter-clear:hover { border-color: var(--accent); color: var(--accent); }
-  .filter-count { font-size: 12px; color: var(--text-muted); align-self: center; margin-left: auto; }
+
+  @media (max-width: 600px) {
+    .filter-drawer { top: auto; bottom: -100%; right: 0; left: 0; width: auto; max-width: none;
+                      height: auto; max-height: 82vh; border-radius: 16px 16px 0 0; transition: bottom .22s ease; }
+    .filter-drawer.open { bottom: 0; right: 0; }
+  }
 
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
           box-shadow: var(--shadow); padding: 14px; margin-top: 10px; }
@@ -140,9 +176,36 @@
   .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
   .disclaimer { margin-top: 12px; font-size: 11.5px; color: var(--text-muted); }
 
+  /* ── Tooltip (ícone "i" no canto superior direito do card) ────────────────
+     Mesmo padrão do dashboard.html: abre no hover (desktop) ou no toque
+     (classe .tip-open via JS — :hover não existe no mobile). */
+  .has-tip { position: relative; }
+  .tip-icon { position: absolute; top: 8px; right: 8px; width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center; border-radius: 50%;
+    background: var(--bg); border: 1px solid var(--border); color: var(--text-muted);
+    font-size: 10.5px; font-weight: 700; font-style: italic; font-family: Georgia, serif;
+    cursor: help; z-index: 6; line-height: 1; }
+  .tip-icon:hover, .tip-icon.tip-open { border-color: var(--accent); color: var(--accent); }
+  .has-tip::after {
+    content: attr(data-tip);
+    position: absolute; top: 32px; right: 4px; left: auto; bottom: auto;
+    background: #1e293b; color: #f1f5f9; font-size: 11px; line-height: 1.45;
+    padding: 8px 11px; border-radius: 8px; white-space: pre-wrap;
+    min-width: 180px; max-width: 260px; text-align: left;
+    opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  }
+  .has-tip:hover::after, .has-tip.tip-open::after { opacity: 1; }
+  @media (max-width: 600px) {
+    .tip-icon { width: 26px; height: 26px; font-size: 13px; top: 6px; right: 6px; }
+    .has-tip::after { font-size: 13px; padding: 10px 13px; line-height: 1.5;
+      min-width: 200px; max-width: min(280px, 78vw); }
+  }
+
   /* ── CAC real vs reportado (passo 8) ── */
   .cac-summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
   @media (max-width: 900px) { .cac-summary-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .cac-summary-row { grid-template-columns: 1fr; } }
   .gap-badge { display: inline-block; margin-top: 5px; padding: 1px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 600; }
   .gap-badge.ok  { background: var(--green-soft); color: var(--green); }
   .gap-badge.bad { background: var(--red-soft); color: var(--red); }
@@ -206,26 +269,47 @@
   </div>
 
   <div class="section-label">Pedidos processados recentemente</div>
-  <div class="filters-row">
-    <select class="filter-select" id="fStatus" onchange="applyFilters()">
-      <option value="">Status: todos</option>
-      <option value="full">Completo</option>
-      <option value="partial">Parcial / com falha</option>
-    </select>
-    <select class="filter-select" id="fChannel" onchange="applyFilters()">
-      <option value="">Canal com falha: todos</option>
-      <option value="ga4">GA4</option>
-      <option value="ads">Google Ads</option>
-      <option value="meta">Meta CAPI</option>
-    </select>
-    <input class="filter-input" id="fSearch" placeholder="Buscar por pedido ou event_id..." oninput="applyFilters()" />
-    <select class="filter-select" id="fLimit" onchange="applyFilters()">
-      <option value="50">50 registros</option>
-      <option value="100">100 registros</option>
-      <option value="300">300 registros</option>
-    </select>
-    <button class="filter-clear" onclick="clearFilters()">Limpar filtros</button>
+  <div class="filters-bar">
+    <button class="filters-btn" onclick="toggleFilterDrawer()">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M6 10h8M9 15h2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Filtros
+      <span class="filters-badge" id="filtersBadge">0</span>
+    </button>
     <span class="filter-count" id="filterCount">0 pedido(s)</span>
+  </div>
+
+  <div class="filter-drawer-backdrop" id="filterDrawerBackdrop" onclick="toggleFilterDrawer(false)"></div>
+  <div class="filter-drawer" id="filterDrawer">
+    <div class="filter-drawer-head">
+      <div class="filter-drawer-title">Filtros</div>
+      <button class="filter-drawer-close" onclick="toggleFilterDrawer(false)">&times;</button>
+    </div>
+    <div class="filter-drawer-body">
+      <div class="filter-drawer-label">Status</div>
+      <select class="filter-select" id="fStatus" onchange="applyFilters()">
+        <option value="">Status: todos</option>
+        <option value="full">Completo</option>
+        <option value="partial">Parcial / com falha</option>
+      </select>
+      <div class="filter-drawer-label">Canal com falha</div>
+      <select class="filter-select" id="fChannel" onchange="applyFilters()">
+        <option value="">Canal com falha: todos</option>
+        <option value="ga4">GA4</option>
+        <option value="ads">Google Ads</option>
+        <option value="meta">Meta CAPI</option>
+      </select>
+      <div class="filter-drawer-label">Buscar</div>
+      <input class="filter-input" id="fSearch" placeholder="Buscar por pedido ou event_id..." oninput="applyFilters()" />
+      <div class="filter-drawer-label">Registros exibidos</div>
+      <select class="filter-select" id="fLimit" onchange="applyFilters()">
+        <option value="50">50 registros</option>
+        <option value="100">100 registros</option>
+        <option value="300">300 registros</option>
+      </select>
+    </div>
+    <div class="filter-drawer-footer">
+      <button class="filter-clear" onclick="clearFilters()">Limpar filtros</button>
+    </div>
   </div>
 
   <div class="card">
@@ -349,6 +433,45 @@ function escapeHtml(value) {
   return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// Iguala a altura de todos os itens de um container ao maior deles — só no
+// mobile (empilhado em 1 coluna). No desktop (grid multi-coluna) reseta pro
+// natural, porque ali forçar a altura do maior desperdiçaria espaço.
+function equalizeCardHeights(containerSelector, itemSelector) {
+  const isMobile = window.innerWidth <= 640;
+  document.querySelectorAll(containerSelector).forEach(container => {
+    const items = [...container.querySelectorAll(itemSelector)];
+    if (!items.length) return;
+    items.forEach(el => { el.style.minHeight = ''; });
+    if (!isMobile) return;
+    requestAnimationFrame(() => {
+      const max = Math.max(...items.map(el => el.offsetHeight));
+      items.forEach(el => { el.style.minHeight = max + 'px'; });
+    });
+  });
+}
+
+let _equalizeResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_equalizeResizeTimer);
+  _equalizeResizeTimer = setTimeout(() => {
+    equalizeCardHeights('#healthRow', '.health-hero, .kpi-card');
+    equalizeCardHeights('#cacSummaryRow', '.kpi-card');
+    equalizeCardHeights('#channelsRow', '.channel-card');
+  }, 150);
+});
+
+// Tooltips (.has-tip/.tip-icon): no desktop funcionam via :hover (CSS puro).
+// No mobile não existe :hover, então o toque no ícone "i" alterna .tip-open —
+// e qualquer toque fora fecha o que estiver aberto.
+document.addEventListener('click', e => {
+  const icon = e.target.closest('.tip-icon');
+  const card = icon ? icon.closest('.has-tip') : null;
+  document.querySelectorAll('.has-tip.tip-open').forEach(el => {
+    if (el !== card) el.classList.remove('tip-open');
+  });
+  if (card) { e.stopPropagation(); card.classList.toggle('tip-open'); }
+});
+
 // ─── CARREGAMENTO ───────────────────────────────────────────────────────────
 async function loadAndRender() {
   const myToken = ++STATE.loadToken;
@@ -426,32 +549,38 @@ function renderHealth() {
       <div class="health-text">${quality === null ? 'Sem pedidos no período.' :
         `${fmtPct(quality)} dos pedidos enviados para todos os canais configurados · ${failing} com falha/pendência no período`}</div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card has-tip" data-tip="Total de pedidos (conversion_dispatches) criados nos últimos 7 dias.">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
       <div class="kpi-label">Pedidos rastreados</div>
       <div class="kpi-value">${fmtInt(total)}</div>
       <div class="kpi-sub">últimos 7 dias</div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card has-tip" data-tip="Pedidos com GA4 + Google Ads + Meta todos OK.\n'Skipped' conta como OK quando o canal ainda não está configurado neste ambiente (ex: Meta sem META_PIXEL_ID/META_ACCESS_TOKEN).">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
       <div class="kpi-label">Envio completo</div>
       <div class="kpi-value green">${fmtInt(full)}</div>
       <div class="kpi-sub">GA4 + Google Ads + Meta</div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card has-tip" data-tip="Pedidos com pelo menos um canal em 'failed' ou 'pending' — não conta 'skipped' (canal não configurado ainda não é falha).">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
       <div class="kpi-label">Pendências / falhas</div>
       <div class="kpi-value ${failing > 0 ? 'red' : 'green'}">${fmtInt(failing)}</div>
       <div class="kpi-sub">${failing > 0 ? 'requer atenção' : 'nenhuma ação necessária'}</div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card has-tip" data-tip="% de pedidos com envio completo em relação ao total rastreado no período (7 dias).">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
       <div class="kpi-label">Qualidade dos dados</div>
       <div class="kpi-value">${quality === null ? '—' : fmtPct(quality)}</div>
       <div class="kpi-sub">${full} de ${total} pedidos completos</div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card has-tip" data-tip="Média de tentativas de dispatch por pedido. O job de retry (cron-job.org) reenvia a cada 15min só os canais que falharam.">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
       <div class="kpi-label">Tentativas médias</div>
       <div class="kpi-value amber">${total > 0 ? (week.reduce((s,o)=>s+(o.attempts||0),0)/total).toFixed(1) : '—'}</div>
       <div class="kpi-sub">retry a cada 15min (cron-job.org)</div>
     </div>
   `;
+  equalizeCardHeights('#healthRow', '.health-hero, .kpi-card');
 
   const banner = document.getElementById('statusBanner');
   if (healthy) {
@@ -483,7 +612,8 @@ function renderChannels() {
       ? `<div class="channel-skip-note">${fmtInt(skipped)} pedido(s) "skipped" — canal não configurado neste ambiente ainda (não conta como falha).</div>`
       : '';
     return `
-      <div class="channel-card">
+      <div class="channel-card has-tip" data-tip="Status de envio do canal ${ch.label} nos últimos 7 dias, sobre ${fmtInt(total)} pedido(s) rastreado(s).">
+        <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
         <div class="channel-head"><span class="channel-icon ${ch.icon}">${ch.tag}</span>${ch.label}</div>
         <div class="channel-stat-row"><span>OK</span><b>${fmtInt(ok)}</b></div>
         <div class="channel-bar-wrap"><div class="channel-bar ok" style="width:${pct(ok)}%"></div></div>
@@ -494,6 +624,7 @@ function renderChannels() {
         ${skipNote}
       </div>`;
   }).join('');
+  equalizeCardHeights('#channelsRow', '.channel-card');
 }
 
 // ─── GRÁFICO ENVIOS POR DIA (SVG, sem libs externas) ───────────────────────
@@ -575,6 +706,13 @@ function renderChart() {
 }
 
 // ─── TABELA DE PEDIDOS ──────────────────────────────────────────────────────
+function toggleFilterDrawer(force) {
+  const drawer = document.getElementById('filterDrawer');
+  const open = typeof force === 'boolean' ? force : !drawer.classList.contains('open');
+  drawer.classList.toggle('open', open);
+  document.getElementById('filterDrawerBackdrop').classList.toggle('open', open);
+}
+
 function clearFilters() {
   document.getElementById('fStatus').value = '';
   document.getElementById('fChannel').value = '';
@@ -600,6 +738,12 @@ function applyFilters() {
 
   STATE.filteredOrders = rows.slice(0, limit);
   document.getElementById('filterCount').textContent = `${fmtInt(rows.length)} pedido(s)`;
+
+  const activeCount = (status ? 1 : 0) + (channel ? 1 : 0) + (search ? 1 : 0);
+  const badge = document.getElementById('filtersBadge');
+  badge.textContent = activeCount;
+  badge.classList.toggle('show', activeCount > 0);
+
   renderOrdersTable();
 }
 
@@ -703,27 +847,32 @@ function renderCac(revRows, gadsRows) {
   const gapOk = gapAvgPct !== null && Math.abs(gapAvgPct) <= 5;
 
   document.getElementById('cacSummaryRow').innerHTML = `
-    <div class="kpi-card">
+    <div class="kpi-card has-tip" data-tip="Custo Google Ads ÷ pedidos pagos confirmados na Pagar.me (revenue_daily.paid_orders) — o CAC de verdade, baseado em venda confirmada.">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
       <div class="kpi-label">CAC real (30d)</div>
       <div class="kpi-value">${fmtR(cacRealAvg)}</div>
       <div class="kpi-sub">${fmtInt(totalPaid)} pedidos pagos · Pagar.me</div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card has-tip" data-tip="Custo Google Ads ÷ conversões que o próprio Ads contabiliza (google_ads_campaign_daily.conversions) — métrica de atribuição do Ads, pode divergir do CAC real.">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
       <div class="kpi-label">CAC reportado (30d)</div>
       <div class="kpi-value">${fmtR(cacReportedAvg)}</div>
       <div class="kpi-sub">${fmtInt(totalGadsConv)} conversões · Google Ads</div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card has-tip" data-tip="Diferença entre CAC real e reportado. Gap positivo = Ads subcontando conversões (CAC reportado parece melhor do que é de verdade). Objetivo do fix de tracking é esse gap fechar.">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
       <div class="kpi-label">Gap CAC real vs reportado</div>
       <div class="kpi-value ${gapAvgPct === null ? '' : (gapOk ? 'green' : 'red')}">${gapAvgPct === null ? '—' : fmtPct(Math.abs(gapAvgPct))}</div>
       <span class="gap-badge ${gapOk ? 'ok' : 'bad'}">${gapAvgPct === null ? '—' : (gapOk ? 'Gap pequeno' : 'Gap relevante')}</span>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card has-tip" data-tip="Soma do custo de todas as campanhas do Google Ads no período (google_ads_campaign_daily), últimos 30 dias.">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
       <div class="kpi-label">Custo Ads (30d)</div>
       <div class="kpi-value">${fmtR(totalCost)}</div>
       <div class="kpi-sub">google_ads_campaign_daily</div>
     </div>
   `;
+  equalizeCardHeights('#cacSummaryRow', '.kpi-card');
 
   const tbody = document.querySelector('#cacTable tbody');
   const sorted = [...daily].sort((a,b) => b.dateStr.localeCompare(a.dateStr));

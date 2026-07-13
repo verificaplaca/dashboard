@@ -72,7 +72,7 @@
       .filter-select, .date-picker-btn { flex-shrink: 0; }
       #dateRangeHint  { display: none; }
       #freshnessWrap  { display: none; }
-      main { padding: 14px 12px 40px; }
+      main { padding: 14px 10px 40px; }
       .kpi-value { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .kpi-card { padding: 12px 10px 10px; }
       .kpi-top { flex-direction: column-reverse; align-items: flex-start; gap: 3px; }
@@ -324,9 +324,14 @@
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
     /* Chart grids */
-    .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
-    .grid-1-1 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .grid-4-1 { display: grid; grid-template-columns: 4fr 1fr; gap: 10px; align-items: stretch; }
+    .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; min-width: 0; }
+    .grid-1-1 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 0; }
+    .grid-4-1 { display: grid; grid-template-columns: 4fr 1fr; gap: 10px; align-items: stretch; min-width: 0; }
+    /* Itens de grid herdam min-width:auto por padrão (como flex) — sem isso,
+       conteúdo largo (tabela, árvore de diagnóstico) força a coluna a não
+       encolher no mobile e vaza pra direita da tela, mesmo com a grid
+       colapsando pra 1 coluna. */
+    .grid-2-1 > *, .grid-1-1 > *, .grid-4-1 > * { min-width: 0; overflow-x: hidden; }
     @media (max-width: 900px) { .grid-2-1, .grid-1-1, .grid-4-1 { grid-template-columns: 1fr; } }
 
     /* Lost Impression Share — árvore de diagnóstico */
@@ -463,19 +468,34 @@
     .kpi-skel-spark{ height:34px; width:100%; margin-bottom:8px; }
     .kpi-skel-sub  { height:10px; width:80%; }
 
-    /* ── Tooltip ──────────────────────────────────────────────────────────── */
-    .has-tip { position:relative; cursor:help; }
+    /* ── Tooltip ──────────────────────────────────────────────────────────────
+       .has-tip = card com o atributo data-tip; .tip-icon = botão "i" no canto
+       superior direito (tap-friendly no mobile, já que :hover não existe lá).
+       Abre no hover (desktop) OU no toque (classe .tip-open via JS, ver
+       toggleTipIcons() mais abaixo). */
+    .has-tip { position:relative; }
+    .tip-icon { position:absolute; top:8px; right:8px; width:20px; height:20px;
+      display:flex; align-items:center; justify-content:center; border-radius:50%;
+      background:var(--bg); border:1px solid var(--border); color:var(--text-muted);
+      font-size:10.5px; font-weight:700; font-style:italic; font-family:Georgia,serif;
+      cursor:help; z-index:6; line-height:1; }
+    .tip-icon:hover, .tip-icon.tip-open { border-color:var(--accent); color:var(--accent); }
     .has-tip::after {
       content:attr(data-tip);
-      position:absolute; top:28px; bottom:auto; left:50%;
-      transform:translateX(-50%);
+      position:absolute; top:32px; right:4px; left:auto; bottom:auto;
       background:#1e293b; color:#f1f5f9; font-size:11px; line-height:1.45;
-      padding:6px 10px; border-radius:7px; white-space:pre-wrap;
-      min-width:160px; max-width:240px; text-align:center;
+      padding:8px 11px; border-radius:8px; white-space:pre-wrap;
+      min-width:180px; max-width:260px; text-align:left;
       opacity:0; pointer-events:none; transition:opacity .15s; z-index:9999;
       box-shadow:0 4px 12px rgba(0,0,0,.25);
     }
-    .has-tip:hover::after { opacity:1; }
+    .has-tip:hover::after,
+    .has-tip.tip-open::after { opacity:1; }
+    @media (max-width: 600px) {
+      .tip-icon { width:26px; height:26px; font-size:13px; top:6px; right:6px; }
+      .has-tip::after { font-size:13px; padding:10px 13px; line-height:1.5;
+        min-width:200px; max-width:min(280px, 78vw); }
+    }
 
     /* ── Sortable Table Headers ───────────────────────────────────────────── */
     th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
@@ -558,7 +578,7 @@
     }
     @media (max-width: 600px) {
       .embed-frame { height: calc(100vh - 120px); }
-      .view-embed { margin-left: -12px; margin-right: -12px; }
+      .view-embed { margin-left: -10px; margin-right: -10px; }
     }
 
     .mobile-menu-btn { display: none; }
@@ -1365,6 +1385,18 @@ document.addEventListener('click', e => {
     document.getElementById('dateDD').classList.remove('open');
 });
 
+// Tooltips (.has-tip/.tip-icon): no desktop já funcionam via :hover (CSS puro).
+// No mobile não existe :hover, então o toque no ícone "i" alterna .tip-open —
+// e qualquer toque fora fecha o que estiver aberto.
+document.addEventListener('click', e => {
+  const icon = e.target.closest('.tip-icon');
+  const card = icon ? icon.closest('.has-tip') : null;
+  document.querySelectorAll('.has-tip.tip-open').forEach(el => {
+    if (el !== card) el.classList.remove('tip-open');
+  });
+  if (card) { e.stopPropagation(); card.classList.toggle('tip-open'); }
+});
+
 // ─── REFRESH ──────────────────────────────────────────────────────────────────
 function refreshDashboard() {
   const btn = document.getElementById('refreshBtn');
@@ -1989,7 +2021,37 @@ function buildKPIs(T) {
   renderRow('kpiRow1', row1);
   renderRow('kpiRow2', row2);
   renderRow('kpiRow3', row3);
+  equalizeCardHeights('#kpiRow1, #kpiRow2, #kpiRow3', '.kpi-card');
 }
+
+// Iguala a altura de todos os itens de cada container ao maior deles — só no
+// mobile (empilhado em 1-2 colunas, onde linhas de grid diferentes podem ter
+// alturas diferentes entre si). No desktop (grid de 5 colunas) não faz nada:
+// devolve os cards ao natural (min-height limpo) porque ali já ficam parecidos
+// e forçar altura do maior desperdiçaria espaço em telas largas.
+function equalizeCardHeights(containerSelector, itemSelector) {
+  const isMobile = window.innerWidth <= 900;
+  document.querySelectorAll(containerSelector).forEach(container => {
+    const items = [...container.querySelectorAll(itemSelector)];
+    if (!items.length) return;
+    items.forEach(el => { el.style.minHeight = ''; });
+    if (!isMobile) return;
+    requestAnimationFrame(() => {
+      const max = Math.max(...items.map(el => el.offsetHeight));
+      items.forEach(el => { el.style.minHeight = max + 'px'; });
+    });
+  });
+}
+
+let _equalizeResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_equalizeResizeTimer);
+  _equalizeResizeTimer = setTimeout(() => {
+    equalizeCardHeights('#kpiRow1, #kpiRow2, #kpiRow3', '.kpi-card');
+    equalizeCardHeights('#gaugeRow', '.gauge-card');
+    equalizeCardHeights('#view-campanhas .grid-1-1', '.card');
+  }, 150);
+});
 
 function renderRow(rowId, defs) {
   const row = document.getElementById(rowId);
@@ -2001,8 +2063,9 @@ function renderRow(rowId, defs) {
       el.className = 'kpi-card'+(k.tip?' has-tip':''); el.id = 'kc_'+k.id;
       if (k.tip) el.setAttribute('data-tip', k.tip);
       el.innerHTML = `
+        ${k.tip ? '<button type="button" class="tip-icon" aria-label="Mais informações sobre '+k.label+'">i</button>' : ''}
         <div class="kpi-top">
-          <span class="kpi-label">${k.label}${k.tip?' <span style="opacity:.45;font-size:10px">ⓘ</span>':''}</span>
+          <span class="kpi-label">${k.label}</span>
           <span class="badge ${k.dir}" id="kb_${k.id}"></span>
         </div>
         <div class="kpi-value" id="kv_${k.id}"></div>
@@ -2086,21 +2149,26 @@ function buildGauges(T) {
   const gs = [
     { label:'Eficiência de CAC', val:fmtR(T.cac), pct:Math.min(100,(TARGET_CPA/Math.max(T.cac,.01))*100),
       color:T.cac<=TARGET_CPA?'#16a34a':T.cac<=TARGET_CPA*1.2?'#d97706':'#dc2626',
-      sub:`Meta: ${fmtR(TARGET_CPA)} · ${T.cac<=TARGET_CPA?'✓ Dentro':'⚠ Acima da meta'}` },
+      sub:`Meta: ${fmtR(TARGET_CPA)} · ${T.cac<=TARGET_CPA?'✓ Dentro':'⚠ Acima da meta'}`,
+      tip:'CAC do período ÷ meta definida (TARGET_CPA). Barra cheia = CAC igual ou melhor que a meta.' },
     { label:'Margem de Contribuição', val:fmtN(T.margin*100,1)+'%', pct:Math.min(100,(T.margin*100/30)*100),
-      color:T.margin>=.22?'#16a34a':'#d97706', sub:`Meta: 30% · Atual: ${fmtN(T.margin*100,1)}%` },
+      color:T.margin>=.22?'#16a34a':'#d97706', sub:`Meta: 30% · Atual: ${fmtN(T.margin*100,1)}%`,
+      tip:'Lucro bruto ÷ receita, sobre uma meta de referência de 30%.' },
     { label:'Taxa de Upsell', val:fmtN(T.upsell,1)+'%', pct:Math.min(100,(T.upsell/TARGET_UPSELL)*100),
-      color:T.upsell>=TARGET_UPSELL?'#16a34a':'#7c3aed', sub:`Meta: ${TARGET_UPSELL}% · ${T.upsell>=TARGET_UPSELL?'✓ Atingido':'⚠ Abaixo'}` },
+      color:T.upsell>=TARGET_UPSELL?'#16a34a':'#7c3aed', sub:`Meta: ${TARGET_UPSELL}% · ${T.upsell>=TARGET_UPSELL?'✓ Atingido':'⚠ Abaixo'}`,
+      tip:'% de pedidos com upsell sobre o total, comparado à meta definida (TARGET_UPSELL).' },
     { label:'Pacing do Orçamento', val:fmtR(moSpent), pct: budgetPct,
       color: budgetColor,
-      sub:`Orçamento: ${fmtR(pacingBudget)} · Ideal: ${idealPct.toFixed(0)}% · Realizado: ${budgetPct.toFixed(0)}%` },
+      sub:`Orçamento: ${fmtR(pacingBudget)} · Ideal: ${idealPct.toFixed(0)}% · Realizado: ${budgetPct.toFixed(0)}%`,
+      tip:'Gasto do mês até hoje ÷ orçamento mensal, comparado ao ritmo ideal (dias corridos ÷ dias do mês).' },
   ];
   const row = document.getElementById('gaugeRow');
   if (row.children.length !== gs.length) {
     row.innerHTML = '';
-    gs.forEach((_,i) => {
-      const d = document.createElement('div'); d.className = 'gauge-card';
-      d.innerHTML = `<div class="gauge-lbl" id="gl${i}"></div>
+    gs.forEach((g,i) => {
+      const d = document.createElement('div'); d.className = 'gauge-card has-tip'; d.dataset.tip = g.tip;
+      d.innerHTML = `<button type="button" class="tip-icon" aria-label="Mais informações">i</button>
+        <div class="gauge-lbl" id="gl${i}"></div>
         <div class="gauge-row2"><div class="gauge-track"><div class="gauge-fill" id="gf${i}"></div></div><div class="gauge-num" id="gn${i}"></div></div>
         <div class="gauge-sub" id="gs${i}"></div>`;
       row.appendChild(d);
@@ -2114,6 +2182,7 @@ function buildGauges(T) {
     const f = document.getElementById('gf'+i);
     f.style.width = g.pct+'%'; f.style.background = g.color;
   });
+  equalizeCardHeights('#gaugeRow', '.gauge-card');
 }
 
 // ─── ALERT ────────────────────────────────────────────────────────────────────
@@ -2628,6 +2697,10 @@ function buildLostIS(T) {
     scales: { y: { min:0, max:100, ticks:{ callback:v=>v+'%' } } },
     plugins: { legend:{position:'top', labels:{boxWidth:10,font:{size:10.5}}}, datalabels:{display:false} },
   });
+
+  // "Lost Impressions por Campanha" + "Lost Impressions — Causa": no mobile já
+  // empilham (grid-1-1 vira 1 coluna), aqui só igualamos a altura das duas.
+  equalizeCardHeights('#view-campanhas .grid-1-1', '.card');
 }
 
 // ─── UPSELL TYPE TABLE ───────────────────────────────────────────────────────
