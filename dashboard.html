@@ -555,11 +555,11 @@
     @media (max-width: 900px) {
       .sidebar-collapse-btn { display: none; }
       .mobile-menu-btn {
-        display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;
-        border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
+        display: flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+        border: none; background: none; padding: 0;
         color: var(--text-primary); cursor: pointer; flex-shrink: 0; order: 0;
       }
-      .mobile-menu-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .mobile-menu-btn:hover { color: var(--accent); }
 
       .sidebar {
         position: fixed; top: 0; left: -260px; width: 240px; height: 100vh;
@@ -632,7 +632,7 @@
 <header>
   <div class="header-row-top">
     <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" title="Abrir menu" aria-label="Abrir menu">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" stroke-width="1.6"/></svg>
     </button>
     <a class="logo" href="#" title="Verifica Placa">
       <span class="logo-icon">VP</span>
