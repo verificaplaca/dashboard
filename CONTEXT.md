@@ -151,6 +151,9 @@ Fornecedor: Assertiva. Três faixas de preço:
 
 | Data | Decisão |
 |---|---|
+| 2026-07-13 | P1 completo e em produção: attribution capture no site (gclid/gbraid/wbraid/fbclid/UTMs/fbp/fbc/ga_client_id em `checkouts`, validado com checkout de teste), Click Conversions v24 no dispatch (quando há id de clique; fallback ENHANCEMENT), GA4 client_id real, reconciliação diária (`reconcile-conversion-dispatches`, cron 08:00 UTC). Addon herda atribuição do checkout principal |
+| 2026-07-13 | P2.2 no ar: `check-tracking-health` (Telegram, cron horário — failed>10%/24h ou webhook morto). P2.3: PII hasheada em `conversion_dispatches` (migration 011, colunas email/phone dropadas). P2.4: remarketing dinâmico corrigido no GTM (`JS - Contents ID`) e publicado |
+| 2026-07-13 | Backlog do reconcile drenado (~148 checkouts pré-webhook); linhas antigas marcadas com `paid_at = created_at`. Pendente: Meta CAPI (P2.1, token), decisão P2.5 (tags primário×upsell), patch stableId begin_checkout (dev), validação gap CAC ≤5% até ~27/07 |
 | 2026-07-13 | P0-f: `begin_checkout` alterada de Primária → Secundária no Google Ads (inflava a coluna Conversões; causa principal do overcounting ~25–30%). `purchase` mantida com Contagem "Every" — dedup via transaction ID cobre o disparo duplo web+server |
 | 2026-07-13 | P0-e deployado: `computeTransactionId` em `dispatch-conversions` e `retry-conversion-dispatches` (transaction_id de addons = checkout_id, alinhado ao client). Validar na próxima venda de addon |
 | 2026-05-01 | Crons migrados do GitHub Actions para cron-job.org |
