@@ -534,9 +534,23 @@
     .view.is-hidden { display: none; }
 
     /* Google Ads CAC / Tracking Gateway embutidos via iframe (páginas próprias,
-       não fundidas — ver comentário no HTML). */
+       não fundidas — ver comentário no HTML). Essas páginas têm breakpoints
+       próprios (900-1100px) pensados pra ocupar a janela inteira quando abertas
+       sozinhas. Dentro do dashboard elas perdem ~216px pra sidebar + o padding
+       do main — em telas de notebook isso é o suficiente pra cair no layout
+       "compacto" delas mesmo com a janela em modo desktop. Solução: no desktop
+       (>600px) a view "come" o padding lateral do main (margem negativa) e o
+       iframe recebe min-width — se ainda faltar espaço, aparece scroll
+       horizontal em vez de forçar o layout compacto delas. No mobile real
+       (<=600px) não mexemos: a página embutida já tem seu próprio layout
+       mobile e a largura disponível já é a largura real da tela. */
     .embed-frame { display: block; width: 100%; border: none; border-radius: var(--radius);
                     background: var(--surface); box-shadow: var(--shadow); height: calc(100vh - 150px); }
+    .view-embed { overflow-x: auto; }
+    @media (min-width: 601px) {
+      .view-embed { margin-left: -28px; margin-right: -28px; padding-left: 28px; padding-right: 28px; }
+      .view-embed .embed-frame { min-width: 1180px; }
+    }
     @media (max-width: 600px) {
       .embed-frame { height: calc(100vh - 190px); }
     }
@@ -952,7 +966,7 @@
 
   </div><!-- /view-upsell -->
 
-  <div class="view is-hidden" id="view-gads-cac">
+  <div class="view is-hidden view-embed" id="view-gads-cac">
     <!-- Embutida via iframe (não fundida): google-ads-cac.html tem seu próprio
          STATE/applyFilters/charts/SUPA_* que colidiriam com os nomes já usados
          aqui se o código fosse copiado pra dentro do dashboard.html. src só é
@@ -961,7 +975,7 @@
     <iframe class="embed-frame" id="frame-gads-cac" data-src="google-ads-cac.html" title="Google Ads CAC"></iframe>
   </div><!-- /view-gads-cac -->
 
-  <div class="view is-hidden" id="view-tracking">
+  <div class="view is-hidden view-embed" id="view-tracking">
     <iframe class="embed-frame" id="frame-tracking" data-src="tracking-gateway.html" title="Tracking Gateway"></iframe>
   </div><!-- /view-tracking -->
 
