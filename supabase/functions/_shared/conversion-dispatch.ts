@@ -21,6 +21,7 @@ export interface CheckoutConversionData {
   transaction_id?: string | null
   email?: string | null
   phone?: string | null
+  paid_at?: string | null
 }
 
 export interface DispatchResult {
@@ -37,6 +38,15 @@ export function computeEventId(row: { checkout_id: string; order_nsu: string }):
   return row.order_nsu?.startsWith('addon_')
     ? 'evt_' + row.checkout_id
     : 'evt_' + row.order_nsu
+}
+
+// transaction_id/orderId determinístico — precisa ser IDÊNTICO ao que o client envia:
+//   - fluxo principal (Sucesso.tsx):          transaction_id = orderNsu
+//   - fluxo addon (CheckoutAddon/Resultado3): transaction_id = pixData.checkout_id
+// Sem isso, GA4 vê 2 transações (receita de addon duplicada) e o dedup por
+// orderId no Google Ads nunca casa em addons.
+export function computeTransactionId(row: { checkout_id: string; order_nsu: string }): string {
+  return row.order_nsu?.startsWith('addon_') ? row.checkout_id : row.order_nsu
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -59,10 +69,14 @@ async function dispatchGA4(data: CheckoutConversionData, eventId: string): Promi
 
   const body = {
     client_id: clientId,
+    // Hora real da conversão (paid_at), não a hora do dispatch/retry.
+    // GA4 MP aceita eventos retroativos até ~72h — retries dentro da janela
+    // do job (5 tentativas x 15min) ficam muito abaixo disso.
+    timestamp_micros: data.paid_at ? new Date(data.paid_at).getTime() * 1000 : undefined,
     events: [{
       name: 'purchase',
       params: {
-        transaction_id: data.order_nsu,
+        transaction_id: computeTransactionId(data),
         value: data.valor,
         currency: 'BRL',
         plan_name: data.plano,
@@ -130,7 +144,7 @@ async function dispatchGoogleAds(data: CheckoutConversionData): Promise<Dispatch
           conversionAdjustments: [{
             conversionAction: `customers/${customerId}/conversionActions/${conversionActionId}`,
             adjustmentType: 'ENHANCEMENT',
-            orderId: data.order_nsu,
+            orderId: computeTransactionId(data),
             userIdentifiers,
           }],
           partialFailure: true,
@@ -160,7 +174,8 @@ async function dispatchMeta(data: CheckoutConversionData, eventId: string): Prom
   const body = {
     data: [{
       event_name: 'Purchase',
-      event_time: Math.floor(Date.now() / 1000),
+      // Hora real da conversão (paid_at); Meta CAPI aceita event_time até 7 dias atrás.
+      event_time: Math.floor((data.paid_at ? new Date(data.paid_at).getTime() : Date.now()) / 1000),
       event_id: eventId,
       action_source: 'website',
       user_data: userData,

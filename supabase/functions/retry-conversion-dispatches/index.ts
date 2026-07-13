@@ -30,7 +30,10 @@ Deno.serve(async (req) => {
     .from('conversion_dispatches')
     .select('*')
     .lt('attempts', MAX_ATTEMPTS)
-    .or('ga4_status.neq.success,ads_status.neq.success,meta_status.neq.success')
+    // Só failed/pending — 'skipped' (canal não configurado, ex: Meta sem pixel/token)
+    // não é falha e não deve ser re-tentado (evita queimar attempts e evita
+    // Purchase retroativo quando o canal for configurado no futuro).
+    .or('ga4_status.in.(failed,pending),ads_status.in.(failed,pending),meta_status.in.(failed,pending)')
     .limit(50)
 
   if (error) return json({ ok: false, error: error.message }, 500)
@@ -44,6 +47,7 @@ Deno.serve(async (req) => {
       valor:       row.value,
       email:       row.email,
       phone:       row.phone,
+      paid_at:     row.paid_at,
     })
 
     // Só sobrescreve o status de canais que ainda não tinham tido sucesso —
