@@ -533,6 +533,14 @@
 
     .view.is-hidden { display: none; }
 
+    /* Google Ads CAC / Tracking Gateway embutidos via iframe (páginas próprias,
+       não fundidas — ver comentário no HTML). */
+    .embed-frame { display: block; width: 100%; border: none; border-radius: var(--radius);
+                    background: var(--surface); box-shadow: var(--shadow); height: calc(100vh - 150px); }
+    @media (max-width: 600px) {
+      .embed-frame { height: calc(100vh - 190px); }
+    }
+
     .mobile-menu-btn { display: none; }
     .sidebar-backdrop { display: none; }
 
@@ -616,14 +624,14 @@
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-nav">
-    <a class="sidebar-nav-item" href="google-ads-cac.html" title="Google Ads CAC">
+    <button class="sidebar-nav-item" data-view="gads-cac" onclick="showView('gads-cac')" title="Google Ads CAC">
       <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.2" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/></svg></span>
       <span class="sidebar-nav-label">Google Ads CAC</span>
-    </a>
-    <a class="sidebar-nav-item" href="tracking-gateway.html" title="Tracking Gateway">
+    </button>
+    <button class="sidebar-nav-item" data-view="tracking" onclick="showView('tracking')" title="Tracking Gateway">
       <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span class="sidebar-nav-label">Tracking Gateway</span>
-    </a>
+    </button>
   </div>
 </nav>
 <div class="sidebar-backdrop" onclick="toggleMobileSidebar(false)"></div>
@@ -944,6 +952,19 @@
 
   </div><!-- /view-upsell -->
 
+  <div class="view is-hidden" id="view-gads-cac">
+    <!-- Embutida via iframe (não fundida): google-ads-cac.html tem seu próprio
+         STATE/applyFilters/charts/SUPA_* que colidiriam com os nomes já usados
+         aqui se o código fosse copiado pra dentro do dashboard.html. src só é
+         setado no primeiro clique na aba (ver showView()), pra não disparar as
+         chamadas ao Supabase dela sem necessidade. -->
+    <iframe class="embed-frame" id="frame-gads-cac" data-src="google-ads-cac.html" title="Google Ads CAC"></iframe>
+  </div><!-- /view-gads-cac -->
+
+  <div class="view is-hidden" id="view-tracking">
+    <iframe class="embed-frame" id="frame-tracking" data-src="tracking-gateway.html" title="Tracking Gateway"></iframe>
+  </div><!-- /view-tracking -->
+
 </main>
 <footer id="footerBar">Verifica Placa · Dashboard · Dados de exemplo</footer>
 
@@ -958,7 +979,7 @@
 // neste mesmo script — por rodarem dentro de requestAnimationFrame, só executam
 // depois que o script inteiro já terminou de rodar uma vez, então a ordem de
 // declaração aqui não importa).
-const SIDEBAR_VIEWS = ['overview', 'campanhas', 'upsell'];
+const SIDEBAR_VIEWS = ['overview', 'campanhas', 'upsell', 'gads-cac', 'tracking'];
 
 function showView(view) {
   if (!SIDEBAR_VIEWS.includes(view)) view = 'overview';
@@ -971,6 +992,13 @@ function showView(view) {
   });
   try { localStorage.setItem('vp_sidebar_view', view); } catch (e) {}
   document.body.classList.remove('mobile-sidebar-open'); // fecha o drawer mobile ao escolher um item
+
+  // Google Ads CAC / Tracking Gateway: iframe só ganha src no primeiro acesso
+  // (lazy) — evita disparar as chamadas Supabase delas sem o usuário nunca
+  // ter clicado na aba.
+  const frame = document.querySelector('#view-' + view + ' iframe[data-src]');
+  if (frame && !frame.getAttribute('src')) frame.src = frame.dataset.src;
+
   requestAnimationFrame(() => {
     if (typeof charts === 'object' && charts) Object.values(charts).forEach(c => { if (c) c.resize(); });
     if (typeof sparkRefs === 'object' && sparkRefs) Object.values(sparkRefs).forEach(c => { if (c) c.resize(); });
