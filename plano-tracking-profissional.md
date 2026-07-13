@@ -255,13 +255,19 @@ select
   fbp,
   fbc,
   ga_client_id,
-  event_source_url
+  event_source_url,
+  (email_sha256 is not null) as has_email,
+  (phone_sha256 is not null) as has_phone
 from conversion_dispatches;
 
 grant select on conversion_dispatches_public to anon;
 ```
 
-(`create or replace` só permite ADICIONAR colunas no fim — a ordem acima preserva as existentes. O fetch do gateway usa `select=*`, então nada muda no carregamento.)
+(`create or replace` só permite ADICIONAR colunas no fim — a ordem acima preserva as existentes. Expor só as flags booleanas de email/phone, NUNCA os hashes. O fetch do gateway usa `select=*`, então nada muda no carregamento.)
+
+**Referência visual:** painel da Nena — linha do pedido com badge de qualidade do match ("Forte") + painel expandido em 4 colunas: Resumo / Dados enviados / Identificadores técnicos (valores truncados com botão copiar) / Canais.
+
+**Limitações de dados (não tentar contornar):** `conversion_dispatches` não tem nome/cidade/CEP/nascimento do cliente, e email/phone são hash SHA-256 (P2.3) — "Dados enviados" mostra só Email/Telefone como Recebido/— via flags booleanas. FBCLID e País (IP) não são persistidos — não exibir.
 
 ### P3.2 — `tracking-gateway.html`: cards de cobertura de atribuição
 
@@ -298,38 +304,111 @@ grant select on conversion_dispatches_public to anon;
    Se todos os cards ficarem em 0% com pedidos no período, é sinal de que o patch de attribution ainda não está no ar no site (P2.6.3) — não é bug do gateway.
 3. Em `loadAndRender()`, logo após a linha `renderChannels();`, adicionar `renderAttribution();`.
 
-### P3.3 — `tracking-gateway.html`: coluna "Atribuição" na tabela de pedidos
+### P3.3 — `tracking-gateway.html`: qualidade do match + painel de detalhe estilo Nena
 
-1. No `<thead>` de `#ordersTable`, adicionar `<th>Atribuição</th>` DEPOIS de `<th>Meta CAPI</th>` (antes de Tentativas).
+**Helpers (JS, perto de `channelBadge`):**
+
+```js
+function googleClickId(o) { return o.gclid || o.gbraid || o.wbraid || null; }
+
+// 6 identificadores possíveis de match: email, phone, fbp, fbc, ga_client_id, google click id
+function matchIdsCount(o) {
+  return [o.has_email, o.has_phone, o.fbp, o.fbc, o.ga_client_id, googleClickId(o)]
+    .filter(Boolean).length;
+}
+function matchQuality(o) {
+  const n = matchIdsCount(o);
+  if (n >= 4) return { cls: 'ok',      label: 'Forte' };
+  if (n >= 2) return { cls: 'pending', label: 'Médio' };
+  return       { cls: 'failed',  label: 'Fraco' };
+}
+function matchBadge(o) {
+  const q = matchQuality(o);
+  return `<span class="badge ${q.cls}">${q.label}</span>`;
+}
+function sentBadge(on) {
+  return on ? '<span class="badge ok">Recebido</span>' : '<span class="badge skipped">—</span>';
+}
+// Valor técnico truncado + botão copiar (valor completo no title e no data-copy)
+function idVal(v) {
+  if (!v) return '<span class="v">—</span>';
+  const esc = escapeHtml(v);
+  return `<span class="v mono" title="${esc}">${esc}</span>` +
+         `<button type="button" class="copy-btn" data-copy="${esc}" title="Copiar">⧉</button>`;
+}
+```
+
+**Listener de copiar (JS, perto do listener de tooltips):**
+
+```js
+document.addEventListener('click', e => {
+  const b = e.target.closest('.copy-btn');
+  if (!b) return;
+  e.stopPropagation();
+  navigator.clipboard.writeText(b.dataset.copy);
+  b.textContent = '✓';
+  setTimeout(() => { b.textContent = '⧉'; }, 900);
+});
+```
+
+**CSS (junto das regras `.detail-item`):**
+
+```css
+.detail-item .v.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+  max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-block; vertical-align: middle; word-break: normal; }
+.copy-btn { border: none; background: none; color: var(--text-muted); cursor: pointer;
+  font-size: 12px; padding: 0 0 0 4px; line-height: 1; vertical-align: middle; }
+.copy-btn:hover { color: var(--accent); }
+```
+
+**Tabela principal:**
+
+1. No `<thead>` de `#ordersTable`, adicionar `<th>Match</th>` DEPOIS de `<th class="num">Valor</th>` (antes de Status geral).
 2. No CSS, trocar `min-width: 780px` da regra `table` por `min-width: 900px`.
-3. Adicionar helper no JS (perto de `channelBadge`):
-   ```js
-   function attrChips(o) {
-     const parts = [
-       { on: !!(o.gclid || o.gbraid || o.wbraid), label: 'G' },
-       { on: !!o.fbc, label: 'fbc' },
-       { on: !!o.fbp, label: 'fbp' },
-       { on: !!o.ga_client_id, label: 'GA' },
-     ];
-     if (!parts.some(p => p.on)) return '<span class="badge skipped">—</span>';
-     return parts.map(p => `<span class="badge ${p.on ? 'ok' : 'skipped'}" style="margin-right:3px">${p.label}</span>`).join('');
-   }
-   ```
-4. Em `renderOrdersTable()`, no `mainRow`, adicionar `<td>${attrChips(o)}</td>` entre o `<td>` do meta_status e o `<td class="num">` de attempts.
-5. Ainda em `renderOrdersTable()`, no detail row: trocar `colspan="8"` por `colspan="9"` e adicionar uma 5ª coluna no `.detail-grid` (depois da coluna Meta CAPI):
-   ```html
-   <div>
-     <div class="detail-col-title">Atribuição</div>
-     <div class="detail-item"><span class="k">gclid</span><span class="v">${escapeHtml(o.gclid) || '—'}</span></div>
-     <div class="detail-item"><span class="k">gbraid</span><span class="v">${escapeHtml(o.gbraid) || '—'}</span></div>
-     <div class="detail-item"><span class="k">wbraid</span><span class="v">${escapeHtml(o.wbraid) || '—'}</span></div>
-     <div class="detail-item"><span class="k">fbc</span><span class="v">${escapeHtml(o.fbc) || '—'}</span></div>
-     <div class="detail-item"><span class="k">fbp</span><span class="v">${escapeHtml(o.fbp) || '—'}</span></div>
-     <div class="detail-item"><span class="k">GA4 client_id</span><span class="v">${escapeHtml(o.ga_client_id) || '—'}</span></div>
-     <div class="detail-item"><span class="k">Pago em</span><span class="v">${o.paid_at ? fmtDateTime(o.paid_at) : '—'}</span></div>
-     <div class="detail-item"><span class="k">URL origem</span><span class="v">${escapeHtml(o.event_source_url) || '—'}</span></div>
-   </div>
-   ```
+3. Em `renderOrdersTable()`, no `mainRow`, adicionar `<td>${matchBadge(o)}</td>` entre o `<td class="num">` do valor e o `<td>` do statusBadge.
+4. Trocar `colspan="8"` por `colspan="9"` no detail row.
+
+**Painel expandido — substituir TODO o conteúdo atual de `.detail-grid` por estas 4 colunas** (o grid já é `repeat(4, 1fr)`, manter):
+
+```html
+<div>
+  <div class="detail-col-title">Resumo</div>
+  <div class="detail-item"><span class="k">Pedido</span><span class="v">${escapeHtml(o.order_nsu)}</span></div>
+  <div class="detail-item"><span class="k">Checkout ID</span>${idVal(o.checkout_id)}</div>
+  <div class="detail-item"><span class="k">Valor</span><span class="v">${fmtR(o.value)} ${escapeHtml(o.currency)}</span></div>
+  <div class="detail-item"><span class="k">Pago em</span><span class="v">${o.paid_at ? fmtDateTime(o.paid_at) : '—'}</span></div>
+  <div class="detail-item"><span class="k">Status geral</span><span class="v">${orderIsFull(o) ? '<span class="badge full">Completo</span>' : '<span class="badge partial">Parcial</span>'}</span></div>
+  <div class="detail-item"><span class="k">Qualidade do match</span><span class="v">${matchBadge(o)}</span></div>
+  <div class="detail-item"><span class="k">Identificadores</span><span class="v">${matchIdsCount(o)} de 6</span></div>
+</div>
+<div>
+  <div class="detail-col-title">Dados enviados</div>
+  <div class="detail-item"><span class="k">Email</span><span class="v">${sentBadge(o.has_email)}</span></div>
+  <div class="detail-item"><span class="k">Telefone</span><span class="v">${sentBadge(o.has_phone)}</span></div>
+  <div class="detail-item" style="margin-top:6px"><span class="k" style="font-size:10.5px">Enviados como hash SHA-256 — PII não fica em claro no banco.</span></div>
+</div>
+<div>
+  <div class="detail-col-title">Identificadores técnicos</div>
+  <div class="detail-item"><span class="k">Event ID</span>${idVal(o.event_id)}</div>
+  <div class="detail-item"><span class="k">GCLID</span>${idVal(googleClickId(o))}</div>
+  <div class="detail-item"><span class="k">fbp</span>${idVal(o.fbp)}</div>
+  <div class="detail-item"><span class="k">fbc</span>${idVal(o.fbc)}</div>
+  <div class="detail-item"><span class="k">GA client ID</span>${idVal(o.ga_client_id)}</div>
+  <div class="detail-item"><span class="k">Event source URL</span>${idVal(o.event_source_url)}</div>
+</div>
+<div>
+  <div class="detail-col-title">Canais</div>
+  <div class="detail-item"><span class="k">GA4</span><span class="v">${channelBadge(o.ga4_status)}</span></div>
+  ${o.ga4_error ? `<div class="detail-error">${escapeHtml(o.ga4_error)}</div>` : ''}
+  <div class="detail-item"><span class="k">Google Ads</span><span class="v">${channelBadge(o.ads_status)}</span></div>
+  ${o.ads_error ? `<div class="detail-error">${escapeHtml(o.ads_error)}</div>` : ''}
+  <div class="detail-item"><span class="k">Meta CAPI</span><span class="v">${channelBadge(o.meta_status)}</span></div>
+  ${o.meta_error ? `<div class="detail-error">${escapeHtml(o.meta_error)}</div>` : ''}
+</div>
+```
+
+Obs.: no rótulo "GCLID", se o valor presente for `gbraid`/`wbraid` ele aparece nesse mesmo campo (é o click id do Google vigente). Nada de FBCLID nem País (IP) — não são persistidos.
 
 ### P3.4 — `tracking-gateway.html`: filtro por atribuição
 
@@ -341,6 +420,7 @@ grant select on conversion_dispatches_public to anon;
      <option value="com_g">Com Google click id</option>
      <option value="sem_g">Sem Google click id</option>
      <option value="sem_nada">Sem nenhum identificador</option>
+     <option value="match_fraco">Match fraco</option>
    </select>
    ```
 2. Em `applyFilters()`:
@@ -349,14 +429,15 @@ grant select on conversion_dispatches_public to anon;
      ```js
      if (attr === 'com_g') rows = rows.filter(o => o.gclid || o.gbraid || o.wbraid);
      if (attr === 'sem_g') rows = rows.filter(o => !(o.gclid || o.gbraid || o.wbraid));
-     if (attr === 'sem_nada') rows = rows.filter(o => !(o.gclid || o.gbraid || o.wbraid || o.fbc || o.fbp || o.ga_client_id));
+     if (attr === 'sem_nada') rows = rows.filter(o => matchIdsCount(o) === 0);
+     if (attr === 'match_fraco') rows = rows.filter(o => matchQuality(o).label === 'Fraco');
      ```
    - Incluir no contador: `const activeCount = (status ? 1 : 0) + (channel ? 1 : 0) + (attr ? 1 : 0) + (search ? 1 : 0);`
 3. Em `clearFilters()`, adicionar `document.getElementById('fAttr').value = '';`.
 
 ### P3 — Validação
 1. Rodar o SQL do P3.1 e conferir: `GET /rest/v1/conversion_dispatches_public?select=checkout_id,gclid,fbp,fbc,ga_client_id&limit=5` retorna 200 com as colunas (valores podem ser null).
-2. Abrir o gateway: cards de atribuição aparecem, tabela tem a coluna nova, detalhe expandido mostra o bloco Atribuição, filtro funciona.
+2. Abrir o gateway: cards de atribuição aparecem; tabela tem a coluna "Match" com badge Forte/Médio/Fraco; detalhe expandido mostra as 4 colunas (Resumo / Dados enviados / Identificadores técnicos / Canais); botão ⧉ copia o valor completo; filtros funcionam.
 3. Se % = 0 em tudo com pedidos no período: cobrar do dev o deploy do patch de attribution (P2.6.3) — o gateway agora mostra exatamente quando ele entrar no ar.
 
 ---
