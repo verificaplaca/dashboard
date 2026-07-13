@@ -23,48 +23,53 @@
            overflow-x: hidden; }
     canvas { max-width: 100%; }
 
-    /* Header */
+    /* Header — 2 linhas internas (.header-row-top só existe no mobile: hambúrguer +
+       ícone da marca; .header-row-controls é a linha "real" com os controles,
+       sempre visível, alinhada à direita como na referência nena-ops). */
     header { background: var(--surface); border-bottom: 1px solid var(--border);
-             padding: 0 28px; height: 56px; display: flex; align-items: center;
-             justify-content: space-between; position: sticky; top: 0; z-index: 100; gap: 12px; }
-    .logo { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px;
-            color: var(--text-primary); text-decoration: none; flex-shrink: 0; }
+             padding: 0 28px; display: flex; flex-direction: column; justify-content: center;
+             position: sticky; top: 0; z-index: 100; }
+    .header-row-top { display: none; align-items: center; justify-content: space-between; }
+    .header-row-controls { display: flex; align-items: center; justify-content: flex-end;
+                            gap: 22px; height: 56px; }
+
+    .logo { display: none; align-items: center; justify-content: center;
+            text-decoration: none; flex-shrink: 0; }
     .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px;
                  display: flex; align-items: center; justify-content: center; color: white;
                  font-size: 12px; font-weight: 800; letter-spacing: -.5px; }
     .header-controls { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
-    .header-actions  { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .header-actions  { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 
-    /* Refresh button */
-    .refresh-btn { background: none; border: 1px solid var(--border); border-radius: 7px;
-      padding: 5px 8px; cursor: pointer; color: var(--text-secondary);
-      display: flex; align-items: center; justify-content: center;
-      transition: border-color .15s, color .15s; flex-shrink: 0; }
-    .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    /* Refresh/theme — ícones soltos, sem caixa, igual à referência */
+    .refresh-btn { background: none; border: none; padding: 4px; cursor: pointer;
+      color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+      transition: color .15s; flex-shrink: 0; }
+    .refresh-btn:hover { color: var(--accent); }
     @keyframes spin-refresh { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     .refresh-btn.loading svg { animation: spin-refresh .7s linear infinite; }
 
-    /* Link "Google Ads CAC" no header — ícone + texto, abrevia em mobile */
-    .gads-cac-link { width: auto; padding: 5px 10px; gap: 6px; font-size: 12px; font-weight: 600; }
-    .gads-cac-link span { white-space: nowrap; }
-    @media (max-width: 600px) {
-      .gads-cac-link { padding: 5px 7px; font-size: 11px; }
-    }
+    /* Avatar do usuário (decorativo — sem sistema de login) */
+    .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--text-primary);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; letter-spacing: -.2px; flex-shrink: 0; }
 
     /* Mobile header
-       Linha 1: hambúrguer + logo (esquerda) + actions (direita)
-       Linha 2: controles de filtro (largura total) */
+       Linha 1 (.header-row-top): hambúrguer (esquerda) + marca (direita)
+       Linha 2 (.header-row-controls): pills de filtro + status, em scroll horizontal se precisar */
     @media (max-width: 600px) {
-      header { height: auto; flex-wrap: wrap; align-items: center;
-               padding: 10px 14px 10px; gap: 8px; row-gap: 8px; }
-      .mobile-menu-btn { order: 0; }
-      .logo           { flex: 1; order: 1; font-size: 13.5px; }
-      .header-actions { order: 2; flex-shrink: 0; }
-      .header-controls { order: 3; flex-basis: 100%; gap: 6px; }
-      .filter-select  { flex: 1; min-width: 0; font-size: 12.5px; }
-      .date-picker-btn { flex: 1; min-width: 0; font-size: 12.5px; padding: 7px 10px;
-                         justify-content: center; gap: 5px; }
-      #dateLabel      { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      header { padding: 10px 14px; gap: 10px; }
+      .header-row-top { display: flex; }
+      .logo { display: flex; }
+      .header-row-controls {
+        height: auto; justify-content: flex-start; gap: 8px;
+        flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .header-row-controls::-webkit-scrollbar { display: none; }
+      .header-controls { flex-shrink: 0; }
+      .header-actions { flex-shrink: 0; }
+      .filter-select, .date-picker-btn { flex-shrink: 0; }
       #dateRangeHint  { display: none; }
       #freshnessWrap  { display: none; }
       main { padding: 14px 12px 40px; }
@@ -77,18 +82,18 @@
       .dow-grid { grid-template-columns: repeat(4, 1fr); }
     }
 
-    /* Filters */
+    /* Filters — pills arredondadas (rounded-full), igual à referência */
     .filter-select {
       appearance: none;
-      background: var(--bg) url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236b6b6b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 8px center;
-      border: 1px solid var(--border); border-radius: 7px; padding: 5px 26px 5px 10px;
-      font-size: 12.5px; color: var(--text-secondary); cursor: pointer; outline: none; }
+      background: var(--surface) url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236b6b6b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+      border: 1px solid var(--border); border-radius: 999px; padding: 8px 30px 8px 14px;
+      font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer; outline: none; }
     .filter-select:hover, .filter-select:focus { border-color: var(--accent); }
 
     .date-picker-wrapper { position: relative; }
-    .date-picker-btn { display: flex; align-items: center; gap: 6px; background: var(--bg);
-      border: 1px solid var(--border); border-radius: 7px; padding: 5px 10px;
-      font-size: 12.5px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; outline: none; }
+    .date-picker-btn { display: flex; align-items: center; gap: 7px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 999px; padding: 8px 14px;
+      font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer; white-space: nowrap; outline: none; }
     .date-picker-btn:hover { border-color: var(--accent); }
     .date-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 6px);
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -445,10 +450,9 @@
     [data-theme="dark"] input[type="date"] { color-scheme:dark; }
     [data-theme="dark"] .tr-total { background:#1a2942 !important; }
     [data-theme="dark"] .tr-total:hover { background:#1d2f4a !important; }
-    .theme-btn { background:none; border:1px solid var(--border); border-radius:7px;
-      padding:5px 8px; cursor:pointer; font-size:15px; line-height:1;
-      color:var(--text-secondary); transition:border-color .15s; flex-shrink:0; }
-    .theme-btn:hover { border-color:var(--accent); }
+    .theme-btn { background:none; border:none; padding:4px; cursor:pointer; font-size:15px; line-height:1;
+      color:var(--text-muted); transition:color .15s; flex-shrink:0; }
+    .theme-btn:hover { color:var(--accent); }
 
     /* ── Skeleton Loading ─────────────────────────────────────────────────── */
     @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -626,58 +630,63 @@
 <div class="app-content">
 
 <header>
-  <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" title="Abrir menu" aria-label="Abrir menu">
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-  </button>
-  <a class="logo" href="#">
-    Dashboard Verifica Placa
-  </a>
-  <div class="header-controls">
-    <select class="filter-select" id="campaignFilter" onchange="applyFilters()">
-      <option value="">Todas campanhas</option>
-      <option value="RISCO_DOC">RISCO_DOC</option>
-      <option value="ADDONS">ADDONS</option>
-      <option value="RENAVAM">RENAVAM</option>
-      <option value="ROUBO_FURTO">ROUBO_FURTO</option>
-      <option value="MULTAS">MULTAS</option>
-    </select>
-    <div class="date-picker-wrapper" id="dpWrapper">
-      <button class="date-picker-btn" onclick="toggleDP()">
-        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="11" rx="2" stroke="#6b6b6b" stroke-width="1.4"/><path d="M4 1v2M10 1v2M1 6h12" stroke="#6b6b6b" stroke-width="1.4" stroke-linecap="round"/></svg>
-        <span id="dateLabel">Este mês</span>
-        <span id="dateRangeHint" style="font-size:11px;color:var(--text-muted);margin-left:2px"></span>
-        <svg width="9" height="5" viewBox="0 0 9 5" fill="none"><path d="M1 1l3.5 3L8 1" stroke="#6b6b6b" stroke-width="1.3" stroke-linecap="round"/></svg>
-      </button>
-      <div class="date-dropdown" id="dateDD">
-        <div class="date-presets">
-          <div class="date-preset" onclick="setPreset('today','Hoje',event)">Hoje</div>
-          <div class="date-preset" onclick="setPreset('yesterday','Ontem',event)">Ontem</div>
-          <div class="date-preset" onclick="setPreset('week','Esta semana',event)">Esta semana</div>
-          <div class="date-preset" onclick="setPreset('7d','Últimos 7 dias',event)">Últimos 7 dias</div>
-          <div class="date-preset" onclick="setPreset('14d','Últimos 14 dias',event)">Últimos 14 dias</div>
-          <div class="date-preset active" onclick="setPreset('month','Este mês',event)">Este mês <span id="currentMonthLbl" style="font-size:10px;color:var(--text-muted)"></span></div>
-          <div class="date-preset" onclick="setPreset('lastmonth','Mês passado',event)">Mês passado</div>
-          <div class="date-preset" onclick="setPreset('ytd','Este ano',event)">Este ano até agora</div>
-          <div class="date-divider"></div>
-          <div class="date-preset" onclick="setPreset('custom','Personalizado',event)">Personalizado…</div>
-        </div>
-        <div class="date-custom" id="customRange">
-          <label>De</label><input type="date" id="dateFrom" value="2026-03-01"/>
-          <label>Até</label><input type="date" id="dateTo" value="2026-03-30"/>
-          <button class="date-apply" onclick="applyCustomDate()">Aplicar</button>
+  <div class="header-row-top">
+    <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" title="Abrir menu" aria-label="Abrir menu">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <a class="logo" href="#" title="Verifica Placa">
+      <span class="logo-icon">VP</span>
+    </a>
+  </div>
+  <div class="header-row-controls">
+    <div class="header-controls">
+      <select class="filter-select" id="campaignFilter" onchange="applyFilters()">
+        <option value="">Todas campanhas</option>
+        <option value="RISCO_DOC">RISCO_DOC</option>
+        <option value="ADDONS">ADDONS</option>
+        <option value="RENAVAM">RENAVAM</option>
+        <option value="ROUBO_FURTO">ROUBO_FURTO</option>
+        <option value="MULTAS">MULTAS</option>
+      </select>
+      <div class="date-picker-wrapper" id="dpWrapper">
+        <button class="date-picker-btn" onclick="toggleDP()">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="11" rx="2" stroke="#6b6b6b" stroke-width="1.4"/><path d="M4 1v2M10 1v2M1 6h12" stroke="#6b6b6b" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span id="dateLabel">Este mês</span>
+          <span id="dateRangeHint" style="font-size:11px;color:var(--text-muted);margin-left:2px"></span>
+          <svg width="9" height="5" viewBox="0 0 9 5" fill="none"><path d="M1 1l3.5 3L8 1" stroke="#6b6b6b" stroke-width="1.3" stroke-linecap="round"/></svg>
+        </button>
+        <div class="date-dropdown" id="dateDD">
+          <div class="date-presets">
+            <div class="date-preset" onclick="setPreset('today','Hoje',event)">Hoje</div>
+            <div class="date-preset" onclick="setPreset('yesterday','Ontem',event)">Ontem</div>
+            <div class="date-preset" onclick="setPreset('week','Esta semana',event)">Esta semana</div>
+            <div class="date-preset" onclick="setPreset('7d','Últimos 7 dias',event)">Últimos 7 dias</div>
+            <div class="date-preset" onclick="setPreset('14d','Últimos 14 dias',event)">Últimos 14 dias</div>
+            <div class="date-preset active" onclick="setPreset('month','Este mês',event)">Este mês <span id="currentMonthLbl" style="font-size:10px;color:var(--text-muted)"></span></div>
+            <div class="date-preset" onclick="setPreset('lastmonth','Mês passado',event)">Mês passado</div>
+            <div class="date-preset" onclick="setPreset('ytd','Este ano',event)">Este ano até agora</div>
+            <div class="date-divider"></div>
+            <div class="date-preset" onclick="setPreset('custom','Personalizado',event)">Personalizado…</div>
+          </div>
+          <div class="date-custom" id="customRange">
+            <label>De</label><input type="date" id="dateFrom" value="2026-03-01"/>
+            <label>Até</label><input type="date" id="dateTo" value="2026-03-30"/>
+            <button class="date-apply" onclick="applyCustomDate()">Aplicar</button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-  <div class="header-actions">
-    <button class="refresh-btn" id="refreshBtn" onclick="refreshDashboard()" title="Atualizar dados (R)">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-        <path d="M13.7 2.3A7 7 0 1 0 14.9 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M10 2H14.5V6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
-    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Alternar tema (dark/light)">🌙</button>
-    <span id="freshnessWrap"><span class="fresh-dot" id="freshDot"></span><span id="lastUpdated"></span></span>
+    <div class="header-actions">
+      <span id="freshnessWrap"><span class="fresh-dot" id="freshDot"></span><span id="lastUpdated"></span></span>
+      <button class="refresh-btn" id="refreshBtn" onclick="refreshDashboard()" title="Atualizar dados (R)">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M13.7 2.3A7 7 0 1 0 14.9 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M10 2H14.5V6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Alternar tema (dark/light)">🌙</button>
+      <div class="user-avatar" title="Daniel Macedo">DM</div>
+    </div>
   </div>
 </header>
 
