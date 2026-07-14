@@ -214,14 +214,20 @@ async function dispatchGoogleAds(data: CheckoutConversionData): Promise<Dispatch
   }
 
   // P1.4: se o site capturou algum identificador de clique, usar Click
-  // Conversions (uploadClickConversions) — atribuição mais precisa, dedup
-  // com a tag client-side awct via orderId (computeTransactionId, P0-e).
-  if (data.gclid || data.gbraid || data.wbraid) {
-    return dispatchGoogleAdsClickConversion(data, customerId, devToken, conversionActionId)
+  // Conversions (uploadClickConversions). ⚠️ Esse endpoint SÓ aceita
+  // conversion actions do tipo "Importar > conversões de cliques" — a action
+  // da tag do site (webpage, GADS_PURCHASE_CONVERSION_ACTION_ID) retorna
+  // INVALID_CONVERSION_ACTION_TYPE (visto em produção 14/07/2026). Por isso
+  // o caminho só ativa quando GADS_CLICK_CONVERSION_ACTION_ID (action de
+  // importação dedicada, criada no Google Ads como ação secundária) estiver
+  // configurada. Sem ela, cai no Enhanced Conversions abaixo.
+  const clickConversionActionId = Deno.env.get('GADS_CLICK_CONVERSION_ACTION_ID')
+  if (clickConversionActionId && (data.gclid || data.gbraid || data.wbraid)) {
+    return dispatchGoogleAdsClickConversion(data, customerId, devToken, clickConversionActionId)
   }
 
-  // Fallback: sem nenhum id de clique (checkout anterior ao P1.1 ou tráfego
-  // não pago) — mantém o caminho atual de Enhanced Conversions for Leads.
+  // Fallback: sem GADS_CLICK_CONVERSION_ACTION_ID configurada ou sem id de
+  // clique — caminho de Enhanced Conversions (validado em produção).
   if (!data.email && !data.phone && !data.email_sha256 && !data.phone_sha256) {
     return { status: 'skipped', error: 'checkout sem email/phone (auth.users) — Enhanced Conversions for Leads exige ao menos um identificador' }
   }
