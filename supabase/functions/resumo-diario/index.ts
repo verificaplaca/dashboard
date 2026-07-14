@@ -121,16 +121,17 @@ Deno.serve(async () => {
     }
 
     // ── refunds_daily ──────────────────────────────────────────────────────
-    let refundCount: number | null = null
-    let refundValue: number | null = null
+    // Dia sem estorno não gera linha na view → ausência = zero (não é "sem dados").
+    let refundCount = 0
+    let refundValue = 0
     {
       const { data, error } = await supabase
         .from('refunds_daily')
         .select('date, refund_count, refund_value')
         .eq('date', yesterdayStr)
-      if (error || !data || data.length === 0) {
+      if (error) {
         missing.push('refunds_daily')
-      } else {
+      } else if (data && data.length > 0) {
         refundCount = data.reduce((s, r) => s + (Number(r.refund_count) || 0), 0)
         refundValue = data.reduce((s, r) => s + (Number(r.refund_value) || 0), 0)
       }
@@ -219,6 +220,44 @@ Deno.serve(async () => {
     const cacReal = custoAds !== null && paidOrders ? custoAds / paidOrders : null
     const ticketMedio = revenue !== null && paidOrders ? revenue / paidOrders : null
 
+    // ── Acumulado do mês (mês de "ontem" em BRT, do dia 01 até ontem) ───────
+    // COGS do mês = Ads + Bureau (custo total, convenção do dashboard).
+    const monthStart = yesterdayStr.slice(0, 7) + '-01'
+    let moRevenue: number | null = null
+    let moAds: number | null = null
+    let moBureau: number | null = null
+    {
+      const { data, error } = await supabase
+        .from('revenue_daily')
+        .select('date, revenue')
+        .gte('date', monthStart)
+        .lte('date', yesterdayStr)
+      if (error || !data || data.length === 0) missing.push('revenue_daily (mês)')
+      else moRevenue = data.reduce((s, r) => s + (Number(r.revenue) || 0), 0)
+    }
+    {
+      const { data, error } = await supabase
+        .from('google_ads_campaign_daily')
+        .select('date, cost_micros')
+        .gte('date', monthStart)
+        .lte('date', yesterdayStr)
+      if (error || !data || data.length === 0) missing.push('google_ads_campaign_daily (mês)')
+      else moAds = data.reduce((s, r) => s + (Number(r.cost_micros) || 0), 0) / 1_000_000
+    }
+    {
+      const { data, error } = await supabase
+        .from('bureau_daily')
+        .select('date, custo_bureau')
+        .gte('date', monthStart)
+        .lte('date', yesterdayStr)
+      if (error || !data || data.length === 0) missing.push('bureau_daily (mês)')
+      else moBureau = data.reduce((s, r) => s + (Number(r.custo_bureau) || 0), 0)
+    }
+    const moCogsKnown  = moAds !== null || moBureau !== null
+    const moCogs       = (moAds ?? 0) + (moBureau ?? 0)
+    const moLiquido    = moRevenue !== null && moCogsKnown ? moRevenue * 0.92 - moCogs : null
+    const moMargem     = moRevenue !== null && moCogsKnown && moRevenue > 0 ? (moRevenue - moCogs) / moRevenue : null
+
     // ── Montar mensagem ──────────────────────────────────────────────────────
     const dataStr = new Date(yesterdayStr + 'T00:00:00Z').toLocaleDateString('pt-BR', {
       day: '2-digit', month: '2-digit', timeZone: 'UTC',
@@ -228,39 +267,43 @@ Deno.serve(async () => {
     lines.push(`📊 <b>Resumo VF — ${dataStr}</b>`)
     lines.push('')
     lines.push(
+      lucroBruto !== null
+        ? `📈 Lucro: ${fmtBRL(lucroBruto)}${margem !== null ? ` (margem ${(margem * 100).toFixed(1)}%)` : ''} | <b>Líquido: ${fmtBRL(lucroLiquido!)}</b>`
+        : '📈 Lucro: — | <b>Líquido: —</b>'
+    )
+    lines.push(
       revenue !== null
-        ? `💰 Receita: <b>${fmtBRL(revenue)}</b> (${paidOrders ?? 0} pedidos${ticketMedio !== null ? `, ticket ${fmtBRL(ticketMedio)}` : ''})`
+        ? `💰 Receita: ${fmtBRL(revenue)} (${paidOrders ?? 0} pedidos${ticketMedio !== null ? `, ticket ${fmtBRL(ticketMedio)}` : ''})`
         : '💰 Receita: —'
     )
     lines.push(
       upsellOrders !== null
-        ? `🔁 Upsell: <b>${upsellOrders}</b> (${((upsellRate ?? 0) * 100).toFixed(1)}%)`
+        ? `🔁 Upsell: ${upsellOrders} (${(upsellRate ?? 0).toFixed(1)}%)`
         : '🔁 Upsell: —'
     )
+    lines.push(`📉 Estornos: ${refundCount} (${fmtBRL(refundValue)})`)
     lines.push(
-      refundCount !== null
-        ? `📉 Reembolsos: <b>${refundCount}</b> (${fmtBRL(refundValue ?? 0)})`
-        : '📉 Reembolsos: —'
+      `🧲 Ads: ${custoAds !== null ? fmtBRL(custoAds) : '—'} | Bureau: ${custoBureau !== null ? fmtBRL(custoBureau) : '—'}`
     )
-    lines.push(
-      `💸 Ads: ${custoAds !== null ? `<b>${fmtBRL(custoAds)}</b>` : '—'} | Bureau: ${custoBureau !== null ? `<b>${fmtBRL(custoBureau)}</b>` : '—'}`
-    )
-    lines.push(
-      lucroBruto !== null
-        ? `📈 Lucro bruto: <b>${fmtBRL(lucroBruto)}</b>${margem !== null ? ` (margem ${(margem * 100).toFixed(1)}%)` : ''} | Líquido: <b>${fmtBRL(lucroLiquido!)}</b>`
-        : '📈 Lucro bruto: — | Líquido: —'
-    )
-    lines.push(cacReal !== null ? `🎯 CAC real: <b>${fmtBRL(cacReal)}</b>` : '🎯 CAC real: —')
+    lines.push('')
+    lines.push(cacReal !== null ? `🎯 CAC real: ${fmtBRL(cacReal)}` : '🎯 CAC real: —')
     lines.push(
       balanceBRL !== null
-        ? `🏦 Saldo Ads: <b>${fmtBRL(balanceBRL)}</b>${daysLeft !== null ? ` (~${daysLeft.toFixed(1)} dias)` : ''}`
+        ? `🏦 Saldo Ads: ${fmtBRL(balanceBRL)}${daysLeft !== null ? ` (~${daysLeft.toFixed(1)} dias)` : ''}`
         : '🏦 Saldo Ads: —'
     )
     lines.push(
       dispatchTotal !== null
-        ? `📡 Tracking: <b>${dispatchTotal}</b> dispatches, <b>${dispatchFailed}</b> falhas`
-        : '📡 Tracking: —'
+        ? `📟 Tracking: ${dispatchTotal} dispatches, ${dispatchFailed} falhas`
+        : '📟 Tracking: —'
     )
+    lines.push('____________________________________')
+    lines.push('')
+    lines.push('<b>Resultados deste Mês:</b>')
+    lines.push(`Lucro líquido do mês: ${moLiquido !== null ? `<b>${fmtBRL(moLiquido)}</b>` : '—'}`)
+    lines.push(`Receita do mês: ${moRevenue !== null ? fmtBRL(moRevenue) : '—'}`)
+    lines.push(`COGS do mês: ${moCogsKnown ? fmtBRL(moCogs) : '—'}`)
+    lines.push(`Margem do mês: ${moMargem !== null ? `${(moMargem * 100).toFixed(1)}%` : '—'}`)
 
     if (missing.length) {
       lines.push('')
@@ -280,6 +323,7 @@ Deno.serve(async () => {
       cac_real: cacReal,
       balance_brl: balanceBRL, days_left: daysLeft,
       dispatch_total: dispatchTotal, dispatch_failed: dispatchFailed,
+      mes: { receita: moRevenue, cogs: moCogsKnown ? moCogs : null, lucro_liquido: moLiquido, margem: moMargem },
       missing,
     })
   } catch (err) {
