@@ -5,6 +5,11 @@
  * salva o snapshot em `ads_balance_history` e dispara alerta no Telegram
  * quando os DIAS RESTANTES cruzam os thresholds: ≤7d / ≤5d / ≤3d.
  *
+ * Política de envio: alerta na hora quando o nível ESCALA (7→5, 5→3, ou
+ * null→qualquer nível). Se o nível ficar estagnado (ex. sempre ≤7), reenvia
+ * 1x/dia (24h desde o último envio real, rastreado via `alert_sent` em
+ * `ads_balance_history`). Ao voltar pra null, envia aviso de recarga.
+ *
  * O burn rate é calculado com base nos últimos 7 dias de gasto real
  * em `google_ads_campaign_daily`. Isso torna os alertas sempre relevantes
  * independente do valor absoluto do saldo.
@@ -204,15 +209,17 @@ Deno.serve(async () => {
     const daysLeft = avg7spend > 0 ? balanceBRL / avg7spend : null;
 
     // ── 3. Determinar threshold de dias atingido ──────────────────────────
-    // Percorre do mais crítico para o menos crítico (3 → 5 → 7)
+    // Escolhe o MENOR threshold que casa (mais crítico primeiro: 3 → 5 → 7),
+    // pra não travar sempre no primeiro match (bug anterior sobrescrevia com
+    // o último threshold percorrido, que era sempre ≤7).
     let currentAlertLevel: number | null = null;
     if (daysLeft !== null) {
-      for (const t of [...DAY_THRESHOLDS].reverse()) {
-        if (daysLeft <= t.days) currentAlertLevel = t.days;
-      }
+      const ascending = [...DAY_THRESHOLDS].sort((a, b) => a.days - b.days); // 3, 5, 7
+      const match = ascending.find(t => daysLeft <= t.days);
+      currentAlertLevel = match ? match.days : null;
     }
 
-    // ── 4. Verificar último alerta enviado ────────────────────────────────
+    // ── 4. Verificar último nível e último envio real ──────────────────────
     const { data: lastRows } = await supabase
       .from("ads_balance_history")
       .select("alert_level")
@@ -221,25 +228,43 @@ Deno.serve(async () => {
 
     const lastAlertLevel: number | null = lastRows?.[0]?.alert_level ?? null;
 
+    const { data: lastSentRows } = await supabase
+      .from("ads_balance_history")
+      .select("checked_at")
+      .eq("alert_sent", true)
+      .order("checked_at", { ascending: false })
+      .limit(1);
+
+    const lastSentAt = lastSentRows?.[0]?.checked_at ? new Date(lastSentRows[0].checked_at) : null;
+    const hoursSinceLastSent = lastSentAt ? (Date.now() - lastSentAt.getTime()) / 3600000 : null;
+
     // ── 5. Salvar snapshot ────────────────────────────────────────────────
-    const { error: insertErr } = await supabase
+    const { data: insertedRow, error: insertErr } = await supabase
       .from("ads_balance_history")
       .insert({
         balance_brl:  balanceBRL,
         alert_level:  currentAlertLevel,
         checked_at:   new Date().toISOString(),
-      });
+      })
+      .select("id")
+      .single();
 
     if (insertErr) {
       return json({ error: `Supabase insert error: ${insertErr.message}` }, 500);
     }
 
     // ── 6. Enviar alerta Telegram ─────────────────────────────────────────
-    // Só envia quando o nível muda (para evitar repetição a cada hora)
-    let alertSent = false;
-    const levelChanged = currentAlertLevel !== lastAlertLevel;
+    // Escala (nível menor que o anterior, ou null → qualquer nível): envia na hora.
+    // Nível igual ao anterior: re-alerta só se o último envio real foi há mais de 24h.
+    // Recarregado (nível → null): sempre envia.
+    const escalated  = currentAlertLevel !== null && (lastAlertLevel === null || currentAlertLevel < lastAlertLevel);
+    const recharged  = currentAlertLevel === null && lastAlertLevel !== null;
+    const sameLevel  = currentAlertLevel !== null && lastAlertLevel !== null && currentAlertLevel === lastAlertLevel;
+    const dailyReAlert = sameLevel && (lastSentAt === null || (hoursSinceLastSent !== null && hoursSinceLastSent >= 24));
 
-    if (levelChanged && currentAlertLevel !== null && daysLeft !== null) {
+    let alertSent = false;
+
+    if ((escalated || dailyReAlert) && currentAlertLevel !== null && daysLeft !== null) {
       const threshold = DAY_THRESHOLDS.find(t => t.days === currentAlertLevel)!;
       const runout = new Date(Date.now() + daysLeft * 86400000);
       const runoutStr = runout.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
@@ -258,7 +283,7 @@ Deno.serve(async () => {
       await sendTelegram(botToken!, chatId!, msg);
       alertSent = true;
 
-    } else if (levelChanged && currentAlertLevel === null && lastAlertLevel !== null) {
+    } else if (recharged) {
       // Saldo recarregado — voltou ao normal
       const msg = [
         `✅ <b>Saldo Google Ads recarregado</b>`,
@@ -271,6 +296,13 @@ Deno.serve(async () => {
 
       await sendTelegram(botToken!, chatId!, msg);
       alertSent = true;
+    }
+
+    if (alertSent && insertedRow?.id) {
+      await supabase
+        .from("ads_balance_history")
+        .update({ alert_sent: true })
+        .eq("id", insertedRow.id);
     }
 
     return json({
