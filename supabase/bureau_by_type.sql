@@ -16,12 +16,15 @@
 --   cobradas — em vez da tabela de tiers fixos por plano. Veio SEM SECURITY
 --   DEFINER → RLS bloqueava a chamada via API → sync gravou 0 records
 --   silenciosamente de 09 a 14/07.
--- 2026-07-14: SECURITY DEFINER restaurado via ALTER FUNCTION + backfill.
---   Arquivo atualizado para refletir produção, JÁ COM security definer
---   no CREATE (re-rodar este script é seguro).
+-- 2026-07-14: arquitetura final acordada com o dev — RPC pública expunha
+--   receita/custo pra qualquer um com a anon key do site. Resolução:
+--   (a) REVOKE EXECUTE de public/anon/authenticated + GRANT só pra
+--       service_role (statements no fim deste arquivo);
+--   (b) secret BUREAU_SUPABASE_KEY trocado pra SERVICE_ROLE key do site —
+--       bypassa RLS, função NÃO precisa (e não deve) ter SECURITY DEFINER.
 --
--- ⚠️ REGRA: qualquer alteração DEVE manter SECURITY DEFINER, senão o sync
---   volta a gravar 0 records silenciosamente.
+-- ⚠️ REGRA: se esta função for dropada/recriada, re-rodar os REVOKE/GRANT do
+--   fim do arquivo (drop reseta as permissões pro default, que inclui PUBLIC).
 -- ⚠️ public.bureau_chamadas_cobradas é mantida pelo dev do site, não
 --   versionada neste repo.
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -38,7 +41,7 @@ RETURNS TABLE (
   custo_bureau  numeric
 )
 LANGUAGE sql
-STABLE SECURITY DEFINER
+STABLE
 AS $function$
   WITH receita AS (
     SELECT
@@ -74,3 +77,7 @@ AS $function$
   FULL JOIN custo c USING (dia, bureau)
   ORDER BY dia DESC, bureau;
 $function$;
+
+-- Permissões: só o pipeline (service_role) pode executar.
+REVOKE EXECUTE ON FUNCTION public.get_bureau_costs_by_bureau(date, date) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.get_bureau_costs_by_bureau(date, date) TO service_role;

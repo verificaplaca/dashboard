@@ -18,12 +18,17 @@
 --   A versão do dev veio SEM SECURITY DEFINER, o que quebrou a chamada via
 --   PostgREST (rodava como anon → RLS de checkouts bloqueava tudo → retornava
 --   [] sem erro). Dash ficou com bureau zerado 10–14/07.
--- 2026-07-14: SECURITY DEFINER restaurado via ALTER FUNCTION + backfill.
---   Este arquivo foi atualizado para refletir a versão em produção,
---   JÁ COM security definer no CREATE (re-rodar este script é seguro).
+-- 2026-07-14: arquitetura final acordada com o dev — a exposição pública era
+--   real (RPC com definer + execute pra anon deixava qualquer um com a anon
+--   key do site consultar receita/custo/margem). Resolução:
+--   (a) REVOKE EXECUTE de public/anon/authenticated + GRANT só pra
+--       service_role (statements no fim deste arquivo);
+--   (b) secret BUREAU_SUPABASE_KEY (projeto do dashboard) trocado da anon key
+--       pra SERVICE_ROLE key do site — bypassa RLS, então a função NÃO
+--       precisa (e não deve) ter SECURITY DEFINER.
 --
--- ⚠️ REGRA: qualquer alteração nesta função DEVE manter SECURITY DEFINER,
---   senão o sync volta a gravar 0 records silenciosamente.
+-- ⚠️ REGRA: se esta função for dropada/recriada, re-rodar os REVOKE/GRANT do
+--   fim do arquivo (drop reseta as permissões pro default, que inclui PUBLIC).
 -- ⚠️ A função public.bureau_chamadas_cobradas é mantida pelo dev do site e
 --   NÃO está versionada neste repo.
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -41,7 +46,7 @@ RETURNS TABLE (
   margem_pct    numeric
 )
 LANGUAGE sql
-STABLE SECURITY DEFINER
+STABLE
 AS $function$
   WITH receita AS (
     SELECT
@@ -78,3 +83,7 @@ AS $function$
   FULL JOIN custo c USING (dia)
   ORDER BY dia DESC;
 $function$;
+
+-- Permissões: só o pipeline (service_role) pode executar.
+REVOKE EXECUTE ON FUNCTION public.get_bureau_costs_daily(date, date) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.get_bureau_costs_daily(date, date) TO service_role;
