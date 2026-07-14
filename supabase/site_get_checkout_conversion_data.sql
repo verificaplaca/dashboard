@@ -65,7 +65,20 @@ as $$
     c.paid_at,
     c.user_id,
     u.email,
-    u.phone,
+    -- Phone fix (14/07/2026): auth.users.phone está 100% vazio (site não usa
+    -- phone auth) — o telefone real fica em raw_user_meta_data->>'phone' no
+    -- formato 55DDDNUMERO (sem '+'). Normaliza pra E.164 aqui: Google hasheia
+    -- o valor como vem (exige E.164) e Meta remove não-dígitos antes do hash,
+    -- então '+55...' atende os dois dispatchers sem mudança nas Edge Functions.
+    case
+      when nullif(u.phone, '') is not null then u.phone
+      when u.raw_user_meta_data->>'phone' ~ '^\+' then u.raw_user_meta_data->>'phone'
+      when regexp_replace(coalesce(u.raw_user_meta_data->>'phone',''), '\D', '', 'g') ~ '^55\d{10,11}$'
+        then '+' || regexp_replace(u.raw_user_meta_data->>'phone', '\D', '', 'g')
+      when regexp_replace(coalesce(u.raw_user_meta_data->>'phone',''), '\D', '', 'g') ~ '^\d{10,11}$'
+        then '+55' || regexp_replace(u.raw_user_meta_data->>'phone', '\D', '', 'g')
+      else null
+    end as phone,
     c.gclid,
     c.gbraid,
     c.wbraid,
