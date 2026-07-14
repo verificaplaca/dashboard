@@ -8,6 +8,10 @@
 -- criar (Supabase SQL Editor roda como postgres), que ignora RLS da tabela base,
 -- então a view funciona mesmo com a tabela travada.
 
+-- P3: expõe também atribuição (migration 010) + flags booleanas de email/phone
+-- (nunca os hashes). create or replace só permite ADICIONAR colunas no fim —
+-- a ordem abaixo preserva as existentes.
+
 create or replace view conversion_dispatches_public as
 select
   checkout_id,
@@ -23,7 +27,17 @@ select
   meta_error,
   attempts,
   created_at,
-  updated_at
+  updated_at,
+  paid_at,
+  gclid,
+  gbraid,
+  wbraid,
+  fbp,
+  fbc,
+  ga_client_id,
+  event_source_url,
+  (email_sha256 is not null) as has_email,
+  (phone_sha256 is not null) as has_phone
 from conversion_dispatches;
 
 grant select on conversion_dispatches_public to anon;

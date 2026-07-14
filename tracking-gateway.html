@@ -147,7 +147,7 @@
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
           box-shadow: var(--shadow); padding: 14px; margin-top: 10px; }
   .table-wrap { overflow-x: auto; }
-  table { width: 100%; min-width: 780px; border-collapse: collapse; font-size: 12.5px; }
+  table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 12.5px; }
   th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
   th { color: var(--text-secondary); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .02em; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -171,6 +171,12 @@
   .detail-item .k { color: var(--text-secondary); }
   .detail-item .v { color: var(--text-primary); font-weight: 600; text-align: right; word-break: break-all; }
   .detail-error { font-size: 11.5px; color: var(--red); margin-top: 4px; }
+  .detail-item .v.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+    max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    display: inline-block; vertical-align: middle; word-break: normal; }
+  .copy-btn { border: none; background: none; color: var(--text-muted); cursor: pointer;
+    font-size: 12px; padding: 0 0 0 4px; line-height: 1; vertical-align: middle; }
+  .copy-btn:hover { color: var(--accent); }
 
   .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
   .disclaimer { margin-top: 12px; font-size: 11.5px; color: var(--text-muted); }
@@ -267,6 +273,9 @@
     </div>
   </div>
 
+  <div class="section-label">Atribuição capturada (últimos 7 dias)</div>
+  <div class="cac-summary-row" id="attrRow"></div>
+
   <div class="section-label">Pedidos processados recentemente</div>
   <div class="filters-bar">
     <button class="filters-btn" onclick="toggleFilterDrawer()">
@@ -297,6 +306,14 @@
         <option value="ads">Google Ads</option>
         <option value="meta">Meta CAPI</option>
       </select>
+      <div class="filter-drawer-label">Atribuição</div>
+      <select class="filter-select" id="fAttr" onchange="applyFilters()">
+        <option value="">Atribuição: todas</option>
+        <option value="com_g">Com Google click id</option>
+        <option value="sem_g">Sem Google click id</option>
+        <option value="sem_nada">Sem nenhum identificador</option>
+        <option value="match_fraco">Match fraco</option>
+      </select>
       <div class="filter-drawer-label">Buscar</div>
       <input class="filter-input" id="fSearch" placeholder="Buscar por pedido ou event_id..." oninput="applyFilters()" />
       <div class="filter-drawer-label">Registros exibidos</div>
@@ -318,6 +335,7 @@
           <th>Data</th>
           <th>Pedido</th>
           <th class="num">Valor</th>
+          <th>Match</th>
           <th>Status geral</th>
           <th>GA4</th>
           <th>Google Ads</th>
@@ -471,6 +489,16 @@ document.addEventListener('click', e => {
   if (card) { e.stopPropagation(); card.classList.toggle('tip-open'); }
 });
 
+// Botão copiar (⧉) dos identificadores técnicos no detalhe expandido.
+document.addEventListener('click', e => {
+  const b = e.target.closest('.copy-btn');
+  if (!b) return;
+  e.stopPropagation();
+  navigator.clipboard.writeText(b.dataset.copy);
+  b.textContent = '✓';
+  setTimeout(() => { b.textContent = '⧉'; }, 900);
+});
+
 // ─── CARREGAMENTO ───────────────────────────────────────────────────────────
 async function loadAndRender() {
   const myToken = ++STATE.loadToken;
@@ -495,6 +523,7 @@ async function loadAndRender() {
     applyFilters();
     renderHealth();
     renderChannels();
+    renderAttribution();
     renderChart();
     renderCac(revRows, gadsRows);
   } catch (err) {
@@ -626,6 +655,33 @@ function renderChannels() {
   equalizeCardHeights('#channelsRow', '.channel-card');
 }
 
+// ─── ATRIBUIÇÃO (P3) ────────────────────────────────────────────────────────
+// Cobertura dos identificadores capturados pelo site (patch P1.1). Se tudo 0%
+// com pedidos no período, o patch de attribution ainda não está no ar no site
+// (P2.6.3) — não é bug do gateway.
+function renderAttribution() {
+  const week = last7d(STATE.orders);
+  const total = week.length;
+  const pctTxt = n => total > 0 ? fmtPct((n / total) * 100) : '—';
+  const nG   = week.filter(o => googleClickId(o)).length;
+  const nFbc = week.filter(o => o.fbc).length;
+  const nFbp = week.filter(o => o.fbp).length;
+  const nGa  = week.filter(o => o.ga_client_id).length;
+  const card = (label, n, tip, sub) => `
+    <div class="kpi-card has-tip" data-tip="${tip}">
+      <button type="button" class="tip-icon" aria-label="Mais informações">i</button>
+      <div class="kpi-label">${label}</div>
+      <div class="kpi-value ${total > 0 && n === 0 ? 'amber' : ''}">${pctTxt(n)}</div>
+      <div class="kpi-sub">${fmtInt(n)} de ${fmtInt(total)} pedidos · ${sub}</div>
+    </div>`;
+  document.getElementById('attrRow').innerHTML =
+    card('Google click id', nG, 'Pedidos com gclid, gbraid ou wbraid capturado no clique do anúncio. Habilita Click Conversions no Google Ads (atribuição exata do clique).', 'gclid/gbraid/wbraid') +
+    card('Meta fbc', nFbc, 'Cookie _fbc (ou montado a partir do fbclid). É o identificador de clique do Meta — principal fator de match quality do CAPI.', 'cookie _fbc') +
+    card('Meta fbp', nFbp, 'Cookie _fbp (browser id do pixel Meta). Melhora o match quality do CAPI mesmo sem clique em anúncio.', 'cookie _fbp') +
+    card('GA4 client_id', nGa, 'Cookie _ga capturado no site. Faz o purchase server-side cair na MESMA sessão/atribuição do usuário no GA4, em vez de um client_id sintético.', 'cookie _ga');
+  equalizeCardHeights('#attrRow', '.kpi-card');
+}
+
 // ─── GRÁFICO ENVIOS POR DIA (SVG, sem libs externas) ───────────────────────
 function setChartDays(days) {
   STATE.chartDays = days;
@@ -715,6 +771,7 @@ function toggleFilterDrawer(force) {
 function clearFilters() {
   document.getElementById('fStatus').value = '';
   document.getElementById('fChannel').value = '';
+  document.getElementById('fAttr').value = '';
   document.getElementById('fSearch').value = '';
   document.getElementById('fLimit').value = '50';
   applyFilters();
@@ -723,6 +780,7 @@ function clearFilters() {
 function applyFilters() {
   const status = document.getElementById('fStatus').value;
   const channel = document.getElementById('fChannel').value;
+  const attr = document.getElementById('fAttr').value;
   const search = document.getElementById('fSearch').value.trim().toLowerCase();
   const limit = parseInt(document.getElementById('fLimit').value, 10) || 50;
 
@@ -730,6 +788,10 @@ function applyFilters() {
   if (status === 'full') rows = rows.filter(orderIsFull);
   if (status === 'partial') rows = rows.filter(o => !orderIsFull(o));
   if (channel) rows = rows.filter(o => o[channel + '_status'] === 'failed' || o[channel + '_status'] === 'pending');
+  if (attr === 'com_g') rows = rows.filter(o => googleClickId(o));
+  if (attr === 'sem_g') rows = rows.filter(o => !googleClickId(o));
+  if (attr === 'sem_nada') rows = rows.filter(o => matchIdsCount(o) === 0);
+  if (attr === 'match_fraco') rows = rows.filter(o => matchQuality(o).label === 'Fraco');
   if (search) rows = rows.filter(o =>
     String(o.order_nsu || '').toLowerCase().includes(search) ||
     String(o.event_id || '').toLowerCase().includes(search) ||
@@ -738,7 +800,7 @@ function applyFilters() {
   STATE.filteredOrders = rows.slice(0, limit);
   document.getElementById('filterCount').textContent = `${fmtInt(rows.length)} pedido(s)`;
 
-  const activeCount = (status ? 1 : 0) + (channel ? 1 : 0) + (search ? 1 : 0);
+  const activeCount = (status ? 1 : 0) + (channel ? 1 : 0) + (attr ? 1 : 0) + (search ? 1 : 0);
   const badge = document.getElementById('filtersBadge');
   badge.textContent = activeCount;
   badge.classList.toggle('show', activeCount > 0);
@@ -750,6 +812,34 @@ function channelBadge(status) {
   const map = { success: ['ok','OK'], failed: ['failed','Falha'], pending: ['pending','Pendente'], skipped: ['skipped','Skip'] };
   const [cls, label] = map[status] || ['skipped', status || '—'];
   return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function googleClickId(o) { return o.gclid || o.gbraid || o.wbraid || null; }
+
+// 6 identificadores possíveis de match: email, phone, fbp, fbc, ga_client_id, google click id
+function matchIdsCount(o) {
+  return [o.has_email, o.has_phone, o.fbp, o.fbc, o.ga_client_id, googleClickId(o)]
+    .filter(Boolean).length;
+}
+function matchQuality(o) {
+  const n = matchIdsCount(o);
+  if (n >= 4) return { cls: 'ok',      label: 'Forte' };
+  if (n >= 2) return { cls: 'pending', label: 'Médio' };
+  return       { cls: 'failed',  label: 'Fraco' };
+}
+function matchBadge(o) {
+  const q = matchQuality(o);
+  return `<span class="badge ${q.cls}">${q.label}</span>`;
+}
+function sentBadge(on) {
+  return on ? '<span class="badge ok">Recebido</span>' : '<span class="badge skipped">—</span>';
+}
+// Valor técnico truncado + botão copiar (valor completo no title e no data-copy)
+function idVal(v) {
+  if (!v) return '<span class="v">—</span>';
+  const esc = escapeHtml(v);
+  return `<span class="v mono" title="${esc}">${esc}</span>` +
+         `<button type="button" class="copy-btn" data-copy="${esc}" title="Copiar">⧉</button>`;
 }
 
 function renderOrdersTable() {
@@ -766,6 +856,7 @@ function renderOrdersTable() {
         <td>${fmtDateTime(o.created_at)}</td>
         <td>${escapeHtml(o.order_nsu)}</td>
         <td class="num">${fmtR(o.value)}</td>
+        <td>${matchBadge(o)}</td>
         <td>${statusBadge}</td>
         <td>${channelBadge(o.ga4_status)}</td>
         <td>${channelBadge(o.ads_status)}</td>
@@ -775,28 +866,40 @@ function renderOrdersTable() {
     if (!isOpen) return mainRow;
     return mainRow + `
       <tr class="detail-row" data-checkout-detail="${escapeHtml(o.checkout_id)}">
-        <td colspan="8">
+        <td colspan="9">
           <div class="detail-grid">
             <div>
               <div class="detail-col-title">Resumo</div>
               <div class="detail-item"><span class="k">Pedido</span><span class="v">${escapeHtml(o.order_nsu)}</span></div>
-              <div class="detail-item"><span class="k">Checkout ID</span><span class="v">${escapeHtml(o.checkout_id)}</span></div>
-              <div class="detail-item"><span class="k">Event ID</span><span class="v">${escapeHtml(o.event_id)}</span></div>
+              <div class="detail-item"><span class="k">Checkout ID</span>${idVal(o.checkout_id)}</div>
               <div class="detail-item"><span class="k">Valor</span><span class="v">${fmtR(o.value)} ${escapeHtml(o.currency)}</span></div>
+              <div class="detail-item"><span class="k">Pago em</span><span class="v">${o.paid_at ? fmtDateTime(o.paid_at) : '—'}</span></div>
+              <div class="detail-item"><span class="k">Status geral</span><span class="v">${full ? '<span class="badge full">Completo</span>' : '<span class="badge partial">Parcial</span>'}</span></div>
+              <div class="detail-item"><span class="k">Qualidade do match</span><span class="v">${matchBadge(o)}</span></div>
+              <div class="detail-item"><span class="k">Identificadores</span><span class="v">${matchIdsCount(o)} de 6</span></div>
             </div>
             <div>
-              <div class="detail-col-title">GA4</div>
-              <div class="detail-item"><span class="k">Status</span><span class="v">${channelBadge(o.ga4_status)}</span></div>
+              <div class="detail-col-title">Dados enviados</div>
+              <div class="detail-item"><span class="k">Email</span><span class="v">${sentBadge(o.has_email)}</span></div>
+              <div class="detail-item"><span class="k">Telefone</span><span class="v">${sentBadge(o.has_phone)}</span></div>
+              <div class="detail-item" style="margin-top:6px"><span class="k" style="font-size:10.5px">Enviados como hash SHA-256 — PII não fica em claro no banco.</span></div>
+            </div>
+            <div>
+              <div class="detail-col-title">Identificadores técnicos</div>
+              <div class="detail-item"><span class="k">Event ID</span>${idVal(o.event_id)}</div>
+              <div class="detail-item"><span class="k">GCLID</span>${idVal(googleClickId(o))}</div>
+              <div class="detail-item"><span class="k">fbp</span>${idVal(o.fbp)}</div>
+              <div class="detail-item"><span class="k">fbc</span>${idVal(o.fbc)}</div>
+              <div class="detail-item"><span class="k">GA client ID</span>${idVal(o.ga_client_id)}</div>
+              <div class="detail-item"><span class="k">Event source URL</span>${idVal(o.event_source_url)}</div>
+            </div>
+            <div>
+              <div class="detail-col-title">Canais</div>
+              <div class="detail-item"><span class="k">GA4</span><span class="v">${channelBadge(o.ga4_status)}</span></div>
               ${o.ga4_error ? `<div class="detail-error">${escapeHtml(o.ga4_error)}</div>` : ''}
-            </div>
-            <div>
-              <div class="detail-col-title">Google Ads</div>
-              <div class="detail-item"><span class="k">Status</span><span class="v">${channelBadge(o.ads_status)}</span></div>
+              <div class="detail-item"><span class="k">Google Ads</span><span class="v">${channelBadge(o.ads_status)}</span></div>
               ${o.ads_error ? `<div class="detail-error">${escapeHtml(o.ads_error)}</div>` : ''}
-            </div>
-            <div>
-              <div class="detail-col-title">Meta CAPI</div>
-              <div class="detail-item"><span class="k">Status</span><span class="v">${channelBadge(o.meta_status)}</span></div>
+              <div class="detail-item"><span class="k">Meta CAPI</span><span class="v">${channelBadge(o.meta_status)}</span></div>
               ${o.meta_error ? `<div class="detail-error">${escapeHtml(o.meta_error)}</div>` : ''}
             </div>
           </div>
