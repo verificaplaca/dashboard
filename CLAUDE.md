@@ -84,6 +84,8 @@ ssh-add --apple-use-keychain ~/.ssh/id_ed25519_git_verificaplaca
 // Lucro Bruto
 pft = receita − custo_ads − custo_bureau
 
-// Lucro Líquido (receita bruta − 8% de imposto − custo total)
-netPft = rev * 0.92 − costTotal
+// Lucro Líquido — imposto FASEADO por data de venda (netFactor() no dashboard.html):
+//   até mar/2026 → 0.92 | abr/2026 → 0.95 | mai/2026+ → 0.962
+// O card da dash usa netPftOpt (fator por dia). NÃO usar 0.92 fixo (desatualizado).
+netPftOpt = Σ dia: revenue(dia) * netFactor(dia) − costTotal(dia)
 ```

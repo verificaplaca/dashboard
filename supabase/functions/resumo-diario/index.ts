@@ -46,6 +46,15 @@ async function sendTelegram(botToken: string, chatId: string, text: string): Pro
   if (!resp.ok) console.error('Telegram error:', await resp.text())
 }
 
+// ── Fator líquido pós-imposto, por data de venda (mesma netFactor() do
+// dashboard.html — imposto faseado; NÃO usar 0.92 fixo, está desatualizado) ──
+//   até mar/2026 → 0.92 | abr/2026 → 0.95 | mai/2026+ → 0.962
+function netFactor(dateStr: string): number {
+  if (!dateStr || dateStr < '2026-04-01') return 0.92
+  if (dateStr < '2026-05-01') return 0.95
+  return 0.962
+}
+
 // ── Datas em America/Sao_Paulo (BRT = UTC-3, sem horário de verão) ─────────
 function todayBRT(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
@@ -215,7 +224,7 @@ Deno.serve(async () => {
     const custoTotal = (custoAds ?? 0) + (custoBureau ?? 0)
     const custoTotalKnown = custoAds !== null || custoBureau !== null
     const lucroBruto  = revenue !== null && custoTotalKnown ? revenue - custoTotal : null
-    const lucroLiquido = revenue !== null && custoTotalKnown ? revenue * 0.92 - custoTotal : null
+    const lucroLiquido = revenue !== null && custoTotalKnown ? revenue * netFactor(yesterdayStr) - custoTotal : null
     const margem = lucroBruto !== null && revenue ? lucroBruto / revenue : null
     const cacReal = custoAds !== null && paidOrders ? custoAds / paidOrders : null
     const ticketMedio = revenue !== null && paidOrders ? revenue / paidOrders : null
@@ -255,7 +264,8 @@ Deno.serve(async () => {
     }
     const moCogsKnown  = moAds !== null || moBureau !== null
     const moCogs       = (moAds ?? 0) + (moBureau ?? 0)
-    const moLiquido    = moRevenue !== null && moCogsKnown ? moRevenue * 0.92 - moCogs : null
+    // netFactor muda só em virada de mês, então o fator do dia 01 vale pro mês todo
+    const moLiquido    = moRevenue !== null && moCogsKnown ? moRevenue * netFactor(monthStart) - moCogs : null
     const moMargem     = moRevenue !== null && moCogsKnown && moRevenue > 0 ? (moRevenue - moCogs) / moRevenue : null
 
     // ── Montar mensagem ──────────────────────────────────────────────────────
