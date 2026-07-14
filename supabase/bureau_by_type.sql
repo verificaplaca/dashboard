@@ -1,23 +1,34 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- bureau_by_type.sql
--- Função NOVA get_bureau_costs_by_bureau(p_start, p_end) — ADITIVA, não altera
--- nem substitui a função existente get_bureau_costs_daily() (supabase/bureau_daily.sql).
+-- Função RPC get_bureau_costs_by_bureau(p_start, p_end).
 --
--- Objetivo: quebrar o custo de bureau por tipo (Assertiva vs CheckTudo), pra
--- entender quanto cada um está custando enquanto os dois ficam ligados em
--- paralelo. Mesma lógica de cálculo da função principal, só que agrupando
--- também por `bureau` (não só por `dia`).
+-- ⚠️ Roda no Supabase do SITE/SISTEMA, não no da DASHBOARD:
+--    Site/Sistema (checkouts/bureau_chamadas_cobradas): https://ozquoloetuzynnyzkado.supabase.co
+--    Dashboard (bureau_by_type_daily):                  https://ftmgmfdqdqxboiktxcoj.supabase.co
 --
--- Roda no Supabase do SITE/SISTEMA (https://ozquoloetuzynnyzkado.supabase.co),
--- igual à get_bureau_costs_daily — é lá que ficam checkouts/consultas_placa.
+-- Cadeia: cron-job.org → POST /functions/v1/sync-bureau-by-type (Dashboard)
+-- → chama esta RPC no Site/Sistema → upsert em public.bureau_by_type_daily.
 --
--- Consumida pela Edge Function sync-bureau-by-type (Dashboard), que grava o
--- resultado na tabela bureau_by_type_daily (supabase/bureau_by_type_daily.sql).
+-- ── HISTÓRICO ────────────────────────────────────────────────────────────
+-- 2026-07-09: dev do site REESCREVEU esta função (junto com
+--   get_bureau_costs_daily, ver bureau_daily.sql): custo agora vem de
+--   public.bureau_chamadas_cobradas(p_start, p_end) — chamadas realmente
+--   cobradas — em vez da tabela de tiers fixos por plano. Veio SEM SECURITY
+--   DEFINER → RLS bloqueava a chamada via API → sync gravou 0 records
+--   silenciosamente de 09 a 14/07.
+-- 2026-07-14: SECURITY DEFINER restaurado via ALTER FUNCTION + backfill.
+--   Arquivo atualizado para refletir produção, JÁ COM security definer
+--   no CREATE (re-rodar este script é seguro).
+--
+-- ⚠️ REGRA: qualquer alteração DEVE manter SECURITY DEFINER, senão o sync
+--   volta a gravar 0 records silenciosamente.
+-- ⚠️ public.bureau_chamadas_cobradas é mantida pelo dev do site, não
+--   versionada neste repo.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION public.get_bureau_costs_by_bureau(
-  p_start date DEFAULT ((CURRENT_DATE - '90 days'::interval))::date,
-  p_end   date DEFAULT CURRENT_DATE
+  p_start date DEFAULT (date_trunc('month'::text, (now() AT TIME ZONE 'America/Sao_Paulo'::text)))::date,
+  p_end   date DEFAULT ((now() AT TIME ZONE 'America/Sao_Paulo'::text))::date
 )
 RETURNS TABLE (
   dia           date,
@@ -29,135 +40,37 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE SECURITY DEFINER
 AS $function$
-
-WITH vendas AS (
+  WITH receita AS (
+    SELECT
+      DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') AS dia,
+      COALESCE(ck.bureau, 'desconhecido') AS bureau,
+      COUNT(*)::bigint AS vendas_pagas,
+      SUM(ck.valor)    AS vendido_real
+    FROM checkouts ck
+    WHERE (ck.paid_at IS NOT NULL OR LOWER(ck.status) = 'paid')
+      AND LOWER(ck.status) <> 'refunded'
+      AND ck.is_cortesia = false
+      AND DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo')
+        BETWEEN p_start AND p_end
+      AND ck.plano NOT IN (
+        'basico','premium','completo',
+        'bin_estadual+bin_federal+gravame',
+        'historico_leilao+indicio_sinistro'
+      )
+    GROUP BY 1, 2
+  ),
+  custo AS (
+    SELECT c.dia, c.bureau, SUM(c.custo) AS custo_bureau
+    FROM public.bureau_chamadas_cobradas(p_start, p_end) c
+    GROUP BY 1, 2
+  )
   SELECT
-    DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') AS dia,
-    ck.plano,
-    COALESCE(ck.bureau, 'assertiva') AS bureau,  -- checkouts antigos sem bureau preenchido = assertiva (era o único disponível)
-    ck.id AS checkout_id,
-    ck.valor,
-    COALESCE(bool_or(cp.from_cache), false) AS from_cache
-  FROM checkouts ck
-  LEFT JOIN consultas_placa cp ON cp.checkout_id = ck.id
-  WHERE (ck.paid_at IS NOT NULL OR LOWER(ck.status) = 'paid')
-    AND LOWER(ck.status) <> 'refunded'
-    AND ck.is_cortesia = false
-    AND DATE(COALESCE(ck.paid_at, ck.created_at) AT TIME ZONE 'America/Sao_Paulo') BETWEEN p_start AND p_end
-    AND ck.plano NOT IN (
-      'basico','premium','completo',
-      'bin_estadual+bin_federal+gravame',
-      'historico_leilao+indicio_sinistro'
-    )
-  GROUP BY 1, 2, 3, 4, 5
-),
-com_custo AS (
-  SELECT
-    v.dia,
-    v.bureau,
-    v.valor,
-    v.from_cache,
-    CASE
-      WHEN v.from_cache THEN 0
-      WHEN v.plano = 'leilao' THEN 15.10
-      WHEN v.bureau = 'checktudo' THEN
-        CASE v.plano
-          WHEN 'padrao'             THEN 1.24
-          WHEN 'bin_estadual'       THEN 3.07
-          WHEN 'bin_estadual_owner' THEN 1.35
-          WHEN 'bin_federal'        THEN 1.30
-          WHEN 'renavam'            THEN 0.00
-          WHEN 'gravame'            THEN 1.35
-          WHEN 'indicio_sinistro'   THEN 1.85
-          WHEN 'bin_estadual+bin_federal+renavam+gravame+indicio_sinistro'                    THEN 7.57
-          WHEN 'bin_estadual+bin_estadual_owner+bin_federal+renavam+gravame+indicio_sinistro' THEN 7.57
-          ELSE 0
-        END
-      WHEN v.dia < '2026-02-18' THEN
-        CASE v.plano
-          WHEN 'padrao'            THEN 2.279
-          WHEN 'bin_estadual'      THEN 4.660
-          WHEN 'bin_federal'       THEN 5.939
-          WHEN 'renavam'           THEN 5.939
-          WHEN 'gravame'           THEN 5.939
-          WHEN 'indicio_sinistro'  THEN 4.727
-          WHEN 'bin_estadual+bin_federal+renavam+gravame+indicio_sinistro' THEN 23.544
-          ELSE 0
-        END
-      WHEN v.dia < '2026-03-26' THEN
-        CASE v.plano
-          WHEN 'padrao'            THEN 2.368
-          WHEN 'bin_estadual'      THEN 4.841
-          WHEN 'bin_federal'       THEN 6.168
-          WHEN 'renavam'           THEN 6.168
-          WHEN 'gravame'           THEN 6.168
-          WHEN 'indicio_sinistro'  THEN 4.773
-          WHEN 'bin_estadual+bin_federal+renavam+gravame+indicio_sinistro' THEN 24.318
-          ELSE 0
-        END
-      WHEN v.dia < '2026-04-20' THEN
-        CASE v.plano
-          WHEN 'padrao'            THEN 1.514
-          WHEN 'bin_estadual'      THEN 4.841
-          WHEN 'bin_estadual_owner'THEN 4.841
-          WHEN 'bin_federal'       THEN 4.874
-          WHEN 'renavam'           THEN 4.874
-          WHEN 'gravame'           THEN 5.084
-          WHEN 'indicio_sinistro'  THEN 4.636
-          WHEN 'bin_estadual+bin_federal+renavam+gravame+indicio_sinistro' THEN 20.949
-          WHEN 'bin_estadual+bin_estadual_owner+bin_federal+renavam+gravame+indicio_sinistro' THEN 20.949
-          ELSE 0
-        END
-      WHEN v.dia < '2026-05-01' THEN
-        CASE v.plano
-          WHEN 'padrao'            THEN 1.175
-          WHEN 'bin_estadual'      THEN 4.841
-          WHEN 'bin_estadual_owner'THEN 4.841
-          WHEN 'bin_federal'       THEN 4.841
-          WHEN 'renavam'           THEN 4.841
-          WHEN 'gravame'           THEN 4.509
-          WHEN 'indicio_sinistro'  THEN 4.545
-          WHEN 'bin_estadual+bin_federal+renavam+gravame+indicio_sinistro' THEN 17.736
-          WHEN 'bin_estadual+bin_estadual_owner+bin_federal+renavam+gravame+indicio_sinistro' THEN 17.736
-          ELSE 0
-        END
-      WHEN v.dia < '2026-05-30' THEN
-        CASE v.plano
-          WHEN 'padrao'            THEN 1.083
-          WHEN 'bin_estadual'      THEN 4.730
-          WHEN 'bin_estadual_owner'THEN 4.730
-          WHEN 'bin_federal'       THEN 4.730
-          WHEN 'renavam'           THEN 4.730
-          WHEN 'gravame'           THEN 4.299
-          WHEN 'indicio_sinistro'  THEN 4.500
-          WHEN 'bin_estadual+bin_federal+renavam+gravame+indicio_sinistro' THEN 19.342
-          WHEN 'bin_estadual+bin_estadual_owner+bin_federal+renavam+gravame+indicio_sinistro' THEN 19.342
-          ELSE 0
-        END
-      ELSE
-        CASE v.plano
-          WHEN 'padrao'            THEN 1.00
-          WHEN 'bin_estadual'      THEN 4.451
-          WHEN 'bin_estadual_owner'THEN 4.451
-          WHEN 'bin_federal'       THEN 4.451
-          WHEN 'renavam'           THEN 4.451
-          WHEN 'gravame'           THEN 4.022
-          WHEN 'indicio_sinistro'  THEN 4.250
-          WHEN 'bin_estadual+bin_federal+renavam+gravame+indicio_sinistro' THEN 18.174
-          WHEN 'bin_estadual+bin_estadual_owner+bin_federal+renavam+gravame+indicio_sinistro' THEN 18.174
-          ELSE 0
-        END
-    END AS custo_bureau
-  FROM vendas v
-)
-SELECT
-  dia,
-  bureau,
-  COUNT(*)::bigint              AS vendas_pagas,
-  ROUND(SUM(valor)::numeric, 2) AS vendido_real,
-  ROUND(SUM(custo_bureau)::numeric, 3) AS custo_bureau
-FROM com_custo
-GROUP BY dia, bureau
-ORDER BY dia DESC, bureau;
-
+    COALESCE(r.dia, c.dia)                          AS dia,
+    COALESCE(r.bureau, c.bureau)                    AS bureau,
+    COALESCE(r.vendas_pagas, 0)                     AS vendas_pagas,
+    ROUND(COALESCE(r.vendido_real, 0)::numeric, 2)  AS vendido_real,
+    ROUND(COALESCE(c.custo_bureau, 0)::numeric, 2)  AS custo_bureau
+  FROM receita r
+  FULL JOIN custo c USING (dia, bureau)
+  ORDER BY dia DESC, bureau;
 $function$;
