@@ -1159,6 +1159,11 @@ const SUPA_URL = 'https://ftmgmfdqdqxboiktxcoj.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0bWdtZmRxZHF4Ym9pa3R4Y29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MTIwNzAsImV4cCI6MjA5Mjk4ODA3MH0.IfOKtwpBB9orGN3UnCZDG8RYEHTAEAsX0LHxV3WBfCs';
 const SUPA_HDR = { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY };
 
+// Supabase do SITE (checkouts) — projeto separado; alimenta a Taxa de Conversão
+const SITE_SUPA_URL = 'https://ozquoloetuzynnyzkado.supabase.co';
+const SITE_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96cXVvbG9ldHV6eW5ueXprYWRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MjU1NzcsImV4cCI6MjA3NDQwMTU3N30.w4acA-baHGvo0k8VOKjOYhfdvbTNOvT8E3Kov-VeJQk';
+const SITE_SUPA_HDR = { apikey: SITE_SUPA_KEY, Authorization: 'Bearer ' + SITE_SUPA_KEY };
+
 const ADDON_LABELS = {
   'bin_estadual':             'BIN Estadual',
   'bin_estadual_owner':       'Proprietário Estadual',
@@ -1186,13 +1191,13 @@ function addonLabel(key) {
 // já vem menor que o PAGE_SIZE e o loop encerra.
 const SUPA_PAGE_SIZE = 1000;
 
-async function supaGet(path, _attempt = 1) {
+async function supaGet(path, _attempt = 1, base = SUPA_URL, hdr = SUPA_HDR) {
   try {
     let allRows = [];
     let offset = 0;
     while (true) {
-      const r = await fetch(SUPA_URL + path, {
-        headers: { ...SUPA_HDR, Range: `${offset}-${offset + SUPA_PAGE_SIZE - 1}` },
+      const r = await fetch(base + path, {
+        headers: { ...hdr, Range: `${offset}-${offset + SUPA_PAGE_SIZE - 1}` },
       });
       if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
       const page = await r.json();
@@ -1205,7 +1210,7 @@ async function supaGet(path, _attempt = 1) {
     // Retry: primeiro load pode pegar o Supabase "frio" (projeto pausado/acordando)
     if (_attempt < 3) {
       await new Promise(res => setTimeout(res, 800 * _attempt));
-      return supaGet(path, _attempt + 1);
+      return supaGet(path, _attempt + 1, base, hdr);
     }
     throw err;
   }
@@ -1219,7 +1224,7 @@ async function loadSupabaseData() {
   const qs    = `date=gte.${start}&date=lte.${today}`;
 
   const gadsQs = `date=gte.${start}&date=lte.${today}`;
-  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows, balRows, burTypeRows] = await Promise.all([
+  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows, balRows, burTypeRows, chkRows] = await Promise.all([
     supaGet(`/rest/v1/revenue_daily?${qs}&select=date,revenue,paid_orders`),
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
@@ -1228,6 +1233,8 @@ async function loadSupabaseData() {
     supaGet(`/rest/v1/refunds_daily?${qs}&select=date,refund_count,refund_value`),
     supaGet(`/rest/v1/ads_balance_history?select=checked_at,balance_brl,alert_level&order=checked_at.desc&limit=30`).catch(() => []),
     supaGet(`/rest/v1/bureau_by_type_daily?${qs}&select=date,bureau,vendido_real,custo_bureau`).catch(() => []),
+    // Checkouts reais — Supabase do SITE; nunca quebra a dash se o projeto estiver fora
+    supaGet(`/rest/v1/checkouts_daily?${qs}&select=date,checkouts_started`, 1, SITE_SUPA_URL, SITE_SUPA_HDR).catch(() => []),
   ]);
   ADS_BALANCE_DATA = balRows || [];
   BUREAU_TYPE_ROWS = burTypeRows || [];
@@ -1240,6 +1247,9 @@ async function loadSupabaseData() {
 
   const refMap = new Map();
   for (const r of refRows) refMap.set(String(r.date).slice(0,10), r);
+
+  const chkMap = new Map();
+  for (const c of chkRows) chkMap.set(String(c.date).slice(0,10), parseInt(c.checkouts_started) || 0);
 
   ALL_DAYS = revRows.map(row => {
     const dateStr = String(row.date).slice(0,10);
@@ -1259,7 +1269,7 @@ async function loadSupabaseData() {
       costBureau,
       costTotal:     costBureau,
       profit:        +(revenue - costBureau).toFixed(2),
-      checkouts:     0,
+      checkouts:     chkMap.get(dateStr) || 0,
       upsellRate:    parseFloat(u.upsell_rate)  || 0,
       pedidosUpsell: parseInt(u.upsell_orders)  || 0,
       cac: null, cpv: null,
@@ -1275,6 +1285,7 @@ async function loadSupabaseData() {
   const _costDates = new Set();
   for (const g of gadsRows) _costDates.add(String(g.date).slice(0,10));
   for (const b of burRows)  _costDates.add(String(b.date).slice(0,10));
+  for (const k of chkMap.keys()) _costDates.add(k); // dias com checkout mas sem receita
   for (const dateStr of _costDates) {
     if (_dayKeys.has(dateStr)) continue;
     const b          = burMap.get(dateStr) || {};
@@ -1289,7 +1300,7 @@ async function loadSupabaseData() {
       costBureau,
       costTotal:     costBureau,
       profit:        +(-costBureau).toFixed(2),
-      checkouts:     0,
+      checkouts:     chkMap.get(dateStr) || 0,
       upsellRate:    0,
       pedidosUpsell: 0,
       cac: null, cpv: null,
@@ -2159,7 +2170,7 @@ function buildKPIs(T) {
   ];
   const row3 = [
     { id:'m',  label:'Margem',           value:fmtN(T.margin*100,1)+'%',delta:d(T.margin,P?.margin,false),   sub:'contribuição real', color:T.margin>=.22?'green':'amber', dir:T.margin>=.22?'up':'neutral', badge:T.margin>=.22?'saudável':'atenção', spark:filtered.map(x=>x.revenue>0?((x.profit||0)/x.revenue)*100:0), sc:'#16a34a', tip:'lucro bruto ÷ receita bruta\n(% de cada R$ que vira lucro)' },
-    { id:'cv', label:'Taxa de Conversão', value:T.convRate!=null?fmtN(T.convRate,2)+'%':'—', delta:T.convRate!=null?d(T.convRate,P?.convRate,false):null, sub:T.convRate!=null?'checkout → compra':'sem dados de checkout', color:'blue', dir:T.convRate!=null?'up':'neutral', badge:T.convRate!=null?'+2pp':'s/ dados', spark:T.convRate!=null?filtered.map(()=>T.convRate):[], sc:'#0891b2', tip:'nº de compras ÷ checkouts iniciados\n(% de visitantes que compraram)' },
+    { id:'cv', label:'Taxa de Conversão', value:T.convRate!=null?fmtN(T.convRate,2)+'%':'—', delta:T.convRate!=null?d(T.convRate,P?.convRate,false):null, sub:T.convRate!=null?'checkout → compra':'sem dados de checkout', color:'blue', dir:T.convRate!=null?'up':'neutral', badge:T.convRate!=null?'checkout → compra':'s/ dados', spark:T.convRate!=null?filtered.map(x=>x.checkouts>0?+(x.conv/x.checkouts*100).toFixed(2):0):[], sc:'#0891b2', tip:'nº de compras ÷ checkouts iniciados\n(% de visitantes que compraram)' },
     { id:'up', label:'Taxa de Upsell',   value:fmtN(T.upsell,1)+'%',   delta:d(T.upsell,P?.upsell,false),   sub:'meta: '+TARGET_UPSELL+'%', color:T.upsell>=TARGET_UPSELL?'green':'amber', dir:T.upsell>=TARGET_UPSELL?'up':'neutral', badge:T.upsell>=TARGET_UPSELL?'meta atingida':fmtN(TARGET_UPSELL-T.upsell,1)+'pp abaixo', spark:filtered.map(x=>x.upsellRate), sc:'#7c3aed', targetPct:_tgtUpsell, tip:'pedidos com upsell ÷ total de pedidos\n(% que adicionou produto extra)' },
     { id:'tr', label:'Transações',       value:fmtN(T.conv,0,''),       delta:d(T.conv,P?.conv,false),       sub:'conversões',          color:'blue',  dir:'up',      badge:'pedidos',          spark:filtered.map(x=>x.conv),                                 sc:'#2563eb' },
     { id:'tk', label:'Ticket Médio',     value:fmtR(T.ticket),          delta:d(T.ticket,P?.ticket,false),   sub:'receita / pedidos',        color:'blue',  dir:T.ticket>=(P?.ticket||0)?'up':'down', badge:T.ticket>=(P?.ticket||0)?'crescendo':'caindo', spark:filtered.map(x=>x.conv>0?+(x.revenue/x.conv):0), sc:'#0891b2', tip:'receita bruta ÷ nº de pedidos\n(valor médio por compra)' },
