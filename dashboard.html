@@ -741,8 +741,8 @@
             <div class="date-preset" onclick="setPreset('custom','Personalizado',event)">Personalizado…</div>
           </div>
           <div class="date-custom" id="customRange">
-            <label>De</label><input type="date" id="dateFrom" value="2026-03-01"/>
-            <label>Até</label><input type="date" id="dateTo" value="2026-03-30"/>
+            <label>De</label><input type="date" id="dateFrom"/>
+            <label>Até</label><input type="date" id="dateTo"/>
             <button class="date-apply" onclick="applyCustomDate()">Aplicar</button>
           </div>
         </div>
@@ -1583,6 +1583,23 @@ function applyCustomDate() {
   render();
 }
 function applyFilters() { activeCamp = document.getElementById('campaignFilter').value; render(); }
+
+// Defaults do range personalizado: mês atual (1º dia → hoje). Se houver um
+// filtro custom salvo na sessão, restaura as datas dele nos inputs.
+(function initCustomRangeDefaults() {
+  const fEl = document.getElementById('dateFrom'), tEl = document.getElementById('dateTo');
+  if (!fEl || !tEl) return;
+  const pad = n => String(n).padStart(2,'0');
+  const now = new Date();
+  const today = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  let from = today.slice(0,7) + '-01', to = today;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('vp_filter'));
+    if (saved && saved.preset === 'custom' && saved.from && saved.to) { from = saved.from; to = saved.to; }
+  } catch(e){}
+  fEl.value = from;
+  tEl.value = to;
+})();
 
 // ─── TAX FACTOR ──────────────────────────────────────────────────────────────
 // Fator líquido após imposto, por data de venda:
