@@ -49,6 +49,7 @@ Hospedado em GitHub Pages. Dados via Supabase (principal) + Google Sheets (legad
 - `sync_errors` — erros dos syncs
 - `google_ads_campaign_daily` — dados diários de campanhas
 - `bureau_daily` — consultas de bureau por dia
+- `monthly_targets` — metas mensais do sistema (1 linha/mês; RLS anon-read, auth-write)
 
 ### Views analíticas (usam `COALESCE(paid_at, created_at)` para agrupar por data)
 - `revenue_daily` — receita e pedidos pagos por dia
@@ -93,16 +94,21 @@ netPftOpt = Σ dia: revenue(dia) * netFactor(dia) − costTotal(dia)
 ALL_DAYS.reduce((s,d) => s + (d.profit||0), 0)
 ```
 
-### Constantes (topo do JS em dashboard.html — conferir valores atuais no arquivo)
-```js
-const TARGET_CPA                  = 10.00   // R$ — meta de CAC
-const TARGET_UPSELL               = 22      // % — meta de taxa de upsell
-const MONTHLY_BUDGET              = 89000   // R$ — orçamento p/ meta de R$30k líquido (mai/26)
-const MONTHLY_REVENUE_TARGET      = 163000  // R$ — meta receita (definida em mai/26)
-const MONTHLY_PROFIT_TARGET       = 36000   // R$ — meta lucro bruto (mai/26)
-const MONTHLY_NET_PROFIT_TARGET   = 30000   // R$ — meta lucro líquido (mai/26)
-// ⚠ Metas congeladas em mai/26 — revisar mensalmente ou migrar p/ tabela no Supabase
-```
+### Metas — tabela `monthly_targets` (Supabase principal)
+As metas do sistema (CAC, upsell, orçamento Ads, receita, lucro bruto, lucro líquido)
+vivem na tabela `monthly_targets` (1 linha por mês, `month` sempre dia 01), editáveis
+no módulo **"Metas"** da sidebar do dashboard (migration `013_monthly_targets.sql`).
+
+- **Leitura (anon):** `targetFor(dateStr)` no dashboard.html — cascata: linha do mês →
+  linha anterior mais recente (meta vale até ser alterada) → constantes fallback do
+  código (dash nunca quebra). Agregados do período usam a meta do mês do último dia
+  do filtro (`activeTargets()`); linhas por-dia dos gráficos usam `targetFor(dia)`.
+- **Escrita:** Supabase Auth email+senha (REST, sem SDK) — RLS só aceita
+  INSERT/UPDATE de `authenticated`. Signup público desabilitado; usuário criado
+  manualmente no painel.
+- `google-ads-cac.html` lê a mesma tabela (`loadCacTarget()`, fallback `CAC_TARGET = 9`).
+- As constantes `TARGET_*`/`MONTHLY_*` no topo do JS do dashboard são **só fallback**.
+- Meta de CAC vigente (jul/26): **R$ 9** (o antigo TARGET_CPA=10 estava errado).
 
 ### Estrutura dos KPI Cards
 - **Row 1 (5 cards):** Receita Bruta · Custo Total COGS · Lucro Bruto · Lucro Líquido · EBITDA
@@ -156,6 +162,7 @@ Fornecedor: Assertiva. Três faixas de preço:
 
 | Data | Decisão |
 |---|---|
+| 2026-07-15 | Módulo "Metas" na sidebar: metas migradas das constantes hardcoded p/ tabela `monthly_targets` (migration 013), escrita via Supabase Auth email+senha (signup fechado), leitura anon com fallback em cascata. Meta CAC corrigida p/ R$9 (TARGET_CPA=10 estava errado); upsell 32% |
 | 2026-07-13 | P1 completo e em produção: attribution capture no site (gclid/gbraid/wbraid/fbclid/UTMs/fbp/fbc/ga_client_id em `checkouts`, validado com checkout de teste), Click Conversions v24 no dispatch (quando há id de clique; fallback ENHANCEMENT), GA4 client_id real, reconciliação diária (`reconcile-conversion-dispatches`, cron 08:00 UTC). Addon herda atribuição do checkout principal |
 | 2026-07-13 | P2.2 no ar: `check-tracking-health` (Telegram, cron horário — failed>10%/24h ou webhook morto). P2.3: PII hasheada em `conversion_dispatches` (migration 011, colunas email/phone dropadas). P2.4: remarketing dinâmico corrigido no GTM (`JS - Contents ID`) e publicado |
 | 2026-07-13 | Backlog do reconcile drenado (~148 checkouts pré-webhook); linhas antigas marcadas com `paid_at = created_at`. Pendente: Meta CAPI (P2.1, token), decisão P2.5 (tags primário×upsell), patch stableId begin_checkout (dev), validação gap CAC ≤5% até ~27/07 |
@@ -177,3 +184,5 @@ Fornecedor: Assertiva. Três faixas de preço:
 | `001_canonical_tables.sql` | Cria orders, order_items, google_ads_campaign_daily, bureau_daily |
 | `002` – `005` | Índices, views, status authorized |
 | `006_paid_at.sql` | Adiciona `paid_at` a orders + backfill + atualiza views |
+| `007` – `012` | Tracking gateway (conversion_dispatches, attribution, PII hash) + notificações |
+| `013_monthly_targets.sql` | Tabela `monthly_targets` (metas mensais) + RLS anon-read/auth-write + seed jul/26 |

@@ -604,7 +604,29 @@ let STATE = {
   loadToken: 0,  // incrementado a cada loadAndRender(); descarta respostas de chamadas antigas (evita race condition ao trocar filtros rápido)
 };
 
-const CAC_TARGET = 9;
+// Meta de CAC — fonte real: tabela monthly_targets (módulo "Metas" da sidebar
+// do dashboard). 9 é só o fallback se a tabela estiver vazia/inacessível.
+// Cascata igual à do dashboard: linha do mês atual → linha anterior mais
+// recente → fallback. Carregada em loadCacTarget() antes do primeiro render.
+let CAC_TARGET = 9;
+
+async function loadCacTarget() {
+  try {
+    const r = await fetch(SUPA_URL + '/rest/v1/monthly_targets?select=month,target_cpa&order=month.asc', { headers: SUPA_HDR });
+    if (!r.ok) return;
+    const rows = await r.json();
+    const n = new Date();
+    const mo = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`;
+    let val = null;
+    for (const row of rows) {
+      if (String(row.month).slice(0, 10) <= mo) {
+        const v = parseFloat(row.target_cpa);
+        if (isFinite(v)) val = v;
+      } else break;
+    }
+    if (val !== null) CAC_TARGET = val;
+  } catch (e) { /* mantém fallback */ }
+}
 
 // Grupos de recomendação acionáveis (define o que entra em "Ações recomendadas")
 const ACTIONABLE_RECS = [
@@ -1285,7 +1307,9 @@ document.getElementById('criteriaToggle').addEventListener('click', (e) => {
 });
 
 // ─── INIT ───────────────────────────────────────────────────────────────────
-loadAndRender();
+// Meta de CAC primeiro (tabela pequena, request rápido) — garante que o
+// primeiro render já compare com a meta do mês em vez do fallback.
+loadCacTarget().then(() => loadAndRender());
 </script>
 </body>
 </html>

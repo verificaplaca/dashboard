@@ -694,6 +694,13 @@
       <span class="sidebar-nav-label">Tracking Gateway</span>
     </button>
   </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-nav">
+    <button class="sidebar-nav-item" data-view="metas" onclick="showView('metas')" title="Metas">
+      <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2.8" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r=".9" fill="currentColor"/></svg></span>
+      <span class="sidebar-nav-label">Metas</span>
+    </button>
+  </div>
 </nav>
 <div class="sidebar-backdrop" onclick="toggleMobileSidebar(false)"></div>
 <div class="app-content">
@@ -1050,6 +1057,88 @@
     <iframe class="embed-frame" id="frame-tracking" data-src="tracking-gateway.html" title="Tracking Gateway"></iframe>
   </div><!-- /view-tracking -->
 
+  <div class="view is-hidden" id="view-metas">
+
+  <div class="page-head">
+    <div>
+      <div class="page-title">Metas</div>
+      <div class="page-subtitle">Metas mensais do sistema (CAC, upsell, orçamento, receita e lucro). Cada meta vale a partir do seu mês, até ser substituída por uma mais recente.</div>
+    </div>
+  </div>
+
+  <!-- Login (Supabase Auth) — sem login o módulo é somente-leitura -->
+  <div class="card" id="metasAuthCard" style="margin-top:16px">
+    <div id="metasLoginBox">
+      <div class="card-header">
+        <div><div class="card-title">Editar metas</div>
+             <div class="card-subtitle">Login necessário para alterar. Sem login, as metas ficam somente-leitura.</div></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <input class="filter-select" type="email" id="metasEmail" placeholder="email" autocomplete="username" style="min-width:200px">
+        <input class="filter-select" type="password" id="metasPassword" placeholder="senha" autocomplete="current-password" style="min-width:160px" onkeydown="if(event.key==='Enter')metasLogin()">
+        <button class="date-picker-btn" type="button" id="metasLoginBtn" onclick="metasLogin()">Entrar</button>
+        <span id="metasLoginMsg" style="font-size:12px;color:var(--red)"></span>
+      </div>
+    </div>
+    <div id="metasSessionBox" style="display:none;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:13px">🔓 Logado como <b id="metasSessionEmail"></b> — edição liberada.</span>
+      <button class="date-picker-btn" type="button" onclick="metasLogout()">Sair</button>
+    </div>
+  </div>
+
+  <!-- Formulário do mês -->
+  <div class="card" id="metasFormCard" style="margin-top:10px">
+    <div class="card-header">
+      <div><div class="card-title" id="metasFormTitle">Metas do mês</div>
+           <div class="card-subtitle">Campos vazios herdam o fallback (última meta anterior ou constantes do código).</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px">
+      <label class="metas-field"><span>Mês</span><input class="filter-select" type="month" id="mtMonth"></label>
+      <label class="metas-field"><span>Meta CAC (R$)</span><input class="filter-select" type="number" step="0.01" min="0" id="mtCpa" placeholder="ex.: 9"></label>
+      <label class="metas-field"><span>Meta upsell (%)</span><input class="filter-select" type="number" step="0.1" min="0" id="mtUpsell" placeholder="ex.: 32"></label>
+      <label class="metas-field"><span>Orçamento Ads (R$)</span><input class="filter-select" type="number" step="100" min="0" id="mtBudget" placeholder="ex.: 89000"></label>
+      <label class="metas-field"><span>Meta receita (R$)</span><input class="filter-select" type="number" step="100" min="0" id="mtRevenue" placeholder="ex.: 163000"></label>
+      <label class="metas-field"><span>Meta lucro bruto (R$)</span><input class="filter-select" type="number" step="100" min="0" id="mtProfit" placeholder="ex.: 36000"></label>
+      <label class="metas-field"><span>Meta lucro líquido (R$)</span><input class="filter-select" type="number" step="100" min="0" id="mtNetProfit" placeholder="ex.: 30000"></label>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
+      <button class="date-picker-btn" type="button" id="metasSaveBtn" onclick="metasSave()" disabled>Salvar mês</button>
+      <span id="metasSaveMsg" style="font-size:12px"></span>
+    </div>
+  </div>
+
+  <!-- Histórico -->
+  <div class="card" style="margin-top:10px">
+    <div class="card-header">
+      <div><div class="card-title">Histórico de metas</div>
+           <div class="card-subtitle" id="metasHistSub">—</div></div>
+    </div>
+    <div class="table-wrap">
+      <table id="metasTable">
+        <thead><tr>
+          <th>Mês</th>
+          <th class="num">CAC</th>
+          <th class="num">Upsell</th>
+          <th class="num">Orçamento Ads</th>
+          <th class="num">Receita</th>
+          <th class="num">Lucro bruto</th>
+          <th class="num">Lucro líquido</th>
+          <th></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <style>
+    .metas-field { display:flex; flex-direction:column; gap:4px; font-size:11.5px; color:var(--text-muted); min-width:0; }
+    .metas-field input { width:100%; box-sizing:border-box; }
+    #metasSessionBox { display:none; }
+    #metasSaveBtn:disabled { opacity:.45; cursor:not-allowed; }
+  </style>
+
+  </div><!-- /view-metas -->
+
 </main>
 <footer id="footerBar">Verifica Placa · Dashboard · Dados de exemplo</footer>
 
@@ -1064,7 +1153,7 @@
 // neste mesmo script — por rodarem dentro de requestAnimationFrame, só executam
 // depois que o script inteiro já terminou de rodar uma vez, então a ordem de
 // declaração aqui não importa).
-const SIDEBAR_VIEWS = ['overview', 'campanhas', 'upsell', 'gads-cac', 'tracking'];
+const SIDEBAR_VIEWS = ['overview', 'campanhas', 'upsell', 'gads-cac', 'tracking', 'metas'];
 
 function showView(view) {
   if (!SIDEBAR_VIEWS.includes(view)) view = 'overview';
@@ -1136,8 +1225,11 @@ window.addEventListener('resize', () => {
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const TICKET        = 16.86;  // ticket médio real abril/26 (receita ÷ pedidos reais do banco)
-const TARGET_CPA    =  9.00;  // meta CPA — real abril/26 = R$9,21 (pedidos banco); meta levemente acima da eficiência atual
-const TARGET_UPSELL = 32;     // % upsell — nível real de abril/26; alavanca via escala de investimento, não eficiência
+// ⚠ TARGET_* / MONTHLY_*_TARGET abaixo são apenas FALLBACK: a fonte real das
+// metas é a tabela monthly_targets no Supabase (módulo "Metas" na sidebar).
+// Só valem se a tabela estiver vazia ou inacessível — ver targetFor().
+const TARGET_CPA    =  9.00;  // fallback — meta CAC
+const TARGET_UPSELL = 32;     // fallback — % meta upsell
 const CAMP_COLORS   = { RISCO_DOC:'#2563eb', ADDONS:'#7c3aed', RENAVAM:'#0891b2', ROUBO_FURTO:'#d97706', MULTAS:'#dc2626' };
 const BASE_CAMPS    = [
   { name:'RISCO_DOC',   convShare:.294, costShare:.266 },
@@ -1149,10 +1241,57 @@ const BASE_CAMPS    = [
 // Referência: abril/2026 — receita R$82.286 | ads ~R$44.953 | bureau ~R$19.090 | lucro líq. ~R$15.116
 // conv = pedidos reais do banco (44.953 ÷ 9,21 = 4.881) | ticket real = 82.286 ÷ 4.881 = R$16,86
 const MONTHLY = { revenue:82286, cost:44953, conv:4881, profit:18243, roas:1.83, convRate:4.04 };
-const MONTHLY_BUDGET              = 89000;  // R$ orçamento necessário p/ R$30k lucro líq. (CPA R$9,21 × ~9.669 pedidos)
-const MONTHLY_REVENUE_TARGET      = 163000; // R$ meta receita mai/26 — necessário para R$30k lucro líquido via escala
-const MONTHLY_PROFIT_TARGET       = 36000;  // R$ meta de lucro bruto mai/26 (163k receita − 89k ads − 37,8k bureau)
-const MONTHLY_NET_PROFIT_TARGET   = 30000;  // R$ meta de lucro LÍQUIDO mai/26 (pós-imposto 8%) — foco da estratégia
+const MONTHLY_BUDGET              = 89000;  // fallback — R$ orçamento Google Ads
+const MONTHLY_REVENUE_TARGET      = 163000; // fallback — R$ meta receita
+const MONTHLY_PROFIT_TARGET       = 36000;  // fallback — R$ meta lucro bruto
+const MONTHLY_NET_PROFIT_TARGET   = 30000;  // fallback — R$ meta lucro líquido
+
+// ─── METAS (monthly_targets) ─────────────────────────────────────────────────
+// Fonte real das metas: tabela monthly_targets (Supabase principal), editável
+// no módulo "Metas" da sidebar. Fallback em cascata: linha do mês da data →
+// linha mais recente ANTERIOR (meta vale até ser alterada) → constantes acima
+// (dash nunca quebra, mesmo com a tabela vazia ou o Supabase fora).
+let MONTHLY_TARGETS = []; // linhas de monthly_targets, ordenadas por month asc
+
+function targetFor(dateStr) {
+  const mo = String(dateStr || '').slice(0, 7) + '-01';
+  const num = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+  // Herança POR CAMPO: vale o valor não-nulo mais recente <= mês pedido.
+  // Campo deixado vazio num mês herda o do mês anterior (como o form promete);
+  // se nenhum mês tiver valor, cai na constante fallback.
+  const pick = (field, fb) => {
+    for (let i = MONTHLY_TARGETS.length - 1; i >= 0; i--) {
+      const r = MONTHLY_TARGETS[i];
+      if (String(r.month).slice(0, 10) <= mo) {
+        const v = num(r[field]);
+        if (v !== null) return v;
+      }
+    }
+    return fb;
+  };
+  return {
+    cpa:       pick('target_cpa',        TARGET_CPA),
+    upsell:    pick('target_upsell_pct', TARGET_UPSELL),
+    budget:    pick('monthly_budget',    MONTHLY_BUDGET),
+    revenue:   pick('revenue_target',    MONTHLY_REVENUE_TARGET),
+    profit:    pick('profit_target',     MONTHLY_PROFIT_TARGET),
+    netProfit: pick('net_profit_target', MONTHLY_NET_PROFIT_TARGET),
+  };
+}
+
+// Meta "ativa" para números agregados do período filtrado (projeções, barras
+// de meta, badges): usa o mês do ÚLTIMO dia do filtro (mês corrente do filtro).
+// Linhas por-dia dos gráficos usam targetFor(dia) diretamente.
+function activeTargets() {
+  let ds = null;
+  if (typeof filtered !== 'undefined' && filtered && filtered.length) {
+    ds = filtered[filtered.length - 1].dateStr;
+  } else {
+    const n = new Date(), p = x => String(x).padStart(2, '0');
+    ds = `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}`;
+  }
+  return targetFor(ds);
+}
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const SUPA_URL = 'https://ftmgmfdqdqxboiktxcoj.supabase.co';
@@ -1224,7 +1363,7 @@ async function loadSupabaseData() {
   const qs    = `date=gte.${start}&date=lte.${today}`;
 
   const gadsQs = `date=gte.${start}&date=lte.${today}`;
-  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows, balRows, burTypeRows, chkRows] = await Promise.all([
+  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows, balRows, burTypeRows, chkRows, tgtRows] = await Promise.all([
     supaGet(`/rest/v1/revenue_daily?${qs}&select=date,revenue,paid_orders`),
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
@@ -1235,9 +1374,12 @@ async function loadSupabaseData() {
     supaGet(`/rest/v1/bureau_by_type_daily?${qs}&select=date,bureau,vendido_real,custo_bureau`).catch(() => []),
     // Checkouts reais — Supabase do SITE; nunca quebra a dash se o projeto estiver fora
     supaGet(`/rest/v1/checkouts_daily?${qs}&select=date,checkouts_started`, 1, SITE_SUPA_URL, SITE_SUPA_HDR).catch(() => []),
+    // Metas mensais — tabela pequena, sem paginação necessária; nunca quebra a dash
+    supaGet(`/rest/v1/monthly_targets?select=*&order=month.asc`).catch(() => []),
   ]);
   ADS_BALANCE_DATA = balRows || [];
   BUREAU_TYPE_ROWS = burTypeRows || [];
+  MONTHLY_TARGETS  = (tgtRows || []).slice().sort((a, b) => String(a.month).localeCompare(String(b.month)));
 
   const upsMap = new Map();
   for (const u of upsRows) upsMap.set(String(u.date).slice(0,10), u);
@@ -1782,6 +1924,7 @@ function render() {
   buildLostIS(T);
   buildDayOfWeek();
   buildUpsellTypeTable();
+  renderMetasView();
   const d = filtered;
   const rangeStr = d.length===1 ? fmt2(d[0].dateStr) : `${fmt2(d[0].dateStr)} – ${fmt2(d[d.length-1].dateStr)}`;
   document.getElementById('chartSub').textContent = rangeStr;
@@ -2129,6 +2272,7 @@ function buildAdsBalance() {
 function buildKPIs(T) {
   const P = prevTotals();
   const d = (curr, prev, rev) => P ? pctDelta(curr, prev, rev) : null;
+  const TGT = activeTargets(); // metas do mês corrente do filtro (monthly_targets)
 
   // Projected month-end revenue (if viewing current month)
   const _now      = new Date();
@@ -2147,28 +2291,28 @@ function buildKPIs(T) {
   const _projProfit = _inCurrMo && filtered.length > 0 ? Math.round(_avgProfit * _dInMo) : 0;
 
   const _revSub    = _projRev > 0
-    ? `Proj.: ${_fmtK(_projRev)}${MONTHLY_REVENUE_TARGET > 0 ? ' · Meta: '+_fmtK(MONTHLY_REVENUE_TARGET) : ''}`
+    ? `Proj.: ${_fmtK(_projRev)}${TGT.revenue > 0 ? ' · Meta: '+_fmtK(TGT.revenue) : ''}`
     : 'receita total';
   const _costSub   = _projCost > 0
-    ? `Proj.: ${_fmtK(_projCost)}${MONTHLY_BUDGET > 0 ? ' · Budget: '+_fmtK(MONTHLY_BUDGET) : ''}`
+    ? `Proj.: ${_fmtK(_projCost)}${TGT.budget > 0 ? ' · Budget: '+_fmtK(TGT.budget) : ''}`
     : 'ads + bureau';
   const _profitSub = _projProfit !== 0
-    ? `Proj.: ${_fmtK(_projProfit)}${MONTHLY_PROFIT_TARGET > 0 ? ' · Meta: '+_fmtK(MONTHLY_PROFIT_TARGET) : ''}`
+    ? `Proj.: ${_fmtK(_projProfit)}${TGT.profit > 0 ? ' · Meta: '+_fmtK(TGT.profit) : ''}`
     : 'receita − ads − bureau';
 
   // Target % for progress bars (vs monthly target, when applicable)
-  const _tgtRev       = MONTHLY_REVENUE_TARGET > 0     ? Math.min(110, T.rev         / MONTHLY_REVENUE_TARGET    * 100) : null;
-  const _tgtCost      = MONTHLY_BUDGET > 0              ? Math.min(110, T.costTotal   / MONTHLY_BUDGET            * 100) : null;
-  const _tgtProfit    = MONTHLY_PROFIT_TARGET > 0       ? Math.min(110, T.pft         / MONTHLY_PROFIT_TARGET     * 100) : null;
-  const _tgtNetProfit = MONTHLY_NET_PROFIT_TARGET > 0   ? Math.min(110, T.netPftOpt   / MONTHLY_NET_PROFIT_TARGET * 100) : null;
-  const _tgtCac       = TARGET_CPA > 0                  ? Math.min(110, TARGET_CPA    / Math.max(T.cac, 0.01)    * 100) : null;
-  const _tgtUpsell    = TARGET_UPSELL > 0               ? Math.min(110, T.upsell      / TARGET_UPSELL            * 100) : null;
+  const _tgtRev       = TGT.revenue > 0   ? Math.min(110, T.rev         / TGT.revenue   * 100) : null;
+  const _tgtCost      = TGT.budget > 0    ? Math.min(110, T.costTotal   / TGT.budget    * 100) : null;
+  const _tgtProfit    = TGT.profit > 0    ? Math.min(110, T.pft         / TGT.profit    * 100) : null;
+  const _tgtNetProfit = TGT.netProfit > 0 ? Math.min(110, T.netPftOpt   / TGT.netProfit * 100) : null;
+  const _tgtCac       = TGT.cpa > 0       ? Math.min(110, TGT.cpa       / Math.max(T.cac, 0.01) * 100) : null;
+  const _tgtUpsell    = TGT.upsell > 0    ? Math.min(110, T.upsell      / TGT.upsell    * 100) : null;
 
   // Sub-label lucro líquido com projeção e meta
   const _avgNetPft  = _inCurrMo && filtered.length > 0 ? filtered.reduce((s,x)=>s+(x.netProfit||0),0)/filtered.length : 0;
   const _projNetPft = _avgNetPft !== 0 ? Math.round(_avgNetPft * _dInMo) : 0;
   const _netPftSub  = _projNetPft !== 0
-    ? `Proj.: ${_fmtK(_projNetPft)}${MONTHLY_NET_PROFIT_TARGET > 0 ? ' · Meta: '+_fmtK(MONTHLY_NET_PROFIT_TARGET) : ''}`
+    ? `Proj.: ${_fmtK(_projNetPft)}${TGT.netProfit > 0 ? ' · Meta: '+_fmtK(TGT.netProfit) : ''}`
     : 'imposto faseado por período';
 
   const row1 = [
@@ -2181,14 +2325,14 @@ function buildKPIs(T) {
   const row2 = [
     { id:'ro', label:'ROAS',             value:fmtN(T.roas,2,'')+'×',   delta:d(T.roas,P?.roas,false),      sub:'retorno s/ investimento',  color:T.roas>=1?'green':T.roas>=.8?'amber':'red', dir:T.roas>=1?'up':'down', badge:T.roas>=1.5?'bom':T.roas>=1?'aceitável':'crítico', spark:filtered.map(x=>x.costTotal>0?x.revenue/x.costTotal:0), sc:'#2563eb', alert:T.roas<1, tip:'receita bruta ÷ custo total\n(R$ gerado por R$ investido)' },
     { id:'cpv', label:'CPV',             value:T.cpv>0?fmtR(T.cpv):'—', delta:d(T.cpv,P?.cpv,true),        sub:'custo_total / compras',    color:'amber', dir:'neutral', badge:'custo por venda',  spark:filtered.map(x=>x.cpv||null),                            sc:'#d97706', tip:'custo total ÷ nº de compras\n(custo médio por venda)' },
-    { id:'ca', label:'CAC',              value:T.cac>0?fmtR(T.cac):'—', delta:d(T.cac,P?.cac,true),        sub:'custo_ads / compras · meta: '+fmtR(TARGET_CPA), color:T.cac>0&&T.cac<=TARGET_CPA?'green':T.cac>0?'red':'blue', dir:T.cac>0&&T.cac<=TARGET_CPA?'up':T.cac>0?'down':'neutral', badge:T.cac>0&&T.cac<=TARGET_CPA?'dentro da meta':T.cac>0?'acima da meta':'s/ ads', spark:filtered.map(x=>x.cac), sc:T.cac>0&&T.cac<=TARGET_CPA?'#16a34a':'#dc2626', alert:T.cac>TARGET_CPA*1.15, targetPct:_tgtCac, targetReverse:false, secondary:T.cacAds>0?`CAC Google Ads: <b>${fmtR(T.cacAds)}</b>`:'', tip:'custo Google Ads ÷ nº de compras\n(custo de aquisição por cliente)\n\nCAC Google Ads = custo Ads ÷ conversões reportadas pelo próprio Google Ads\n(métrica de atribuição do Ads, pode diferir de pedidos pagos confirmados)' },
+    { id:'ca', label:'CAC',              value:T.cac>0?fmtR(T.cac):'—', delta:d(T.cac,P?.cac,true),        sub:'custo_ads / compras · meta: '+fmtR(TGT.cpa), color:T.cac>0&&T.cac<=TGT.cpa?'green':T.cac>0?'red':'blue', dir:T.cac>0&&T.cac<=TGT.cpa?'up':T.cac>0?'down':'neutral', badge:T.cac>0&&T.cac<=TGT.cpa?'dentro da meta':T.cac>0?'acima da meta':'s/ ads', spark:filtered.map(x=>x.cac), sc:T.cac>0&&T.cac<=TGT.cpa?'#16a34a':'#dc2626', alert:T.cac>TGT.cpa*1.15, targetPct:_tgtCac, targetReverse:false, secondary:T.cacAds>0?`CAC Google Ads: <b>${fmtR(T.cacAds)}</b>`:'', tip:'custo Google Ads ÷ nº de compras\n(custo de aquisição por cliente)\n\nCAC Google Ads = custo Ads ÷ conversões reportadas pelo próprio Google Ads\n(métrica de atribuição do Ads, pode diferir de pedidos pagos confirmados)' },
     { id:'ga', label:'Gasto Google Ads', value:fmtR(T.cost),            delta:d(T.cost,P?.cost,true),       sub:'custo_ads',                color:'amber', dir:'neutral', badge:'ads',              spark:filtered.map(x=>x.cost||0),                              sc:'#f59e0b', targetPct:_tgtCost, targetReverse:true },
     { id:'gb', label:'Gasto Bureau',     value:fmtR(T.costBureau),      delta:d(T.costBureau,P?.costBureau,true), sub:'custo_bureau',       color:'amber', dir:'neutral', badge:'bureau',           spark:filtered.map(x=>x.costBureau||0),                        sc:'#d97706' },
   ];
   const row3 = [
     { id:'m',  label:'Margem',           value:fmtN(T.margin*100,1)+'%',delta:d(T.margin,P?.margin,false),   sub:'contribuição real', color:T.margin>=.22?'green':'amber', dir:T.margin>=.22?'up':'neutral', badge:T.margin>=.22?'saudável':'atenção', spark:filtered.map(x=>x.revenue>0?((x.profit||0)/x.revenue)*100:0), sc:'#16a34a', tip:'lucro bruto ÷ receita bruta\n(% de cada R$ que vira lucro)' },
     { id:'cv', label:'Taxa de Conversão', value:T.convRate!=null?fmtN(T.convRate,2)+'%':'—', delta:T.convRate!=null?d(T.convRate,P?.convRate,false):null, sub:T.convRate!=null?'checkout → compra':'sem dados de checkout', color:'blue', dir:T.convRate!=null?'up':'neutral', badge:T.convRate!=null?'checkout → compra':'s/ dados', spark:T.convRate!=null?filtered.map(x=>x.checkouts>0?+(x.conv/x.checkouts*100).toFixed(2):0):[], sc:'#0891b2', tip:'nº de compras ÷ checkouts iniciados\n(% de visitantes que compraram)' },
-    { id:'up', label:'Taxa de Upsell',   value:fmtN(T.upsell,1)+'%',   delta:d(T.upsell,P?.upsell,false),   sub:'meta: '+TARGET_UPSELL+'%', color:T.upsell>=TARGET_UPSELL?'green':'amber', dir:T.upsell>=TARGET_UPSELL?'up':'neutral', badge:T.upsell>=TARGET_UPSELL?'meta atingida':fmtN(TARGET_UPSELL-T.upsell,1)+'pp abaixo', spark:filtered.map(x=>x.upsellRate), sc:'#7c3aed', targetPct:_tgtUpsell, tip:'pedidos com upsell ÷ total de pedidos\n(% que adicionou produto extra)' },
+    { id:'up', label:'Taxa de Upsell',   value:fmtN(T.upsell,1)+'%',   delta:d(T.upsell,P?.upsell,false),   sub:'meta: '+TGT.upsell+'%', color:T.upsell>=TGT.upsell?'green':'amber', dir:T.upsell>=TGT.upsell?'up':'neutral', badge:T.upsell>=TGT.upsell?'meta atingida':fmtN(TGT.upsell-T.upsell,1)+'pp abaixo', spark:filtered.map(x=>x.upsellRate), sc:'#7c3aed', targetPct:_tgtUpsell, tip:'pedidos com upsell ÷ total de pedidos\n(% que adicionou produto extra)' },
     { id:'tr', label:'Transações',       value:fmtN(T.conv,0,''),       delta:d(T.conv,P?.conv,false),       sub:'conversões',          color:'blue',  dir:'up',      badge:'pedidos',          spark:filtered.map(x=>x.conv),                                 sc:'#2563eb' },
     { id:'tk', label:'Ticket Médio',     value:fmtR(T.ticket),          delta:d(T.ticket,P?.ticket,false),   sub:'receita / pedidos',        color:'blue',  dir:T.ticket>=(P?.ticket||0)?'up':'down', badge:T.ticket>=(P?.ticket||0)?'crescendo':'caindo', spark:filtered.map(x=>x.conv>0?+(x.revenue/x.conv):0), sc:'#0891b2', tip:'receita bruta ÷ nº de pedidos\n(valor médio por compra)' },
   ];
@@ -2318,22 +2462,24 @@ function buildGauges(T) {
   // Sum all days in current month from ALL_DAYS
   const moStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
   const moSpent = ALL_DAYS.filter(d => d.dateStr >= moStart).reduce((s,d) => s+(d.cost||0), 0);
-  const pacingBudget = MONTHLY_BUDGET > 0 ? MONTHLY_BUDGET : 1;
+  const TGT = activeTargets();            // metas do mês corrente do filtro
+  const moTgt = targetFor(moStart);       // pacing compara sempre com o mês de HOJE
+  const pacingBudget = moTgt.budget > 0 ? moTgt.budget : 1;
   const budgetPct = Math.min(100, (moSpent / pacingBudget) * 100);
   const idealPct  = Math.min(100, (dayOfMonth / daysInMonth) * 100);
   const budgetColor = budgetPct > idealPct + 10 ? '#dc2626' : budgetPct < idealPct - 15 ? '#d97706' : '#16a34a';
 
   const gs = [
-    { label:'Eficiência de CAC', val:fmtR(T.cac), pct:Math.min(100,(TARGET_CPA/Math.max(T.cac,.01))*100),
-      color:T.cac<=TARGET_CPA?'#16a34a':T.cac<=TARGET_CPA*1.2?'#d97706':'#dc2626',
-      sub:`Meta: ${fmtR(TARGET_CPA)} · ${T.cac<=TARGET_CPA?'✓ Dentro':'⚠ Acima da meta'}`,
-      tip:'CAC do período ÷ meta definida (TARGET_CPA). Barra cheia = CAC igual ou melhor que a meta.' },
+    { label:'Eficiência de CAC', val:fmtR(T.cac), pct:Math.min(100,(TGT.cpa/Math.max(T.cac,.01))*100),
+      color:T.cac<=TGT.cpa?'#16a34a':T.cac<=TGT.cpa*1.2?'#d97706':'#dc2626',
+      sub:`Meta: ${fmtR(TGT.cpa)} · ${T.cac<=TGT.cpa?'✓ Dentro':'⚠ Acima da meta'}`,
+      tip:'CAC do período ÷ meta do mês (monthly_targets). Barra cheia = CAC igual ou melhor que a meta.' },
     { label:'Margem de Contribuição', val:fmtN(T.margin*100,1)+'%', pct:Math.min(100,(T.margin*100/30)*100),
       color:T.margin>=.22?'#16a34a':'#d97706', sub:`Meta: 30% · Atual: ${fmtN(T.margin*100,1)}%`,
       tip:'Lucro bruto ÷ receita, sobre uma meta de referência de 30%.' },
-    { label:'Taxa de Upsell', val:fmtN(T.upsell,1)+'%', pct:Math.min(100,(T.upsell/TARGET_UPSELL)*100),
-      color:T.upsell>=TARGET_UPSELL?'#16a34a':'#7c3aed', sub:`Meta: ${TARGET_UPSELL}% · ${T.upsell>=TARGET_UPSELL?'✓ Atingido':'⚠ Abaixo'}`,
-      tip:'% de pedidos com upsell sobre o total, comparado à meta definida (TARGET_UPSELL).' },
+    { label:'Taxa de Upsell', val:fmtN(T.upsell,1)+'%', pct:TGT.upsell>0?Math.min(100,(T.upsell/TGT.upsell)*100):0,
+      color:T.upsell>=TGT.upsell?'#16a34a':'#7c3aed', sub:`Meta: ${TGT.upsell}% · ${T.upsell>=TGT.upsell?'✓ Atingido':'⚠ Abaixo'}`,
+      tip:'% de pedidos com upsell sobre o total, comparado à meta do mês (monthly_targets).' },
     { label:'Pacing do Orçamento', val:fmtR(moSpent), pct: budgetPct,
       color: budgetColor,
       sub:`Orçamento: ${fmtR(pacingBudget)} · Ideal: ${idealPct.toFixed(0)}% · Realizado: ${budgetPct.toFixed(0)}%`,
@@ -2366,8 +2512,9 @@ function buildGauges(T) {
 function buildAlertBar(T) {
   const bar = document.getElementById('alertBar');
   const msgs = [];
-  if (T.cac > TARGET_CPA*1.15)
-    msgs.push(`<strong>CAC alto:</strong> ${fmtR(T.cac)}<br>${fmtN((T.cac/TARGET_CPA-1)*100,0)}% acima da meta de ${fmtR(TARGET_CPA)}`);
+  const TGT = activeTargets();
+  if (T.cac > TGT.cpa*1.15)
+    msgs.push(`<strong>CAC alto:</strong> ${fmtR(T.cac)}<br>${fmtN((T.cac/TGT.cpa-1)*100,0)}% acima da meta de ${fmtR(TGT.cpa)}`);
   if (T.roas < 1)
     msgs.push(`<strong>ROAS crítico:</strong> ${fmtN(T.roas,2,'')}× — cada R$1 investido retorna menos de R$1`);
   if (msgs.length) {
@@ -2382,10 +2529,11 @@ function lbl(d) { return `${d.date.getDate()}/${d.date.getMonth()+1}`; }
 function buildCharts(T) {
   const d   = filtered;
   const avgP = d.reduce((s,x)=>s+x.profit,0)/d.length;
+  const TGT = activeTargets(); // metas do mês corrente do filtro
 
-  // Update CAC chart subtitle with actual TARGET_CPA from config
+  // Update CAC chart subtitle with the active month's target
   const _cacSub = document.getElementById('cacChartSub');
-  if (_cacSub) _cacSub.textContent = `Meta: ${fmtR(TARGET_CPA)} · custo_ads / compras · Verde = dentro · Vermelho = acima`;
+  if (_cacSub) _cacSub.textContent = `Meta: ${fmtR(TGT.cpa)} · custo_ads / compras · Verde = dentro · Vermelho = acima`;
   const labels = d.map(lbl);
 
   // 1. Revenue vs Cost — line, tooltips only (30 points too dense for labels)
@@ -2431,9 +2579,9 @@ function buildCharts(T) {
         { label:'Projeção Receita',      data:_projRevFull,  borderColor:'rgba(22,163,74,.40)', borderDash:[5,4], borderWidth:1.5, pointRadius:0, fill:false, tension:0 },
         { label:'Projeção Investimento', data:_projCostFull, borderColor:'rgba(37,99,235,.40)', borderDash:[5,4], borderWidth:1.5, pointRadius:0, fill:false, tension:0 },
       ] : []),
-      ...(MONTHLY_REVENUE_TARGET > 0 ? [{
+      ...(TGT.revenue > 0 ? [{
         label:'Meta/dia',
-        data: _allLabels.map(() => +( MONTHLY_REVENUE_TARGET / _daysInMo ).toFixed(2)),
+        data: _allLabels.map(() => +( TGT.revenue / _daysInMo ).toFixed(2)),
         borderColor:'rgba(124,58,237,.55)', borderDash:[3,3], borderWidth:1.5,
         pointRadius:0, fill:false, tension:0,
       }] : []),
@@ -2548,9 +2696,9 @@ function buildCharts(T) {
     labels,
     datasets:[
       { label:'CAC', data:d.map(x=>x.cac),
-        backgroundColor:d.map(x=>!x.cac?'transparent':x.cac<=TARGET_CPA?'rgba(22,163,74,.7)':x.cac<=TARGET_CPA*1.2?'rgba(217,119,6,.7)':'rgba(220,38,38,.7)'),
+        backgroundColor:d.map(x=>{ const t=targetFor(x.dateStr).cpa; return !x.cac?'transparent':x.cac<=t?'rgba(22,163,74,.7)':x.cac<=t*1.2?'rgba(217,119,6,.7)':'rgba(220,38,38,.7)'; }),
         borderRadius:3 },
-      { label:'Meta', data:d.map(()=>TARGET_CPA), type:'line',
+      { label:'Meta', data:d.map(x=>targetFor(x.dateStr).cpa), type:'line',
         borderColor:'#6b6b6b', borderDash:[4,3], borderWidth:1.5, pointRadius:0, fill:false },
       { label:'CAC Google Ads', data:d.map(x=>x.cacAds), type:'line',
         borderColor:'rgba(120,120,120,.55)', borderWidth:1.25, borderDash:[2,2],
@@ -2569,7 +2717,8 @@ function buildCharts(T) {
         font:{ size: d.length>14 ? 7.5 : 9, weight:'600' },
         color: ctx => {
           const v = ctx.dataset.data[ctx.dataIndex];
-          return v<=TARGET_CPA ? '#15803d' : v<=TARGET_CPA*1.2 ? '#b45309' : '#b91c1c';
+          const t = targetFor(d[ctx.dataIndex] && d[ctx.dataIndex].dateStr).cpa;
+          return v<=t ? '#15803d' : v<=t*1.2 ? '#b45309' : '#b91c1c';
         },
         offset: 2,
       }
@@ -2583,9 +2732,9 @@ function buildCharts(T) {
     labels,
     datasets:[
       { label:'Upsell %', data:d.map(x=>x.upsellRate),
-        backgroundColor:d.map(x=>x.upsellRate>=TARGET_UPSELL?'rgba(124,58,237,.7)':'rgba(124,58,237,.35)'),
+        backgroundColor:d.map(x=>x.upsellRate>=targetFor(x.dateStr).upsell?'rgba(124,58,237,.7)':'rgba(124,58,237,.35)'),
         borderRadius:3 },
-      { label:'Meta', data:d.map(()=>TARGET_UPSELL), type:'line',
+      { label:'Meta', data:d.map(x=>targetFor(x.dateStr).upsell), type:'line',
         borderColor:'#6b6b6b', borderDash:[4,3], borderWidth:1.5, pointRadius:0, fill:false },
     ]
   },{
@@ -2599,7 +2748,7 @@ function buildCharts(T) {
         anchor:'end', align:'end',
         formatter: v => v.toFixed(0)+'%',
         font:{ size: d.length>14 ? 7.5 : 9, weight:'600' },
-        color: ctx => ctx.dataset.data[ctx.dataIndex]>=TARGET_UPSELL ? '#5b21b6' : '#7c3aed',
+        color: ctx => ctx.dataset.data[ctx.dataIndex]>=targetFor(d[ctx.dataIndex] && d[ctx.dataIndex].dateStr).upsell ? '#5b21b6' : '#7c3aed',
         offset: 2,
       }
     },
@@ -2649,11 +2798,12 @@ function buildTable() {
   }
 
   const maxCac = Math.max(...sorted.map(c=>c.cac));
+  const TGT = activeTargets();
   const tbody = document.querySelector('#campaignTable tbody');
   tbody.innerHTML = '';
   sorted.forEach(c => {
-    const pct     = Math.min(100, Math.round((c.cac/TARGET_CPA)*100));
-    const col     = c.cac <= TARGET_CPA ? '#16a34a' : '#dc2626';
+    const pct     = Math.min(100, Math.round((c.cac/TGT.cpa)*100));
+    const col     = c.cac <= TGT.cpa ? '#16a34a' : '#dc2626';
     const spendPct = totalCostAllCamps > 0 ? fmtN((c.cost/totalCostAllCamps)*100,1)+'%' : '—';
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -2679,7 +2829,7 @@ function buildTable() {
   const totRoas = totCost > 0 ? +(totRev/totCost).toFixed(2) : 0;
   const totCac  = totConv > 0 ? +(totCost/totConv).toFixed(2) : 0;
   const totCacAds = totGadsConv > 0 ? +(totCost/totGadsConv).toFixed(2) : 0;
-  const totCol  = totCac <= TARGET_CPA ? '#16a34a' : '#dc2626';
+  const totCol  = totCac <= TGT.cpa ? '#16a34a' : '#dc2626';
   const tfoot = document.createElement('tr');
   tfoot.className = 'tr-total';
   tfoot.innerHTML = `
@@ -3211,8 +3361,8 @@ function buildTodayPace() {
         </div>
         <div class="pace-stat has-tip" data-tip="Custo de Aquisição por Cliente hoje.\nFórmula: Custo Total ÷ Conversões do dia.">
           <span class="pace-lbl">CAC do dia</span>
-          <span class="pace-val" style="color:${today.cac&&today.cac<=TARGET_CPA?'var(--green)':today.cac?'var(--red)':'inherit'}">${today.cac?fmtR(today.cac):'—'}</span>
-          <span class="pace-sub">Meta: ${fmtR(TARGET_CPA)}</span>
+          <span class="pace-val" style="color:${today.cac&&today.cac<=targetFor(todayStr).cpa?'var(--green)':today.cac?'var(--red)':'inherit'}">${today.cac?fmtR(today.cac):'—'}</span>
+          <span class="pace-sub">Meta: ${fmtR(targetFor(todayStr).cpa)}</span>
         </div>
         <div class="pace-stat has-tip" data-tip="Total de pedidos (conversões) registrados hoje.\nComparado à média dos últimos 30 dias.\nOntem: receita e lucro do dia anterior completo.">
           <span class="pace-lbl">Conversões</span>
@@ -3313,6 +3463,175 @@ function buildDayOfWeek() {
 function fmtR(v)          { return 'R$\u00a0'+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtN(v,d,pfx='') { return pfx+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}); }
 function fmt2(s)          { const [,m,d]=s.split('-'); return `${d}/${m}`; }
+
+// ─── MÓDULO METAS ─────────────────────────────────────────────────────────────
+// Leitura: anon (tabela monthly_targets já vem no Promise.all inicial).
+// Escrita: Supabase Auth email+senha via REST (sem SDK) — POST /auth/v1/token
+// devolve um access_token JWT que substitui a anon key no header Authorization.
+// A RLS só aceita INSERT/UPDATE do role `authenticated`, então sem login o
+// módulo é somente-leitura por construção (não é só checagem de front).
+let METAS_SESSION = null; // { access_token, email, expires_at(ms) }
+
+function metasAuthed() {
+  return !!(METAS_SESSION && METAS_SESSION.access_token && Date.now() < METAS_SESSION.expires_at);
+}
+
+function metasSyncUI() {
+  const authed = metasAuthed();
+  const loginBox = document.getElementById('metasLoginBox');
+  const sessBox  = document.getElementById('metasSessionBox');
+  const saveBtn  = document.getElementById('metasSaveBtn');
+  if (loginBox) loginBox.style.display = authed ? 'none' : '';
+  if (sessBox)  sessBox.style.display  = authed ? 'flex' : 'none';
+  if (saveBtn)  saveBtn.disabled = !authed;
+  if (authed) {
+    const el = document.getElementById('metasSessionEmail');
+    if (el) el.textContent = METAS_SESSION.email || '';
+  }
+}
+
+async function metasLogin() {
+  const email = (document.getElementById('metasEmail').value || '').trim();
+  const pass  = document.getElementById('metasPassword').value || '';
+  const msg   = document.getElementById('metasLoginMsg');
+  const btn   = document.getElementById('metasLoginBtn');
+  msg.textContent = '';
+  if (!email || !pass) { msg.textContent = 'Preencha email e senha.'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  try {
+    const r = await fetch(SUPA_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.access_token) {
+      msg.textContent = j.error_description || j.msg || 'Login inválido.';
+      return;
+    }
+    METAS_SESSION = {
+      access_token: j.access_token,
+      email: (j.user && j.user.email) || email,
+      // margem de 60s antes do vencimento real do JWT
+      expires_at: Date.now() + Math.max(60, (j.expires_in || 3600) - 60) * 1000,
+    };
+    document.getElementById('metasPassword').value = '';
+    metasSyncUI();
+  } catch (e) {
+    msg.textContent = 'Falha de rede no login.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+function metasLogout() {
+  METAS_SESSION = null;
+  metasSyncUI();
+}
+
+function metasFillForm(monthStr) { // monthStr: 'YYYY-MM'
+  const mo = monthStr + '-01';
+  const row = MONTHLY_TARGETS.find(r => String(r.month).slice(0, 10) === mo) || {};
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v === null || v === undefined) ? '' : v; };
+  set('mtMonth', monthStr);
+  set('mtCpa', row.target_cpa); set('mtUpsell', row.target_upsell_pct);
+  set('mtBudget', row.monthly_budget); set('mtRevenue', row.revenue_target);
+  set('mtProfit', row.profit_target); set('mtNetProfit', row.net_profit_target);
+  const t = document.getElementById('metasFormTitle');
+  if (t) t.textContent = 'Metas do mês ' + metasMonthLabel(mo);
+}
+
+function metasMonthLabel(moDate) { // '2026-07-01' → 'jul/26'
+  const M = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const [y, m] = String(moDate).slice(0, 10).split('-');
+  return M[(+m) - 1] + '/' + String(y).slice(2);
+}
+
+async function metasSave() {
+  const msg = document.getElementById('metasSaveMsg');
+  msg.style.color = 'var(--text-muted)'; msg.textContent = '';
+  if (!metasAuthed()) {
+    METAS_SESSION = null; metasSyncUI();
+    msg.style.color = 'var(--red)'; msg.textContent = 'Sessão expirada — faça login de novo.';
+    return;
+  }
+  const moVal = document.getElementById('mtMonth').value; // 'YYYY-MM'
+  if (!/^\d{4}-\d{2}$/.test(moVal)) { msg.style.color = 'var(--red)'; msg.textContent = 'Escolha o mês.'; return; }
+  const num = id => { const v = document.getElementById(id).value; return v === '' ? null : +v; };
+  const row = {
+    month: moVal + '-01',
+    target_cpa: num('mtCpa'), target_upsell_pct: num('mtUpsell'),
+    monthly_budget: num('mtBudget'), revenue_target: num('mtRevenue'),
+    profit_target: num('mtProfit'), net_profit_target: num('mtNetProfit'),
+    updated_at: new Date().toISOString(),
+  };
+  msg.textContent = 'Salvando…';
+  try {
+    const r = await fetch(SUPA_URL + '/rest/v1/monthly_targets?on_conflict=month', {
+      method: 'POST',
+      headers: {
+        apikey: SUPA_KEY,
+        Authorization: 'Bearer ' + METAS_SESSION.access_token, // token do Auth, não a anon key
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify([row]),
+    });
+    if (r.status === 401 || r.status === 403) {
+      METAS_SESSION = null; metasSyncUI();
+      msg.style.color = 'var(--red)'; msg.textContent = 'Sessão expirada ou sem permissão — faça login de novo.';
+      return;
+    }
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      msg.style.color = 'var(--red)'; msg.textContent = 'Erro ao salvar: ' + (j.message || r.status);
+      return;
+    }
+    // Recarrega metas e re-renderiza a dash inteira (KPIs/gauges/charts usam targetFor)
+    try {
+      const rows = await supaGet('/rest/v1/monthly_targets?select=*&order=month.asc');
+      MONTHLY_TARGETS = (rows || []).slice().sort((a, b) => String(a.month).localeCompare(String(b.month)));
+    } catch (e) {}
+    if (typeof render === 'function' && typeof filtered !== 'undefined' && filtered.length) render();
+    renderMetasView();
+    msg.style.color = 'var(--green)'; msg.textContent = '✓ Salvo — dashboard atualizado.';
+  } catch (e) {
+    msg.style.color = 'var(--red)'; msg.textContent = 'Falha de rede ao salvar.';
+  }
+}
+
+function renderMetasView() {
+  const tbody = document.querySelector('#metasTable tbody');
+  if (!tbody) return;
+  const sub = document.getElementById('metasHistSub');
+  const fmt0 = v => (v === null || v === undefined || v === '') ? '—' : fmtR(+v);
+  const rows = MONTHLY_TARGETS.slice().reverse(); // mais recente primeiro
+  if (sub) sub.textContent = rows.length
+    ? rows.length + (rows.length > 1 ? ' meses cadastrados' : ' mês cadastrado') + ' · meses sem linha herdam a meta anterior'
+    : 'Nenhuma meta cadastrada — usando os valores fallback do código.';
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const mo = String(r.month).slice(0, 10);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${metasMonthLabel(mo)}</b></td>
+      <td class="num">${r.target_cpa != null ? fmtR(+r.target_cpa) : '—'}</td>
+      <td class="num">${r.target_upsell_pct != null ? fmtN(+r.target_upsell_pct, 1) + '%' : '—'}</td>
+      <td class="num">${fmt0(r.monthly_budget)}</td>
+      <td class="num">${fmt0(r.revenue_target)}</td>
+      <td class="num">${fmt0(r.profit_target)}</td>
+      <td class="num">${fmt0(r.net_profit_target)}</td>
+      <td class="num"><button class="date-picker-btn" type="button" onclick="metasFillForm('${mo.slice(0, 7)}')">Editar</button></td>`;
+    tbody.appendChild(tr);
+  });
+  // Form: inicializa no mês atual na primeira renderização
+  const moInput = document.getElementById('mtMonth');
+  if (moInput && !moInput.value) {
+    const n = new Date();
+    metasFillForm(`${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`);
+  }
+  metasSyncUI();
+}
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 async function initDashboard() {
