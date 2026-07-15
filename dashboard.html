@@ -1433,14 +1433,20 @@ function toggleDP() {
     // fixed mode: position below the button
     const rect = btn.getBoundingClientRect();
     dd.style.top = (rect.bottom + 6) + 'px';
+    // iOS Safari: position:fixed é clipado por ancestral com overflow scroll
+    // (.header-row-controls tem overflow-x:auto no mobile) — mover pro body.
+    if (dd.parentElement !== document.body) document.body.appendChild(dd);
   } else {
     dd.style.top = '';
+    const wrap = document.getElementById('dpWrapper');
+    if (dd.parentElement !== wrap) wrap.appendChild(dd);
   }
   dd.classList.toggle('open');
 }
 document.addEventListener('click', e => {
-  if (!document.getElementById('dpWrapper').contains(e.target))
-    document.getElementById('dateDD').classList.remove('open');
+  const dd = document.getElementById('dateDD');
+  if (!document.getElementById('dpWrapper').contains(e.target) && !dd.contains(e.target))
+    dd.classList.remove('open');
 });
 
 // Tooltips (.has-tip/.tip-icon): no desktop já funcionam via :hover (CSS puro).
