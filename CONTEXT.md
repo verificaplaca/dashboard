@@ -83,20 +83,25 @@ Todos os crons foram migrados do GitHub Actions para cron-job.org (2026-05-01).
 // Lucro Bruto
 pft = receita − custo_ads − custo_bureau
 
-// Lucro Líquido (8% de imposto sobre receita bruta)
-netPft = rev * 0.92 − costTotal
+// Lucro Líquido — imposto FASEADO por data de venda (netFactor() no dashboard.html):
+//   até mar/2026 → 0.92 | abr/2026 → 0.95 | mai/2026+ → 0.962
+// O card da dash usa netPftOpt (fator por dia). NÃO usar 0.92 fixo (desatualizado).
+netPftOpt = Σ dia: revenue(dia) * netFactor(dia) − costTotal(dia)
 
 // EBITDA — sempre todo o período, NÃO muda com filtro de data
+// (na prática é LUCRO BRUTO acumulado, não EBITDA contábil)
 ALL_DAYS.reduce((s,d) => s + (d.profit||0), 0)
 ```
 
-### Constantes (topo do JS em dashboard.html)
+### Constantes (topo do JS em dashboard.html — conferir valores atuais no arquivo)
 ```js
-const TARGET_CPA             = 10.00   // R$ — meta de CAC
-const TARGET_UPSELL          = 22      // % — meta de taxa de upsell
-const MONTHLY_BUDGET         = 25000   // R$ — orçamento mensal Google Ads
-const MONTHLY_REVENUE_TARGET = 30000   // R$ — meta de receita mensal
-const MONTHLY_PROFIT_TARGET  = 7000    // R$ — meta de lucro bruto mensal
+const TARGET_CPA                  = 10.00   // R$ — meta de CAC
+const TARGET_UPSELL               = 22      // % — meta de taxa de upsell
+const MONTHLY_BUDGET              = 89000   // R$ — orçamento p/ meta de R$30k líquido (mai/26)
+const MONTHLY_REVENUE_TARGET      = 163000  // R$ — meta receita (definida em mai/26)
+const MONTHLY_PROFIT_TARGET       = 36000   // R$ — meta lucro bruto (mai/26)
+const MONTHLY_NET_PROFIT_TARGET   = 30000   // R$ — meta lucro líquido (mai/26)
+// ⚠ Metas congeladas em mai/26 — revisar mensalmente ou migrar p/ tabela no Supabase
 ```
 
 ### Estrutura dos KPI Cards

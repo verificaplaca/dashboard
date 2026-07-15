@@ -1179,11 +1179,28 @@ function addonLabel(key) {
   return key;
 }
 
+// PostgREST limita respostas a 1000 linhas por request e sinaliza truncamento
+// só com HTTP 206 (que fetch trata como "ok"). Paginamos via header Range até
+// receber uma página menor que SUPA_PAGE_SIZE (sinal de última página).
+// Chamadas com &limit=N (N < 1000) continuam funcionando: a primeira página
+// já vem menor que o PAGE_SIZE e o loop encerra.
+const SUPA_PAGE_SIZE = 1000;
+
 async function supaGet(path, _attempt = 1) {
   try {
-    const r = await fetch(SUPA_URL + path, { headers: SUPA_HDR });
-    if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
-    return r.json();
+    let allRows = [];
+    let offset = 0;
+    while (true) {
+      const r = await fetch(SUPA_URL + path, {
+        headers: { ...SUPA_HDR, Range: `${offset}-${offset + SUPA_PAGE_SIZE - 1}` },
+      });
+      if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
+      const page = await r.json();
+      allRows = allRows.concat(page);
+      if (page.length < SUPA_PAGE_SIZE) break; // última página (incompleta ou vazia)
+      offset += SUPA_PAGE_SIZE;
+    }
+    return allRows;
   } catch (err) {
     // Retry: primeiro load pode pegar o Supabase "frio" (projeto pausado/acordando)
     if (_attempt < 3) {
@@ -1250,6 +1267,37 @@ async function loadSupabaseData() {
       refundValue:  parseFloat(ref.refund_value) || 0,
     };
   }).sort((a,b) => a.dateStr.localeCompare(b.dateStr));
+
+  // Dias com custo (Ads/bureau) mas sem linha em revenue_daily eram descartados,
+  // inflando o lucro do período. Cria entradas zeradas para essas datas;
+  // mergeCostIntoAllDays() preenche os custos em seguida.
+  const _dayKeys   = new Set(ALL_DAYS.map(d => d.dateStr));
+  const _costDates = new Set();
+  for (const g of gadsRows) _costDates.add(String(g.date).slice(0,10));
+  for (const b of burRows)  _costDates.add(String(b.date).slice(0,10));
+  for (const dateStr of _costDates) {
+    if (_dayKeys.has(dateStr)) continue;
+    const b          = burMap.get(dateStr) || {};
+    const costBureau = parseFloat(b.custo_bureau) || 0;
+    ALL_DAYS.push({
+      date:          new Date(dateStr + 'T00:00:00'),
+      dateStr,
+      revenue:       0,
+      conv:          0,
+      pedidos:       0,
+      cost:          0,
+      costBureau,
+      costTotal:     costBureau,
+      profit:        +(-costBureau).toFixed(2),
+      checkouts:     0,
+      upsellRate:    0,
+      pedidosUpsell: 0,
+      cac: null, cpv: null,
+      refundCount:   0,
+      refundValue:   0,
+    });
+  }
+  ALL_DAYS.sort((a,b) => a.dateStr.localeCompare(b.dateStr));
 
   UPSELL_TYPE_DATA = ubtRows.map(r => ({
     dateStr:  String(r.date).slice(0,10),
@@ -1539,7 +1587,11 @@ function netFactor(dateStr) {
 // ─── TOTALS ───────────────────────────────────────────────────────────────────
 function totals() {
   const cf = activeCamp ? (BASE_CAMPS.find(c=>c.name===activeCamp)?.costShare||1) : 1;
-  const revMul = activeCamp ? cf*1.4 : 1, costMul = activeCamp ? cf : 1, convMul = activeCamp ? cf*1.1 : 1;
+  // Multiplicadores (cf*1.4/cf*1.1) são resquício dos dados demo: só se aplicam
+  // no fallback sintético. Com dados reais os agregados não são fabricados —
+  // o detalhamento real por campanha vem de campTotals()/CAMPAIGN_DAILY_DATA.
+  const _demoCamp = !usingRealData && activeCamp;
+  const revMul = _demoCamp ? cf*1.4 : 1, costMul = _demoCamp ? cf : 1, convMul = _demoCamp ? cf*1.1 : 1;
   const rev        = filtered.reduce((s,d)=>s+d.revenue,          0)*revMul;
   const cost       = filtered.reduce((s,d)=>s+d.cost,             0)*costMul; // só Ads
   const costBureau = filtered.reduce((s,d)=>s+(d.costBureau||0),  0)*costMul;
@@ -1550,9 +1602,16 @@ function totals() {
   const pft        = usingRealData
     ? filtered.reduce((s,d)=>s+(d.profit||0), 0)*revMul
     : +(rev - costTotal).toFixed(2);
-  const upsell     = filtered.length ? filtered.reduce((s,d)=>s+d.upsellRate,0)/filtered.length : 0;
+  // Upsell ponderado: Σ pedidos com upsell ÷ Σ pedidos (média simples de taxas
+  // diárias distorcia — dia com 3 pedidos pesava igual a dia com 300).
+  // Fallback demo mantém a média simples (makeDays não gera pedidosUpsell).
+  const upsell     = usingRealData
+    ? (conv > 0 ? filtered.reduce((s,d)=>s+(d.pedidosUpsell||0),0) / conv * 100 : 0)
+    : (filtered.length ? filtered.reduce((s,d)=>s+d.upsellRate,0)/filtered.length : 0);
   const checkouts  = filtered.reduce((s,d)=>s+(d.checkouts||0),   0)*convMul;
-  const convRate   = checkouts > 0 ? (conv / checkouts * 100) : MONTHLY.convRate;
+  // Sem dados reais de checkout, convRate é null (o card mostra "—") — não usar
+  // o MONTHLY.convRate congelado como se fosse real. No demo, mantém o fallback.
+  const convRate   = checkouts > 0 ? (conv / checkouts * 100) : (usingRealData ? null : MONTHLY.convRate);
   const netPft      = +(rev * 0.92 - costTotal).toFixed(2); // baseline: sempre 8%
   // Otimização faseada: fator por data (até mar/26=0.92 | abr/26=0.95 | mai/26+=0.962)
   const netPftOpt   = +(filtered.reduce((s,d) =>
@@ -1635,12 +1694,22 @@ function campTotals() {
 // ─── PERÍODO ANTERIOR ─────────────────────────────────────────────────────────
 function prevTotals() {
   if (!filtered.length || ALL_DAYS.length === 0) return null;
-  const n = filtered.length;
-  const minDate = filtered[0].dateStr;
-  const prev = ALL_DAYS.filter(d => d.dateStr < minDate).slice(-n);
+  // Período anterior = janela de mesmo nº de DIAS DE CALENDÁRIO imediatamente
+  // antes do início do período atual (slice(-n) pegava dias não contíguos
+  // quando havia buracos no calendário).
+  const _isoP    = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  const fromCur  = new Date(filtered[0].dateStr + 'T00:00:00');
+  const toCur    = new Date(filtered[filtered.length-1].dateStr + 'T00:00:00');
+  const nDays    = Math.round((toCur - fromCur) / 86400000) + 1;
+  const toPrevD   = new Date(fromCur); toPrevD.setDate(toPrevD.getDate() - 1);
+  const fromPrevD = new Date(fromCur); fromPrevD.setDate(fromPrevD.getDate() - nDays);
+  const fromPrev = _isoP(fromPrevD), toPrev = _isoP(toPrevD);
+  const prev = ALL_DAYS.filter(d => d.dateStr >= fromPrev && d.dateStr <= toPrev);
   if (!prev.length) return null;
   const cf = activeCamp ? (BASE_CAMPS.find(c=>c.name===activeCamp)?.costShare||1) : 1;
-  const costMul = activeCamp?cf:1, revMul=activeCamp?cf*1.4:1, convMul=activeCamp?cf*1.1:1;
+  // Mesma regra de totals(): multiplicadores demo só sem dados reais
+  const _demoCamp = !usingRealData && activeCamp;
+  const costMul = _demoCamp?cf:1, revMul=_demoCamp?cf*1.4:1, convMul=_demoCamp?cf*1.1:1;
   const rev     = prev.reduce((s,d)=>s+d.revenue,         0)*revMul;
   const cost    = prev.reduce((s,d)=>s+d.cost,            0)*costMul;
   const costBur = prev.reduce((s,d)=>s+(d.costBureau||0), 0)*costMul;
@@ -1651,8 +1720,10 @@ function prevTotals() {
     s + d.revenue * revMul * netFactor(d.dateStr) - (d.costTotal||0) * costMul, 0)).toFixed(2);
   const conv    = prev.reduce((s,d)=>s+d.conv,            0)*convMul;
   const checks  = prev.reduce((s,d)=>s+(d.checkouts||0),  0)*convMul;
-  const upsell  = prev.reduce((s,d)=>s+d.upsellRate,      0)/(prev.length||1);
-  const convRate= checks>0?(conv/checks*100):0;
+  const upsell  = usingRealData
+    ? (conv > 0 ? prev.reduce((s,d)=>s+(d.pedidosUpsell||0),0) / conv * 100 : 0)
+    : prev.reduce((s,d)=>s+d.upsellRate,      0)/(prev.length||1);
+  const convRate= checks>0?(conv/checks*100):null;
   const cac     = conv>0 && cost>0    ? +(cost   /conv).toFixed(2) : 0;
   const cpv     = conv>0 && costTot>0 ? +(costTot/conv).toFixed(2) : 0;
   const roas    = costTot>0?+(rev/costTot).toFixed(2):0;
@@ -1932,7 +2003,12 @@ function buildAdsBalance() {
   card.classList.toggle('pulse-critico', statusClass === 'critico');
 
   // ── Última atualização ─────────────────────────────────────────────────
-  const checkedAt = new Date(latest.checked_at);
+  // Parse defensivo: Safari retorna Invalid Date para "YYYY-MM-DD HH:MM:SS"
+  // (sem o "T"). Normaliza antes de converter.
+  const _rawCheckedAt = typeof latest.checked_at === 'string' && !latest.checked_at.includes('T')
+    ? latest.checked_at.replace(' ', 'T')
+    : latest.checked_at;
+  const checkedAt = new Date(_rawCheckedAt);
   const diffMin   = Math.round((Date.now() - checkedAt.getTime()) / 60000);
   meta.textContent = diffMin < 60
     ? `Atualizado há ${diffMin} min`
@@ -2083,7 +2159,7 @@ function buildKPIs(T) {
   ];
   const row3 = [
     { id:'m',  label:'Margem',           value:fmtN(T.margin*100,1)+'%',delta:d(T.margin,P?.margin,false),   sub:'contribuição real', color:T.margin>=.22?'green':'amber', dir:T.margin>=.22?'up':'neutral', badge:T.margin>=.22?'saudável':'atenção', spark:filtered.map(x=>x.revenue>0?((x.profit||0)/x.revenue)*100:0), sc:'#16a34a', tip:'lucro bruto ÷ receita bruta\n(% de cada R$ que vira lucro)' },
-    { id:'cv', label:'Taxa de Conversão', value:fmtN(T.convRate,2)+'%', delta:d(T.convRate,P?.convRate,false), sub:'checkout → compra', color:'blue', dir:'up', badge:'+2pp', spark:filtered.map(()=>T.convRate), sc:'#0891b2', tip:'nº de compras ÷ checkouts iniciados\n(% de visitantes que compraram)' },
+    { id:'cv', label:'Taxa de Conversão', value:T.convRate!=null?fmtN(T.convRate,2)+'%':'—', delta:T.convRate!=null?d(T.convRate,P?.convRate,false):null, sub:T.convRate!=null?'checkout → compra':'sem dados de checkout', color:'blue', dir:T.convRate!=null?'up':'neutral', badge:T.convRate!=null?'+2pp':'s/ dados', spark:T.convRate!=null?filtered.map(()=>T.convRate):[], sc:'#0891b2', tip:'nº de compras ÷ checkouts iniciados\n(% de visitantes que compraram)' },
     { id:'up', label:'Taxa de Upsell',   value:fmtN(T.upsell,1)+'%',   delta:d(T.upsell,P?.upsell,false),   sub:'meta: '+TARGET_UPSELL+'%', color:T.upsell>=TARGET_UPSELL?'green':'amber', dir:T.upsell>=TARGET_UPSELL?'up':'neutral', badge:T.upsell>=TARGET_UPSELL?'meta atingida':fmtN(TARGET_UPSELL-T.upsell,1)+'pp abaixo', spark:filtered.map(x=>x.upsellRate), sc:'#7c3aed', targetPct:_tgtUpsell, tip:'pedidos com upsell ÷ total de pedidos\n(% que adicionou produto extra)' },
     { id:'tr', label:'Transações',       value:fmtN(T.conv,0,''),       delta:d(T.conv,P?.conv,false),       sub:'conversões',          color:'blue',  dir:'up',      badge:'pedidos',          spark:filtered.map(x=>x.conv),                                 sc:'#2563eb' },
     { id:'tk', label:'Ticket Médio',     value:fmtR(T.ticket),          delta:d(T.ticket,P?.ticket,false),   sub:'receita / pedidos',        color:'blue',  dir:T.ticket>=(P?.ticket||0)?'up':'down', badge:T.ticket>=(P?.ticket||0)?'crescendo':'caindo', spark:filtered.map(x=>x.conv>0?+(x.revenue/x.conv):0), sc:'#0891b2', tip:'receita bruta ÷ nº de pedidos\n(valor médio por compra)' },
@@ -3230,6 +3306,16 @@ async function initDashboard() {
     ALL_DAYS = makeDays();
     document.getElementById('footerBar').textContent =
       'Verifica Placa · Dashboard · Dados de exemplo (Supabase indisponível)';
+    // Banner bem visível no topo — o aviso só no footer passava despercebido
+    if (!document.getElementById('demoDataBanner')) {
+      const _main = document.querySelector('main') || document.body;
+      const _warn = document.createElement('div');
+      _warn.id = 'demoDataBanner';
+      _warn.style.cssText = 'background:#dc2626;color:#fff;font-weight:700;text-align:center;'
+        + 'padding:12px 16px;border-radius:10px;margin:0 0 14px;font-size:14px;letter-spacing:.2px;';
+      _warn.textContent = '⚠ DADOS DE EXEMPLO — Supabase indisponível. Números abaixo NÃO são reais.';
+      _main.insertBefore(_warn, _main.firstChild);
+    }
   }
 
   // Carrega custos de Ads via CSV do Google Sheets (ponte temporária)
