@@ -1054,7 +1054,9 @@
     </div>
   </div>
 
-  <!-- Detalhamento por Campanha — full width -->
+  <!-- Detalhamento por Campanha — full width (só campanhas do funil base; o
+       teste Pacotão tem tabela própria abaixo: ticket e régua de CAC diferentes
+       tornariam a leitura conjunta enganosa) -->
   <div class="section-label" style="margin-top:24px">Detalhamento por Campanha</div>
   <div class="card">
     <div class="table-wrap">
@@ -1069,6 +1071,26 @@
         </tr></thead>
         <tbody></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Campanha do Teste — Pacotão (aparece só quando há dados dela no período) -->
+  <div id="pacotaoSection" style="display:none">
+    <div class="section-label" style="margin-top:24px">Campanha do Teste — Pacotão R$ 79,90</div>
+    <div class="card">
+      <div class="table-wrap">
+        <table id="pacotaoTable">
+          <thead><tr>
+            <th>Campanha</th>
+            <th class="num">Vendas</th>
+            <th class="num">Investimento</th>
+            <th class="num">% Gasto</th>
+            <th class="num">ROAS</th>
+            <th class="num">CAC</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -3216,9 +3238,36 @@ function mkChart(id, type, data, options) {
 }
 
 // ─── TABLE ────────────────────────────────────────────────────────────────────
+// HTML de uma linha de campanha — usado pela tabela principal e pela do Pacotão.
+function campRowHtml(c, TGT, totalCostAllCamps) {
+  // Campanha do teste R$79,90: barra/cor do CAC usam a régua do teste
+  // (meta/empate/break-even), não a meta CAC do funil base (~R$9)
+  const metaCac = c.teste ? PRODUTO_TESTE.cacMetaMax : TGT.cpa;
+  const pct     = Math.min(100, Math.round((c.cac/metaCac)*100));
+  const col     = c.teste
+    ? (c.cac <= PRODUTO_TESTE.cacMetaMax ? '#16a34a' : c.cac <= PRODUTO_TESTE.cacBreakEven ? '#d97706' : '#dc2626')
+    : (c.cac <= TGT.cpa ? '#16a34a' : '#dc2626');
+  const spendPct = totalCostAllCamps > 0 ? fmtN((c.cost/totalCostAllCamps)*100,1)+'%' : '—';
+  return `
+      <td><span class="cname"><span class="dot" style="background:${c.color}"></span>${c.name}${c.teste?` <span class="camp-teste-chip">🧪 R$${fmtN(PRODUTO_TESTE.preco,2)}</span>`:''}</span></td>
+      <td class="num">${fmtN(c.conv,1,'')}</td>
+      <td class="num">${fmtR(c.cost)}</td>
+      <td class="num" style="color:var(--text-secondary);font-weight:600">${spendPct}</td>
+      <td class="num">${fmtN(c.roas,2,'')}×</td>
+      <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;min-width:46px">
+            <span style="font-size:12px;font-variant-numeric:tabular-nums;color:${col};text-align:right">${fmtR(c.cac)}</span>
+            ${c.cacAds>0?`<span style="font-size:10px;font-weight:300;color:var(--text-muted);text-align:right">Ads: ${fmtR(c.cacAds)}</span>`:''}
+          </div></div></td>`;
+}
+
 function buildTable() {
-  const camps = campTotals();
-  const totalCostAllCamps = camps.reduce((s,c)=>s+c.cost, 0);
+  const allCamps = campTotals();
+  // Teste Pacotão separado da tabela principal (ticket/régua diferentes);
+  // % Gasto das duas tabelas usa o custo TOTAL (base + teste) como denominador.
+  const camps      = allCamps.filter(c => !c.teste);
+  const testeCamps = allCamps.filter(c =>  c.teste);
+  const totalCostAllCamps = allCamps.reduce((s,c)=>s+c.cost, 0);
 
   // Sortable headers — init once, then just update arrow classes
   const thead = document.querySelector('#campaignTable thead tr');
@@ -3254,26 +3303,8 @@ function buildTable() {
   const tbody = document.querySelector('#campaignTable tbody');
   tbody.innerHTML = '';
   sorted.forEach(c => {
-    // Campanha do teste R$79,90: barra/cor do CAC usam a régua do teste
-    // (meta 55 / break-even 67), não a meta CAC do funil base (~R$9)
-    const metaCac = c.teste ? PRODUTO_TESTE.cacMetaMax : TGT.cpa;
-    const pct     = Math.min(100, Math.round((c.cac/metaCac)*100));
-    const col     = c.teste
-      ? (c.cac <= PRODUTO_TESTE.cacMetaMax ? '#16a34a' : c.cac <= PRODUTO_TESTE.cacBreakEven ? '#d97706' : '#dc2626')
-      : (c.cac <= TGT.cpa ? '#16a34a' : '#dc2626');
-    const spendPct = totalCostAllCamps > 0 ? fmtN((c.cost/totalCostAllCamps)*100,1)+'%' : '—';
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><span class="cname"><span class="dot" style="background:${c.color}"></span>${c.name}${c.teste?` <span class="camp-teste-chip">🧪 R$${fmtN(PRODUTO_TESTE.preco,2)}</span>`:''}</span></td>
-      <td class="num">${fmtN(c.conv,1,'')}</td>
-      <td class="num">${fmtR(c.cost)}</td>
-      <td class="num" style="color:var(--text-secondary);font-weight:600">${spendPct}</td>
-      <td class="num">${fmtN(c.roas,2,'')}×</td>
-      <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;min-width:46px">
-            <span style="font-size:12px;font-variant-numeric:tabular-nums;color:${col};text-align:right">${fmtR(c.cac)}</span>
-            ${c.cacAds>0?`<span style="font-size:10px;font-weight:300;color:var(--text-muted);text-align:right">Ads: ${fmtR(c.cacAds)}</span>`:''}
-          </div></div></td>`;
+    tr.innerHTML = campRowHtml(c, TGT, totalCostAllCamps);
     tbody.appendChild(tr);
   });
 
@@ -3293,13 +3324,30 @@ function buildTable() {
     <td>Total</td>
     <td class="num">${fmtN(totConv,1,'')}</td>
     <td class="num">${fmtR(totCost)}</td>
-    <td class="num">100%</td>
+    <td class="num">${totalCostAllCamps > 0 ? fmtN(totCost/totalCostAllCamps*100,1)+'%' : '—'}</td>
     <td class="num">${fmtN(totRoas,2,'')}×</td>
     <td><div style="display:flex;flex-direction:column;align-items:flex-end">
           <span style="font-size:12px;font-variant-numeric:tabular-nums;color:${totCol}">${fmtR(totCac)}</span>
           ${totCacAds>0?`<span style="font-size:10px;font-weight:300;color:var(--text-muted)">Ads: ${fmtR(totCacAds)}</span>`:''}
         </div></td>`;
   tbody.appendChild(tfoot);
+
+  // ── Tabela separada da campanha do teste (Pacotão) ─────────────────────────
+  const pacSection = document.getElementById('pacotaoSection');
+  const pacBody    = document.querySelector('#pacotaoTable tbody');
+  if (pacSection && pacBody) {
+    pacBody.innerHTML = '';
+    if (!testeCamps.length) {
+      pacSection.style.display = 'none';
+    } else {
+      pacSection.style.display = '';
+      testeCamps.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = campRowHtml(c, TGT, totalCostAllCamps);
+        pacBody.appendChild(tr);
+      });
+    }
+  }
 }
 
 // ─── LOST IMPRESSION SHARE ────────────────────────────────────────────────────
@@ -3369,10 +3417,31 @@ function buildLostIS(T) {
     return { ...c, is, budgetPct, rankPct, convRate, lostConv, lostConvBudget, lostConvRank, lostRev };
   }).sort((a,b) => b.lostRev - a.lostRev);
 
+  // Campanhas com custo no período mas SEM Impression Share reportado — o Google
+  // só devolve search_impression_share com volume/histórico suficiente, então
+  // campanha recém-criada (ex.: PACOTAO em learning) não tem IS nos primeiros
+  // dias. Antes elas simplesmente não apareciam aqui; agora entram com "—" nas
+  // colunas de IS, com o custo visível.
+  const semIS = (() => {
+    if (!filtered.length) return [];
+    const minD = filtered[0].dateStr, maxD = filtered[filtered.length-1].dateStr;
+    const agg = new Map();
+    for (const r of CAMPAIGN_DAILY_DATA) {
+      if (r.dateStr < minD || r.dateStr > maxD || !(r.cost > 0)) continue;
+      const base = BASE_CAMPS.find(c => r.campaign.includes(c.name));
+      const key = base ? base.name : r.campaign;
+      if (byCamp.has(key)) continue; // já tem linhas com IS no período
+      const prev = agg.get(key) || { name:key, color: CAMP_COLORS[key] || '#6b6b6b', cost:0 };
+      prev.cost += r.cost;
+      agg.set(key, prev);
+    }
+    return Array.from(agg.values()).sort((a,b) => b.cost - a.cost);
+  })();
+
   const tbody = document.querySelector('#lostIsTable tbody');
   if (tbody) {
     tbody.innerHTML = '';
-    if (!campRows.length) {
+    if (!campRows.length && !semIS.length) {
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:16px;font-size:12.5px">Sem dados de Impression Share no período (aguardando sync)</td></tr>';
     } else {
       campRows.forEach(c => {
@@ -3385,6 +3454,16 @@ function buildLostIS(T) {
           <td class="num" style="color:var(--green);font-weight:600">${fmtN(c.is*100,0)}%</td>
           <td class="num" title="Budget: ${fmtN(c.lostConvBudget,1)} · Rank: ${fmtN(c.lostConvRank,1)}">${fmtN(c.lostConv,1)}</td>
           <td class="num" style="color:var(--red);font-weight:600">${fmtR(c.lostRev)}</td>`;
+        tbody.appendChild(tr);
+      });
+      semIS.forEach(c => {
+        const tr = document.createElement('tr');
+        const dash = '<td class="num" style="color:var(--text-muted)">—</td>';
+        tr.innerHTML = `
+          <td><span class="cname" title="Google ainda não reporta Impression Share pra esta campanha (volume/histórico insuficiente)"><span class="dot" style="background:${c.color}"></span>${c.name} <span style="font-size:10px;color:var(--text-muted)">IS pendente</span></span></td>
+          ${dash}${dash}
+          <td class="num">${fmtR(c.cost)}</td>
+          ${dash}${dash}${dash}`;
         tbody.appendChild(tr);
       });
     }

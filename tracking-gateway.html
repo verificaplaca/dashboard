@@ -613,7 +613,11 @@ function renderHealth() {
   const banner = document.getElementById('statusBanner');
   if (healthy) {
     banner.className = 'status-banner ok';
-    banner.innerHTML = `<span class="ic">✓</span> Nenhuma ação necessária no momento. Todos os pedidos do período foram enviados para os canais configurados (Meta CAPI conta como OK enquanto estiver "skipped" por falta de META_PIXEL_ID/META_ACCESS_TOKEN — ainda não habilitado).`;
+    // Nota do Meta CAPI só aparece enquanto o canal estiver de fato "skipped"
+    // (não habilitado) — e como sufixo discreto, pra não parecer alerta.
+    const metaSkipped = week.some(o => o.meta_status === 'skipped');
+    banner.innerHTML = `<span class="ic">✓</span> Nenhuma ação necessária — todos os pedidos do período foram enviados para os canais configurados.` +
+      (metaSkipped ? ` <span style="opacity:.65;font-size:11.5px">Meta CAPI ainda não habilitado ("skipped" conta como OK até configurar META_PIXEL_ID/META_ACCESS_TOKEN).</span>` : '');
   } else {
     banner.className = 'status-banner bad';
     banner.innerHTML = `<span class="ic">⚠</span> ${failing} pedido(s) com falha ou pendência nos últimos 7 dias. Veja a tabela abaixo (filtro "Parcial / com falha") para os detalhes por canal.`;
