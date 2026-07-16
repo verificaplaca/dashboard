@@ -862,7 +862,7 @@
 
   <!-- Por Produto — Teste Pacote Completo R$79,90
        Leitura ISOLADA do teste (não passa por totals()/campTotals()).
-       Benchmark 15/07/2026 + bureau real R$22,67: meta CAC 40–48 · empate ~48 · break-even ~54. -->
+       Benchmark 15/07/2026 + bureau real R$25,53 (16/07): meta CAC 40–46 · empate ~46 · break-even ~51. -->
   <div class="section-label" style="margin-top:24px">Por Produto — Teste Pacote Completo
     <span class="produto-chip demo" id="produtoDemoChip" style="display:none">DADOS DEMO · views SQL pendentes</span>
   </div>
@@ -1387,15 +1387,16 @@ const MONTHLY_NET_PROFIT_TARGET   = 30000;  // fallback — R$ meta lucro líqui
 // ─── TESTE PACOTE COMPLETO R$79,90 ───────────────────────────────────────────
 // Benchmark 15/07/2026 (30d reais Supabase/Pagar.me): m1 funil atual R$19,60,
 // CAC real R$17,40, lucro R$2,20/comprador. Régua do teste com bureau REAL
-// (R$22,67/venda = combo checktudo 7,57 + leilão q68 15,10 — SQL de custo por plano):
-//   m2 = 79,90×0,962 − 22,67 = R$54,19 → break-even ~54
-//   empate = m2×CAC1/m1 = 54,19×17,40/19,60 ≈ R$48 → meta (vitória) = 40–48
+// (R$25,53/venda — atualizado 16/07; venda 79,90 → margem bruta 68%; valor
+//  anterior 22,67 = combo checktudo 7,57 + leilão q68 15,10):
+//   m2 = 79,90×0,962 − 25,53 = R$51,33 → break-even ~51
+//   empate = m2×CAC1/m1 = 51,33×17,40/19,60 ≈ R$46 → meta (vitória) = 40–46
 const PRODUTO_TESTE = {
   preco:          79.90,
   campMatch:      'PACOTAO',     // casa "[SEARCH] [COMPRA] [LP-PACOTAO-1] [BEST] - JUL-2026" (substring, uppercase); utm da LP também precisa conter "pacotao"
   inicio:         '2026-07-16',  // primeiro dia do teste (campanha criada 16/07)
-  bureauPorVenda: 22.67,         // custo REAL por venda do pacotão: combo checktudo 7,57 + leilão q68 15,10
-  cacMetaMin: 40, cacMetaMax: 48, cacEmpate: 48, cacBreakEven: 54,
+  bureauPorVenda: 25.53,         // custo REAL por venda do pacotão (atualizado 16/07; antes 22,67)
+  cacMetaMin: 40, cacMetaMax: 46, cacEmpate: 46, cacBreakEven: 51,
   reguaMax:   90,                // fim da escala visual da régua
   learningConv: 30,              // nº aproximado de conversões p/ sair do learning (conferir doc do Google)
 };
@@ -1405,7 +1406,7 @@ let TESTE_WIRED = false; // true = fetch das views do teste OK (mesmo com 0 linh
 
 // Registra a campanha do teste no universo de campanhas: campTotals() agrega por
 // substring do nome (qualquer campanha do Ads contendo campMatch cai nesta linha),
-// com flag teste=true — a tabela Campanhas usa a régua do teste (55/67) no CAC
+// com flag teste=true — a tabela Campanhas usa a régua do teste (meta/empate/BE) no CAC
 // dela, não a meta CAC do funil base (~R$9), e mostra o chip 🧪.
 // shares 0 = fora do rateio do fallback demo (filtrado em campTotals()).
 BASE_CAMPS.push({ name: PRODUTO_TESTE.campMatch, convShare: 0, costShare: 0, teste: true });
@@ -2824,10 +2825,10 @@ function buildReguaTeste(cac) {
   const pct = v => Math.max(0, Math.min(100, v / max * 100));
   const zonas = [
     { from:0,              to:P.cacMetaMin,   c:'rgba(22,163,74,.15)'  }, // abaixo da meta: bom
-    { from:P.cacMetaMin,   to:P.cacMetaMax,   c:'rgba(22,163,74,.42)'  }, // faixa-alvo 45–55
-    { from:P.cacMetaMax,   to:P.cacEmpate,    c:'rgba(217,119,6,.32)'  }, // 55–60: até o empate
-    { from:P.cacEmpate,    to:P.cacBreakEven, c:'rgba(234,88,12,.30)'  }, // 60–67: perde eficiência
-    { from:P.cacBreakEven, to:max,            c:'rgba(220,38,38,.28)'  }, // 67+: prejuízo
+    { from:P.cacMetaMin,   to:P.cacMetaMax,   c:'rgba(22,163,74,.42)'  }, // faixa-alvo (meta)
+    { from:P.cacMetaMax,   to:P.cacEmpate,    c:'rgba(217,119,6,.32)'  }, // meta→empate
+    { from:P.cacEmpate,    to:P.cacBreakEven, c:'rgba(234,88,12,.30)'  }, // empate→break-even: perde eficiência
+    { from:P.cacBreakEven, to:max,            c:'rgba(220,38,38,.28)'  }, // acima do break-even: prejuízo
   ];
   document.getElementById('ptReguaZonas').innerHTML =
     zonas.map(z => `<span style="width:${pct(z.to)-pct(z.from)}%;background:${z.c}"></span>`).join('');
