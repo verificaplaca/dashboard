@@ -6,14 +6,16 @@
  *
  * Aceita body JSON opcional:
  *   { "p_start": "2026-01-01", "p_end": "2026-04-30" }  — para backfill
- *   Sem body: últimos 3 dias (incremental diário)
+ *   Sem body: últimos 35 dias — janela larga de propósito: a bureau_chamadas_cobradas
+ *   lança/ajusta cobranças RETROATIVAMENTE (com dias de atraso); janela curta
+ *   congelava dias antigos com custo subestimado (bug corrigido em 2026-07-16)
  *
  * Secrets necessários:
  *   BUREAU_SUPABASE_URL — https://ozquoloetuzynnyzkado.supabase.co (Site/Sistema)
  *   BUREAU_SUPABASE_KEY — anon key do Supabase do Site/Sistema
  *
  * Deploy:  supabase functions deploy sync-bureau-daily --project-ref ftmgmfdqdqxboiktxcoj (Dashboard)
- * Cron:    cron-job.org → POST .../functions/v1/sync-bureau-daily, 3x/dia (06h, 12h, 18h BRT)
+ * Cron:    cron-job.org → POST .../functions/v1/sync-bureau-daily, a cada 30min (desde 16/07/2026)
  *          Header: Authorization: Bearer <SERVICE_ROLE_KEY>
  *
  * Depende da função RPC get_bureau_costs_daily(p_start, p_end), definida em
@@ -48,8 +50,9 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'BUREAU_SUPABASE_URL ou BUREAU_SUPABASE_KEY não configurados' }, 500)
   }
 
-  // Lê datas do body (backfill) ou usa padrão incremental (últimos 3 dias)
-  let p_start = daysAgo(3)
+  // Lê datas do body (backfill) ou usa padrão incremental (últimos 35 dias,
+  // pra reabsorver lançamentos retroativos da bureau_chamadas_cobradas)
+  let p_start = daysAgo(35)
   let p_end   = todayISO()
   try {
     const body = await req.json().catch(() => null)
