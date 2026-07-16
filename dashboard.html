@@ -2812,11 +2812,17 @@ function buildReguaTeste(cac) {
 function buildProdutoTeste(T) {
   const card = document.getElementById('produtoTesteCard');
   if (!card) return;
-  // Demo só quando as views reais não responderam (TESTE_WIRED false).
-  // Views ok com 0 linhas = campanha ainda não vendeu → painel vazio, sem demo.
-  if (!TESTE_WIRED && !TESTE_DAILY.length) { TESTE_DAILY = makeTesteDemoDays(); TESTE_DEMO = true; }
+  // NUNCA mostrar número fictício em produção: sem dados reais, o painel fica
+  // VAZIO dizendo o que falta. Demo visual só com ?demoTeste=1 na URL (preview
+  // local de design) — jamais como fallback automático.
+  const _demoForcado = (() => { try { return new URLSearchParams(location.search).has('demoTeste'); } catch (e) { return false; } })();
+  if (_demoForcado && !TESTE_WIRED && !TESTE_DAILY.length) { TESTE_DAILY = makeTesteDemoDays(); TESTE_DEMO = true; }
   const chip = document.getElementById('produtoDemoChip');
-  if (chip) chip.style.display = TESTE_DEMO ? 'inline-flex' : 'none';
+  if (chip) {
+    if (TESTE_DEMO) { chip.style.display = 'inline-flex'; chip.textContent = 'DADOS DEMO (?demoTeste=1) — não são números reais'; }
+    else if (!TESTE_WIRED) { chip.style.display = 'inline-flex'; chip.textContent = 'AGUARDANDO SETUP · rodar views SQL (instrucoes-teste-pacote-completo.md)'; }
+    else chip.style.display = 'none';
+  }
 
   const P  = PRODUTO_TESTE;
   const f0 = filtered.length ? filtered[0].dateStr : null;
@@ -2845,13 +2851,18 @@ function buildProdutoTeste(T) {
   el.textContent = cac != null ? fmtR(cac) : '—';
   el.className   = 'produto-card-value ' + st.cls;
   const fase = document.getElementById('ptFaseBadge');
-  if (vendasAcum < P.learningConv) {
+  if (!TESTE_DAILY.length) {
+    // Estado vazio: sem série nenhuma (views pendentes ou campanha sem dados)
+    fase.className = 'produto-badge'; fase.textContent = TESTE_WIRED ? '⏳ Sem vendas ainda' : '⏳ Aguardando setup';
+  } else if (vendasAcum < P.learningConv) {
     fase.className = 'produto-badge'; fase.textContent = `🎓 Learning · ${vendasAcum}/${P.learningConv} conv.`;
   } else {
     fase.className = 'produto-badge ' + st.cls; fase.textContent = st.txt;
   }
   document.getElementById('ptMeta').textContent =
-    dias.length ? `dia ${diasTeste} do teste · ${fmtN(vendas,0)} vendas no período` : 'sem dados no período selecionado';
+    dias.length ? `dia ${diasTeste} do teste · ${fmtN(vendas,0)} vendas no período`
+    : TESTE_WIRED ? 'campanha ainda sem vendas/custo no período'
+    : 'sem dados reais — views SQL pendentes';
 
   buildReguaTeste(cac);
 
@@ -2876,9 +2887,9 @@ function buildProdutoTeste(T) {
     ` · bureau estimado em ${fmtR(P.bureauPorVenda)}/venda (1x, a confirmar)`;
 
   // ── Bloco B: funil atual = totais globais − teste ───────────────────────
-  // Com DADOS DEMO o teste ainda não existe nos totais reais → NÃO subtrai
-  // (senão criaria números falsos). No wiring real, subtrai de verdade.
-  const desconta   = !TESTE_DEMO;
+  // Só subtrai com dados REAIS do teste (demo/sem-setup subtrairia números
+  // falsos ou nada — nos dois casos o certo é mostrar os globais como estão).
+  const desconta   = TESTE_WIRED && !TESTE_DEMO;
   const invAtual   = T.cost - (desconta ? inv     : 0);
   const vendAtual  = T.conv - (desconta ? vendas  : 0);
   const revAtual   = T.rev  - (desconta ? receita : 0);
@@ -2889,7 +2900,9 @@ function buildProdutoTeste(T) {
   elA.className   = 'produto-card-value';
   document.getElementById('paCacSub').textContent = desconta
     ? 'CAC real do período · já descontado o teste'
-    : 'CAC real do período · teste (demo) ainda não descontado';
+    : TESTE_DEMO
+      ? 'CAC real do período · teste (demo) NÃO descontado'
+      : 'CAC real do período · teste ainda sem dados reais';
   document.getElementById('paMeta').textContent =
     `${fmtN(vendAtual,0)} pedidos pagos no período`;
   document.getElementById('paMetrics').innerHTML = [
