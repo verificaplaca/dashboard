@@ -459,6 +459,69 @@
       th, td { padding: 7px 6px; }
     }
 
+    /* ── Por Produto — Teste Pacote Completo R$79,90 ─────────────────────── */
+    /* Subgrid: as 5 linhas internas (header / régua / métricas / atribuição /
+       gráfico) são COMPARTILHADAS entre os dois cards — métricas e gráficos
+       ficam alinhados horizontalmente na mesma altura nos dois boxes.
+       Fallback sem subgrid: cada card alinha sozinho (grid normal), sem quebrar. */
+    .produto-grid { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(5,auto); gap:12px; }
+    @media(max-width:900px){ .produto-grid { grid-template-columns:1fr; } }
+    .produto-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      padding:16px 20px; box-shadow:var(--shadow); transition:box-shadow .15s;
+      display:grid; grid-template-rows:subgrid; grid-row:span 5; align-content:start; }
+    .produto-card > .produto-card-top { grid-row:1; }
+    .produto-card > .cac-regua-wrap   { grid-row:2; }
+    .produto-card > .produto-metrics  { grid-row:3; }
+    .produto-card > .produto-attrib   { grid-row:4; }
+    .produto-card > .produto-chart    { grid-row:5; }
+    .produto-card:hover { box-shadow:var(--shadow-md); }
+    .produto-card.teste { border-color:#c7d2fe; }
+    [data-theme="dark"] .produto-card.teste { border-color:#4338ca; }
+    .produto-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+    .produto-card-label { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); margin-bottom:3px; }
+    .produto-card-value { font-size:26px; font-weight:700; color:var(--text-primary); letter-spacing:-.5px; }
+    .produto-card-value.ok    { color:var(--green); }
+    .produto-card-value.warn  { color:var(--amber); }
+    .produto-card-value.bad   { color:var(--red); }
+    .produto-card-valuesub { font-size:10.5px; color:var(--text-muted); margin-top:3px; }
+    .produto-card-topright { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+    .produto-badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px;
+      background:#e0e7ff; color:#4338ca; white-space:nowrap; }
+    [data-theme="dark"] .produto-badge { background:#312e81; color:#c7d2fe; }
+    .produto-badge.ok   { background:#dcfce7; color:#15803d; }
+    .produto-badge.warn { background:#fef9c3; color:#a16207; }
+    .produto-badge.bad  { background:#fee2e2; color:#b91c1c; }
+    [data-theme="dark"] .produto-badge.ok   { background:rgba(22,163,74,.2);  color:#4ade80; }
+    [data-theme="dark"] .produto-badge.warn { background:rgba(217,119,6,.2);  color:#fbbf24; }
+    [data-theme="dark"] .produto-badge.bad  { background:rgba(220,38,38,.2);  color:#f87171; }
+    .produto-meta { font-size:10.5px; color:var(--text-muted); text-align:right; }
+    .produto-chip { display:inline-flex; align-items:center; font-size:10px; font-weight:700; letter-spacing:.04em;
+      border-radius:4px; padding:2px 7px; margin-left:8px; vertical-align:middle; text-transform:none; }
+    .produto-chip.demo { background:var(--amber-soft); color:var(--amber); border:1px dashed var(--amber); }
+    .produto-metrics { margin-top:12px; }
+    .produto-attrib { font-size:11px; color:var(--text-secondary); margin-top:10px;
+      display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .produto-attrib .warn { color:var(--amber); font-weight:600; }
+    .produto-chart { height:150px; margin-top:14px; position:relative; }
+    /* Chip 🧪 da campanha do teste na tabela Campanhas */
+    .camp-teste-chip { font-size:9.5px; font-weight:700; letter-spacing:.02em; white-space:nowrap;
+      background:#ccfbf1; color:#0f766e; border-radius:4px; padding:1px 5px; margin-left:6px; }
+    [data-theme="dark"] .camp-teste-chip { background:rgba(13,148,136,.22); color:#5eead4; }
+
+    /* Régua de CAC (benchmark do teste) */
+    .cac-regua-wrap { margin-top:8px; padding-top:16px; }
+    .cac-regua { position:relative; height:20px; }
+    .cac-regua-zonas { display:flex; height:100%; border-radius:6px; overflow:hidden; }
+    .cac-regua-zonas span { height:100%; }
+    .cac-regua-marker { position:absolute; top:-5px; bottom:-5px; width:2px; border-radius:2px;
+      background:var(--text-primary); transform:translateX(-1px); }
+    .cac-regua-marker::after { content:attr(data-val); position:absolute; top:-15px; left:50%;
+      transform:translateX(-50%); font-size:10px; font-weight:700; white-space:nowrap; color:var(--text-primary); }
+    .cac-regua-ticks { position:relative; height:15px; margin-top:3px; font-size:9.5px; color:var(--text-muted); }
+    .cac-regua-ticks span { position:absolute; transform:translateX(-50%); white-space:nowrap; }
+    .cac-regua-caption { text-align:right; font-size:9px; letter-spacing:.02em;
+      color:var(--text-muted); opacity:.85; margin-top:1px; }
+
     /* ── Dark Mode ────────────────────────────────────────────────────────── */
     [data-theme="dark"] {
       --bg:#0f172a; --surface:#1e293b; --border:#334155;
@@ -795,6 +858,58 @@
   <!-- ROW 2: Volume & efficiency -->
   <div class="kpi-row kpi-row-2" id="kpiRow2"></div>
   <div class="kpi-row kpi-row-3" id="kpiRow3"></div>
+
+  <!-- Por Produto — Teste Pacote Completo R$79,90
+       Leitura ISOLADA do teste (não passa por totals()/campTotals()).
+       Benchmark 15/07/2026: meta CAC 45–55 · empate ~60 · break-even ~67 (bureau 1x). -->
+  <div class="section-label" style="margin-top:24px">Por Produto — Teste Pacote Completo
+    <span class="produto-chip demo" id="produtoDemoChip" style="display:none">DADOS DEMO · views SQL pendentes</span>
+  </div>
+  <div class="produto-grid">
+
+    <!-- Bloco A: Pacote Completo R$79,90 (campanha nova) -->
+    <div class="produto-card teste" id="produtoTesteCard">
+      <div class="produto-card-top">
+        <div>
+          <div class="produto-card-label">🧪 Pacote Completo — R$ 79,90</div>
+          <div class="produto-card-value" id="ptCac">—</div>
+          <div class="produto-card-valuesub">CAC real do período · investimento ÷ vendas pagas</div>
+        </div>
+        <div class="produto-card-topright">
+          <span class="produto-badge" id="ptFaseBadge">—</span>
+          <span class="produto-meta" id="ptMeta"></span>
+        </div>
+      </div>
+      <div class="cac-regua-wrap">
+        <div class="cac-regua">
+          <div class="cac-regua-zonas" id="ptReguaZonas"></div>
+          <div class="cac-regua-marker" id="ptReguaMarker" style="display:none"></div>
+        </div>
+        <div class="cac-regua-ticks" id="ptReguaTicks"></div>
+        <div class="cac-regua-caption" id="ptReguaCaption"></div>
+      </div>
+      <div class="ads-balance-metrics produto-metrics" id="ptMetrics"></div>
+      <div class="produto-attrib" id="ptAttrib"></div>
+      <div class="produto-chart"><canvas id="produtoTesteChart"></canvas></div>
+    </div>
+
+    <!-- Bloco B: Consulta base R$14,99 + upsells (funil vigente, sem o teste) -->
+    <div class="produto-card" id="produtoAtualCard">
+      <div class="produto-card-top">
+        <div>
+          <div class="produto-card-label">Consulta Base — R$ 14,99 + upsells</div>
+          <div class="produto-card-value" id="paCac">—</div>
+          <div class="produto-card-valuesub" id="paCacSub">CAC real do período · investimento ÷ pedidos pagos</div>
+        </div>
+        <div class="produto-card-topright">
+          <span class="produto-meta" id="paMeta"></span>
+        </div>
+      </div>
+      <div class="ads-balance-metrics produto-metrics" id="paMetrics"></div>
+      <div class="produto-chart"><canvas id="produtoAtualChart"></canvas></div>
+    </div>
+
+  </div>
 
   <!-- Monitoramento: Google Ads + Bureau -->
   <div class="section-label" style="margin-top:24px">Monitoramento Operacional</div>
@@ -1246,6 +1361,32 @@ const MONTHLY_REVENUE_TARGET      = 163000; // fallback — R$ meta receita
 const MONTHLY_PROFIT_TARGET       = 36000;  // fallback — R$ meta lucro bruto
 const MONTHLY_NET_PROFIT_TARGET   = 30000;  // fallback — R$ meta lucro líquido
 
+// ─── TESTE PACOTE COMPLETO R$79,90 ───────────────────────────────────────────
+// Benchmark 15/07/2026 (30d reais Supabase/Pagar.me): m1 funil atual R$19,60,
+// CAC real R$17,40, lucro R$2,20/comprador. Régua do teste: meta 45–55,
+// empate ~60 (mesma eficiência por real gasto), break-even ~67 (bureau 1x;
+// com bureau 3x cai pra ~62). NÚMEROS DE BUREAU DO PACOTE AINDA ESTIMADOS.
+const PRODUTO_TESTE = {
+  preco:          79.90,
+  campMatch:      'COMPLETA',    // substring (uppercase) do nome da campanha no Ads — AJUSTAR ao criar a campanha
+  inicio:         '2026-07-16',  // primeiro dia do teste — AJUSTAR quando a campanha subir
+  bureauPorVenda: 4.75,          // estimativa 1x — custo real de bureau da consulta completa pendente de confirmação
+  cacMetaMin: 45, cacMetaMax: 55, cacEmpate: 60, cacBreakEven: 67,
+  reguaMax:   90,                // fim da escala visual da régua
+  learningConv: 30,              // nº aproximado de conversões p/ sair do learning (conferir doc do Google)
+};
+let TESTE_DAILY = [];  // {dateStr, vendas, receita, custoAds, vendasUtm} — série real das views SQL
+let TESTE_DEMO  = false; // true = painel exibindo dados demo (chip amarelo visível)
+let TESTE_WIRED = false; // true = fetch das views do teste OK (mesmo com 0 linhas ≠ demo)
+
+// Registra a campanha do teste no universo de campanhas: campTotals() agrega por
+// substring do nome (qualquer campanha do Ads contendo campMatch cai nesta linha),
+// com flag teste=true — a tabela Campanhas usa a régua do teste (55/67) no CAC
+// dela, não a meta CAC do funil base (~R$9), e mostra o chip 🧪.
+// shares 0 = fora do rateio do fallback demo (filtrado em campTotals()).
+BASE_CAMPS.push({ name: PRODUTO_TESTE.campMatch, convShare: 0, costShare: 0, teste: true });
+CAMP_COLORS[PRODUTO_TESTE.campMatch] = '#0d9488'; // teal — distinto das 5 cores atuais
+
 // ─── METAS (monthly_targets) ─────────────────────────────────────────────────
 // Fonte real das metas: tabela monthly_targets (Supabase principal), editável
 // no módulo "Metas" da sidebar. Fallback em cascata: linha do mês da data →
@@ -1363,7 +1504,7 @@ async function loadSupabaseData() {
   const qs    = `date=gte.${start}&date=lte.${today}`;
 
   const gadsQs = `date=gte.${start}&date=lte.${today}`;
-  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows, balRows, burTypeRows, chkRows, tgtRows] = await Promise.all([
+  const [revRows, upsRows, ubtRows, burRows, gadsRows, refRows, balRows, burTypeRows, chkRows, tgtRows, compRows, utmRows] = await Promise.all([
     supaGet(`/rest/v1/revenue_daily?${qs}&select=date,revenue,paid_orders`),
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
@@ -1376,6 +1517,11 @@ async function loadSupabaseData() {
     supaGet(`/rest/v1/checkouts_daily?${qs}&select=date,checkouts_started`, 1, SITE_SUPA_URL, SITE_SUPA_HDR).catch(() => []),
     // Metas mensais — tabela pequena, sem paginação necessária; nunca quebra a dash
     supaGet(`/rest/v1/monthly_targets?select=*&order=month.asc`).catch(() => []),
+    // Teste Pacote Completo R$79,90 — vendas do produto (migration 014, Supabase da dash).
+    // null = view ausente/fetch falhou → painel cai no modo demo; [] = view ok sem vendas.
+    supaGet(`/rest/v1/revenue_daily_completa?${qs}&select=date,vendas,receita`).catch(() => null),
+    // Cross-check de atribuição — checkouts pagos por utm×plano (Supabase do SITE)
+    supaGet(`/rest/v1/checkouts_campaign_daily?${qs}&select=date,utm_campaign,paid_count`, 1, SITE_SUPA_URL, SITE_SUPA_HDR).catch(() => null),
   ]);
   ADS_BALANCE_DATA = balRows || [];
   BUREAU_TYPE_ROWS = burTypeRows || [];
@@ -1474,7 +1620,66 @@ async function loadSupabaseData() {
     rankLostIS:    r.search_rank_lost_is      != null ? parseFloat(r.search_rank_lost_is)      : null,
   }));
   console.log('[Dashboard] Google Ads (Supabase):', CAMPAIGN_DAILY_DATA.length, 'linhas carregadas.');
+  populateCampaignFilter();
+
+  // ── Teste Pacote Completo R$79,90: monta a série diária real ──────────────
+  // compRows === null → view revenue_daily_completa ainda não existe (ou fetch
+  // falhou) → TESTE_WIRED fica false e o painel mostra o demo com chip amarelo.
+  if (compRows !== null) {
+    TESTE_WIRED = true;
+    TESTE_DEMO  = false;
+    // Custo/dia: soma das campanhas do Ads cujo nome contém campMatch
+    const costMap = new Map();
+    for (const r of CAMPAIGN_DAILY_DATA) {
+      if (!r.campaign.includes(PRODUTO_TESTE.campMatch)) continue; // campaign já é uppercase
+      costMap.set(r.dateStr, (costMap.get(r.dateStr) || 0) + r.cost);
+    }
+    // Cross-check: checkouts pagos/dia com utm_campaign contendo campMatch
+    const utmMap = new Map();
+    for (const r of (utmRows || [])) {
+      if (!String(r.utm_campaign || '').toUpperCase().includes(PRODUTO_TESTE.campMatch)) continue;
+      const ds = String(r.date).slice(0, 10);
+      utmMap.set(ds, (utmMap.get(ds) || 0) + (parseInt(r.paid_count) || 0));
+    }
+    const map = new Map();
+    for (const r of compRows) {
+      const ds = String(r.date).slice(0, 10);
+      map.set(ds, { dateStr: ds, vendas: parseInt(r.vendas) || 0,
+                    receita: parseFloat(r.receita) || 0, custoAds: 0,
+                    vendasUtm: utmMap.get(ds) || 0 });
+    }
+    // Dia com custo da campanha e 0 vendas também entra (queima de verba visível)
+    for (const ds of costMap.keys()) {
+      if (!map.has(ds)) map.set(ds, { dateStr: ds, vendas: 0, receita: 0, custoAds: 0, vendasUtm: 0 });
+    }
+    for (const d of map.values()) d.custoAds = costMap.get(d.dateStr) || 0;
+    TESTE_DAILY = Array.from(map.values()).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+    console.log('[Dashboard] Teste Pacote Completo:', TESTE_DAILY.length, 'dias reais carregados.');
+  }
+
   mergeCostIntoAllDays();
+}
+
+// Acrescenta ao <select> de campanhas as que existem nos dados mas não estão nas
+// options hardcoded (ex.: campanha do teste R$79,90, futuras campanhas novas).
+// Sem isso, uma campanha nova apareceria na tabela mas não seria filtrável.
+function populateCampaignFilter() {
+  const sel = document.getElementById('campaignFilter');
+  if (!sel) return;
+  const known = new Set(Array.from(sel.options).map(o => o.value));
+  const keys  = new Set();
+  for (const r of CAMPAIGN_DAILY_DATA) {
+    const base = BASE_CAMPS.find(c => r.campaign.toUpperCase().includes(c.name));
+    keys.add(base ? base.name : r.campaign); // mesma chave usada em campTotals()
+  }
+  for (const k of keys) {
+    if (known.has(k)) continue;
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = k.length > 30 ? k.slice(0, 30) + '…' : k;
+    sel.appendChild(o);
+    known.add(k);
+  }
 }
 
 function mergeCostIntoAllDays() {
@@ -1806,39 +2011,57 @@ function campTotals() {
     const agg = new Map();
     for (const r of CAMPAIGN_DAILY_DATA) {
       if (r.dateStr < minDate || r.dateStr > maxDate) continue;
-      // Mapeia nome completo da campanha (ex: "[SEARCH]...[RISCO_DOC]...") → chave BASE_CAMPS
+      // Mapeia nome completo da campanha (ex: "[SEARCH]...[RISCO_DOC]...") → chave BASE_CAMPS.
+      // Campanha fora de BASE_CAMPS NÃO é mais dropada: entra com o próprio nome
+      // (antes o custo dela sumia silenciosamente da tabela Campanhas).
       const base = BASE_CAMPS.find(c => r.campaign.toUpperCase().includes(c.name));
-      if (!base) continue;
-      if (activeCamp && base.name !== activeCamp) continue;
-      const prev = agg.get(base.name) || { name:base.name, cost:0, conv:0, rev:0 };
+      const key  = base ? base.name : r.campaign;
+      if (activeCamp && key !== activeCamp) continue;
+      const prev = agg.get(key) || { name:key, teste: !!(base && base.teste), cost:0, conv:0, rev:0 };
       prev.cost += r.cost;
       prev.conv += r.conversions;
       prev.rev  += r.revenue;
-      agg.set(base.name, prev);
+      agg.set(key, prev);
     }
     if (agg.size > 0) {
       const camps = Array.from(agg.values());
-      const totalRev = camps.reduce((s,c) => s + c.rev, 0);
       // paid_orders real do período (pagamentos confirmados na Pagar.me) — não é segmentado por campanha no banco,
       // então distribuímos proporcionalmente à participação de conversões do Google Ads de cada campanha.
+      // EXCEÇÃO — campanha do teste R$79,90: produto/ticket diferentes quebram o rateio
+      // proporcional; com dados REAIS do teste (TESTE_DAILY, fase 2), a linha dela usa as
+      // vendas reais do produto e as demais rateiam o restante. Com demo, rateio antigo.
+      const testeReal   = TESTE_WIRED && !TESTE_DEMO;
+      const diasTesteIn = testeReal ? TESTE_DAILY.filter(d => d.dateStr >= minDate && d.dateStr <= maxDate) : [];
+      const vendasTeste = diasTesteIn.reduce((s,d) => s + d.vendas,  0);
+      const recTeste    = diasTesteIn.reduce((s,d) => s + d.receita, 0);
       const totalPaidOrders = filtered.reduce((s,d) => s + d.conv, 0);
-      const totalGadsConv   = camps.reduce((s,c) => s + c.conv, 0);
+      const paidRestante    = testeReal ? Math.max(0, totalPaidOrders - vendasTeste) : totalPaidOrders;
+      const totalGadsConv   = camps.reduce((s,c) => s + (testeReal && c.teste ? 0 : c.conv), 0);
+      // Receita por campanha só existe pro teste (rateio de bureau por receita
+      // usa apenas as demais — senão o teste, única linha com rev, levaria 100%)
+      const totalRev = camps.reduce((s,c) => s + (testeReal && c.teste ? 0 : c.rev), 0);
       return camps.map(c => {
-        // Bureau proporcional à participação de receita da campanha
-        const bureauShare = totalRev > 0 ? totalBureau * (c.rev / totalRev) : 0;
+        const isTeste  = testeReal && c.teste;
+        const rev      = isTeste ? recTeste : c.rev;
+        // Bureau: teste usa estimativa própria por venda; demais proporcional à receita
+        const bureauShare = isTeste
+          ? vendasTeste * PRODUTO_TESTE.bureauPorVenda
+          : (totalRev > 0 ? totalBureau * (c.rev / totalRev) : 0);
         const costTotal   = +(c.cost + bureauShare).toFixed(2);
-        const pft         = +(c.rev - costTotal).toFixed(2);
+        const pft         = +(rev - costTotal).toFixed(2);
         const gadsConv    = c.conv; // conversões reportadas pelo Google Ads (métrica própria do Ads)
-        const realConv    = totalGadsConv > 0 ? totalPaidOrders * (gadsConv / totalGadsConv) : 0; // estimativa
+        const realConv    = isTeste
+          ? vendasTeste // vendas pagas REAIS do produto 79,90 (Supabase), não estimativa
+          : (totalGadsConv > 0 ? paidRestante * (gadsConv / totalGadsConv) : 0);
         return {
           ...c, color: CAMP_COLORS[c.name] || '#6b6b6b',
-          costTotal, bureauShare: +bureauShare.toFixed(2),
+          rev, costTotal, bureauShare: +bureauShare.toFixed(2),
           pft,
           gadsConv,
-          conv: +realConv.toFixed(1), // CAC principal agora usa pedidos pagos reais (estimados por campanha)
-          cac:    realConv > 0 ? +(c.cost / realConv).toFixed(2) : 0,  // CAC real (pago) — estimado por participação
+          conv: +realConv.toFixed(1), // CAC principal usa pedidos pagos reais (teste: exatos; demais: estimados por participação)
+          cac:    realConv > 0 ? +(c.cost / realConv).toFixed(2) : 0,  // CAC real (pago)
           cacAds: gadsConv > 0 ? +(c.cost / gadsConv).toFixed(2) : 0,  // CAC Google Ads (métrica própria do Ads)
-          roas: c.cost > 0 ? +(c.rev  / c.cost).toFixed(2) : 0,
+          roas: c.cost > 0 ? +(rev / c.cost).toFixed(2) : 0,
           convShare: 0, costShare: 0,
         };
       }).sort((a,b) => b.conv - a.conv);
@@ -1847,6 +2070,7 @@ function campTotals() {
 
   // ── Fallback: estimativas por proporção (quando CampaignDaily não disponível) ──
   return BASE_CAMPS
+    .filter(c=>!c.teste) // teste fica fora do rateio demo (shares 0)
     .filter(c=>!activeCamp||c.name===activeCamp)
     .map(c=>{
       const cost    = filtered.reduce((s,d)=>s+d.cost,0)*c.costShare;
@@ -1915,6 +2139,8 @@ function render() {
   buildAdsBalance();
   buildBureauCard();
   buildKPIs(T);
+  // Painel do teste nunca derruba o resto da dash (ex.: Chart indisponível)
+  try { buildProdutoTeste(T); } catch (e) { console.warn('[Produto Teste]', e); }
   buildRefundSection(T);
   buildGauges(T);
   buildAlertBar(T);
@@ -2523,6 +2749,218 @@ function buildAlertBar(T) {
   } else { bar.style.display = 'none'; }
 }
 
+// ─── POR PRODUTO — TESTE PACOTE COMPLETO R$79,90 ─────────────────────────────
+// Painel de leitura isolada do teste. Fonte real: view revenue_daily_completa
+// (migration 014, Supabase da dash) + checkouts_campaign_daily (Supabase do
+// site, cross-check por utm) + custo por campMatch em CAMPAIGN_DAILY_DATA —
+// tudo montado em loadSupabaseData() → TESTE_DAILY/TESTE_WIRED. O demo abaixo
+// é só fallback visual enquanto as views não respondem (chip "DADOS DEMO").
+function makeTesteDemoDays() {
+  // Determinístico (mesmo seed → mesmos números) — só pra aprovação visual.
+  let seed = 7;
+  const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const out = [];
+  const end = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const dt = new Date(end); dt.setDate(dt.getDate() - i);
+    const dateStr = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    const dia     = 14 - i;                                    // dia 1..14 do teste
+    const budget  = 150 + Math.min(dia * 8, 70) + rand() * 40; // orçamento sobe até ~R$260/dia
+    const cacDia  = 72 - dia * 1.6 + (rand() - .5) * 14;       // CAC melhora com o learning
+    const vendas  = Math.max(0, Math.round(budget / Math.max(cacDia, 35)));
+    const vendasUtm = Math.max(0, vendas - (rand() < .12 ? 1 : 0)); // ~95% chegam com utm da campanha
+    out.push({ dateStr, vendas, receita:+(vendas * PRODUTO_TESTE.preco).toFixed(2),
+               custoAds:+budget.toFixed(2), vendasUtm });
+  }
+  return out;
+}
+
+function cacStatusTeste(cac) {
+  // Classifica o CAC contra a régua do benchmark
+  const P = PRODUTO_TESTE;
+  if (cac == null)          return { cls:'',     txt:'—' };
+  if (cac <= P.cacMetaMax)  return { cls:'ok',   txt:'✅ Dentro da meta' };
+  if (cac <= P.cacEmpate)   return { cls:'warn', txt:'🟡 Entre meta e empate' };
+  if (cac <= P.cacBreakEven)return { cls:'warn', txt:'🟠 Acima do empate' };
+  return                           { cls:'bad',  txt:'🔴 Acima do break-even' };
+}
+
+function buildReguaTeste(cac) {
+  const P = PRODUTO_TESTE, max = P.reguaMax;
+  const pct = v => Math.max(0, Math.min(100, v / max * 100));
+  const zonas = [
+    { from:0,              to:P.cacMetaMin,   c:'rgba(22,163,74,.15)'  }, // abaixo da meta: bom
+    { from:P.cacMetaMin,   to:P.cacMetaMax,   c:'rgba(22,163,74,.42)'  }, // faixa-alvo 45–55
+    { from:P.cacMetaMax,   to:P.cacEmpate,    c:'rgba(217,119,6,.32)'  }, // 55–60: até o empate
+    { from:P.cacEmpate,    to:P.cacBreakEven, c:'rgba(234,88,12,.30)'  }, // 60–67: perde eficiência
+    { from:P.cacBreakEven, to:max,            c:'rgba(220,38,38,.28)'  }, // 67+: prejuízo
+  ];
+  document.getElementById('ptReguaZonas').innerHTML =
+    zonas.map(z => `<span style="width:${pct(z.to)-pct(z.from)}%;background:${z.c}"></span>`).join('');
+  document.getElementById('ptReguaTicks').innerHTML =
+    [P.cacMetaMin, P.cacMetaMax, P.cacEmpate, P.cacBreakEven]
+    .map(v => `<span style="left:${pct(v)}%">${v}</span>`).join('');
+  document.getElementById('ptReguaCaption').textContent =
+    `meta ${P.cacMetaMin}–${P.cacMetaMax} · empate ${P.cacEmpate} · break-even ${P.cacBreakEven} (bureau 1x)`;
+  const mk = document.getElementById('ptReguaMarker');
+  if (cac == null) { mk.style.display = 'none'; return; }
+  mk.style.display = 'block';
+  mk.style.left = pct(cac) + '%';
+  mk.setAttribute('data-val', fmtN(cac, 2, 'R$'));
+}
+
+function buildProdutoTeste(T) {
+  const card = document.getElementById('produtoTesteCard');
+  if (!card) return;
+  // Demo só quando as views reais não responderam (TESTE_WIRED false).
+  // Views ok com 0 linhas = campanha ainda não vendeu → painel vazio, sem demo.
+  if (!TESTE_WIRED && !TESTE_DAILY.length) { TESTE_DAILY = makeTesteDemoDays(); TESTE_DEMO = true; }
+  const chip = document.getElementById('produtoDemoChip');
+  if (chip) chip.style.display = TESTE_DEMO ? 'inline-flex' : 'none';
+
+  const P  = PRODUTO_TESTE;
+  const f0 = filtered.length ? filtered[0].dateStr : null;
+  const f1 = filtered.length ? filtered[filtered.length-1].dateStr : null;
+  // Interseção do teste com o filtro de data global da dash
+  const dias = TESTE_DAILY.filter(d => (!f0 || d.dateStr >= f0) && (!f1 || d.dateStr <= f1));
+
+  // ── Totais do teste no período ──────────────────────────────────────────
+  const inv     = dias.reduce((s,d) => s + d.custoAds, 0);
+  const vendas  = dias.reduce((s,d) => s + d.vendas,   0);
+  const receita = dias.reduce((s,d) => s + d.receita,  0);
+  const vendUtm = dias.reduce((s,d) => s + (d.vendasUtm || 0), 0);
+  const cac     = vendas > 0 && inv > 0 ? +(inv / vendas).toFixed(2) : null;
+  // Lucro do teste: receita líquida de imposto (netFactor por dia) − bureau ESTIMADO − ads
+  const recLiq    = dias.reduce((s,d) => s + d.receita * netFactor(d.dateStr), 0);
+  const bureauEst = vendas * P.bureauPorVenda;
+  const lucro     = +(recLiq - bureauEst - inv).toFixed(2);
+  const lucroVenda= vendas > 0 ? +(lucro / vendas).toFixed(2) : null;
+  // Learning: conversões ACUMULADAS desde o início do teste (independe do filtro)
+  const vendasAcum = TESTE_DAILY.reduce((s,d) => s + d.vendas, 0);
+  const diasTeste  = TESTE_DAILY.length;
+
+  // ── Bloco A: valores ────────────────────────────────────────────────────
+  const st  = cacStatusTeste(cac);
+  const el  = document.getElementById('ptCac');
+  el.textContent = cac != null ? fmtR(cac) : '—';
+  el.className   = 'produto-card-value ' + st.cls;
+  const fase = document.getElementById('ptFaseBadge');
+  if (vendasAcum < P.learningConv) {
+    fase.className = 'produto-badge'; fase.textContent = `🎓 Learning · ${vendasAcum}/${P.learningConv} conv.`;
+  } else {
+    fase.className = 'produto-badge ' + st.cls; fase.textContent = st.txt;
+  }
+  document.getElementById('ptMeta').textContent =
+    dias.length ? `dia ${diasTeste} do teste · ${fmtN(vendas,0)} vendas no período` : 'sem dados no período selecionado';
+
+  buildReguaTeste(cac);
+
+  document.getElementById('ptMetrics').innerHTML = [
+    { label:'Investimento', value:inv > 0 ? fmtR(inv) : '—',
+      sub:dias.length ? fmtR(inv / dias.length) + '/dia' : '', cls:'' },
+    { label:'Vendas', value:fmtN(vendas,0),
+      sub:dias.length ? fmtN(vendas / dias.length,1) + '/dia' : '', cls:'' },
+    { label:'Receita', value:receita > 0 ? fmtR(receita) : '—',
+      sub:'ticket ' + fmtR(P.preco), cls:'' },
+    { label:'Lucro/venda', value:lucroVenda != null ? fmtR(lucroVenda) : '—',
+      sub:'líq. − bureau est. − CAC', cls:lucroVenda == null ? '' : lucroVenda >= 0 ? 'good' : 'danger' },
+  ].map(m => `<div class="ads-bal-metric ${m.cls}">
+      <div class="ads-bal-metric-label">${m.label}</div>
+      <div class="ads-bal-metric-value">${m.value}</div>
+      <div class="ads-bal-metric-sub">${m.sub}</div></div>`).join('');
+
+  const utmPct = vendas > 0 ? vendUtm / vendas * 100 : null;
+  document.getElementById('ptAttrib').innerHTML = utmPct == null ? '' :
+    `🔗 Cross-check de atribuição: <b>${fmtN(utmPct,0)}%</b> das vendas do produto com utm da campanha` +
+    (utmPct < 90 ? ' <span class="warn">— verificar utm na LP</span>' : ' ✓') +
+    ` · bureau estimado em ${fmtR(P.bureauPorVenda)}/venda (1x, a confirmar)`;
+
+  // ── Bloco B: funil atual = totais globais − teste ───────────────────────
+  // Com DADOS DEMO o teste ainda não existe nos totais reais → NÃO subtrai
+  // (senão criaria números falsos). No wiring real, subtrai de verdade.
+  const desconta   = !TESTE_DEMO;
+  const invAtual   = T.cost - (desconta ? inv     : 0);
+  const vendAtual  = T.conv - (desconta ? vendas  : 0);
+  const revAtual   = T.rev  - (desconta ? receita : 0);
+  const netAtual   = T.netPftOpt - (desconta ? lucro : 0);
+  const cacAtual   = vendAtual > 0 && invAtual > 0 ? +(invAtual / vendAtual).toFixed(2) : null;
+  const elA = document.getElementById('paCac');
+  elA.textContent = cacAtual != null ? fmtR(cacAtual) : '—';
+  elA.className   = 'produto-card-value';
+  document.getElementById('paCacSub').textContent = desconta
+    ? 'CAC real do período · já descontado o teste'
+    : 'CAC real do período · teste (demo) ainda não descontado';
+  document.getElementById('paMeta').textContent =
+    `${fmtN(vendAtual,0)} pedidos pagos no período`;
+  document.getElementById('paMetrics').innerHTML = [
+    { label:'Investimento', value:invAtual > 0 ? fmtR(invAtual) : '—',
+      sub:filtered.length ? fmtR(invAtual / filtered.length) + '/dia' : '', cls:'' },
+    { label:'Vendas', value:fmtN(vendAtual,0),
+      sub:filtered.length ? fmtN(vendAtual / filtered.length,1) + '/dia' : '', cls:'' },
+    { label:'Receita/comprador', value:vendAtual > 0 ? fmtR(revAtual / vendAtual) : '—',
+      sub:'inclui upsells', cls:'' },
+    { label:'Lucro líq./comprador', value:vendAtual > 0 ? fmtR(netAtual / vendAtual) : '—',
+      sub:'líq. − bureau − ads', cls:vendAtual > 0 && netAtual / vendAtual >= 0 ? 'good' : 'danger' },
+  ].map(m => `<div class="ads-bal-metric ${m.cls}">
+      <div class="ads-bal-metric-label">${m.label}</div>
+      <div class="ads-bal-metric-value">${m.value}</div>
+      <div class="ads-bal-metric-sub">${m.sub}</div></div>`).join('');
+
+  // ── Gráficos: vendas (barras) + CAC (linha) ─────────────────────────────
+  const lblT = ds => `${+ds.slice(8,10)}/${+ds.slice(5,7)}`;
+  const cacSeries = dias.map(d => d.vendas > 0 && d.custoAds > 0 ? +(d.custoAds / d.vendas).toFixed(2) : null);
+  mkChart('produtoTesteChart','bar', {
+    labels: dias.map(d => lblT(d.dateStr)),
+    datasets: [
+      { label:'Vendas', data:dias.map(d => d.vendas), yAxisID:'y1',
+        backgroundColor:'rgba(67,56,202,.45)', borderRadius:3, order:2 },
+      { label:'CAC', data:cacSeries, type:'line', yAxisID:'y', order:1,
+        borderColor:'#7c3aed', borderWidth:2, pointRadius:2.5, pointBackgroundColor:'#7c3aed',
+        tension:.3, spanGaps:true },
+      { label:'Meta 55', data:dias.map(() => P.cacMetaMax), type:'line', yAxisID:'y',
+        borderColor:'rgba(22,163,74,.55)', borderDash:[4,3], borderWidth:1.5, pointRadius:0 },
+      { label:'BE 67', data:dias.map(() => P.cacBreakEven), type:'line', yAxisID:'y',
+        borderColor:'rgba(220,38,38,.5)', borderDash:[4,3], borderWidth:1.5, pointRadius:0 },
+    ]
+  }, {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{
+      legend:{ labels:{ font:{ size:10.5 }, boxWidth:9, padding:10 } },
+      tooltip:{ callbacks:{ label:c => ' ' + c.dataset.label + ': ' +
+        (c.dataset.label === 'Vendas' ? fmtN(c.raw,0) : fmtR(c.raw)) } },
+      datalabels:{ display:false },
+    },
+    scales:{ x:{ grid:{ display:false }, ticks:{ font:{ size:9.5 }, maxTicksLimit:10 } },
+             y:{ position:'left', grid:{ color:'rgba(0,0,0,.04)' }, ticks:{ font:{ size:9.5 }, callback:v => 'R$' + Math.round(v) } },
+             y1:{ position:'right', grid:{ display:false }, ticks:{ font:{ size:9.5 }, precision:0 }, beginAtZero:true } }
+  });
+
+  const dAtual = filtered;
+  mkChart('produtoAtualChart','bar', {
+    labels: dAtual.map(lbl),
+    datasets: [
+      { label:'Vendas', data:dAtual.map(x => x.conv), yAxisID:'y1',
+        backgroundColor:'rgba(37,99,235,.40)', borderRadius:3, order:2 },
+      { label:'CAC', data:dAtual.map(x => x.cac), type:'line', yAxisID:'y', order:1,
+        borderColor:'#0891b2', borderWidth:2, pointRadius:2, pointBackgroundColor:'#0891b2',
+        tension:.3, spanGaps:true },
+    ]
+  }, {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{
+      legend:{ labels:{ font:{ size:10.5 }, boxWidth:9, padding:10 } },
+      tooltip:{ callbacks:{ label:c => ' ' + c.dataset.label + ': ' +
+        (c.dataset.label === 'Vendas' ? fmtN(c.raw,0) : fmtR(c.raw)) } },
+      datalabels:{ display:false },
+    },
+    scales:{ x:{ grid:{ display:false }, ticks:{ font:{ size:9.5 }, maxTicksLimit:10 } },
+             y:{ position:'left', grid:{ color:'rgba(0,0,0,.04)' }, ticks:{ font:{ size:9.5 }, callback:v => 'R$' + Math.round(v) } },
+             y1:{ position:'right', grid:{ display:false }, ticks:{ font:{ size:9.5 }, precision:0 }, beginAtZero:true } }
+  });
+}
+
 // ─── CHARTS ───────────────────────────────────────────────────────────────────
 function lbl(d) { return `${d.date.getDate()}/${d.date.getMonth()+1}`; }
 
@@ -2802,12 +3240,17 @@ function buildTable() {
   const tbody = document.querySelector('#campaignTable tbody');
   tbody.innerHTML = '';
   sorted.forEach(c => {
-    const pct     = Math.min(100, Math.round((c.cac/TGT.cpa)*100));
-    const col     = c.cac <= TGT.cpa ? '#16a34a' : '#dc2626';
+    // Campanha do teste R$79,90: barra/cor do CAC usam a régua do teste
+    // (meta 55 / break-even 67), não a meta CAC do funil base (~R$9)
+    const metaCac = c.teste ? PRODUTO_TESTE.cacMetaMax : TGT.cpa;
+    const pct     = Math.min(100, Math.round((c.cac/metaCac)*100));
+    const col     = c.teste
+      ? (c.cac <= PRODUTO_TESTE.cacMetaMax ? '#16a34a' : c.cac <= PRODUTO_TESTE.cacBreakEven ? '#d97706' : '#dc2626')
+      : (c.cac <= TGT.cpa ? '#16a34a' : '#dc2626');
     const spendPct = totalCostAllCamps > 0 ? fmtN((c.cost/totalCostAllCamps)*100,1)+'%' : '—';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><span class="cname"><span class="dot" style="background:${c.color}"></span>${c.name}</span></td>
+      <td><span class="cname"><span class="dot" style="background:${c.color}"></span>${c.name}${c.teste?` <span class="camp-teste-chip">🧪 R$${fmtN(PRODUTO_TESTE.preco,2)}</span>`:''}</span></td>
       <td class="num">${fmtN(c.conv,1,'')}</td>
       <td class="num">${fmtR(c.cost)}</td>
       <td class="num" style="color:var(--text-secondary);font-weight:600">${spendPct}</td>
