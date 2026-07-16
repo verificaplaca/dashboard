@@ -40,6 +40,6 @@ grant select on public.checkouts_campaign_daily to anon;
 -- select * from checkouts_campaign_daily order by date desc, paid_count desc limit 30;
 --
 -- Quando a campanha do teste subir, conferir o valor EXATO do utm_campaign que
--- a LP está gravando (o dashboard casa por substring 'COMPLETA', case-insensitive):
+-- a LP está gravando (o dashboard casa por substring 'PACOTAO', case-insensitive):
 -- select distinct utm_campaign from checkouts
 -- where paid_at > now() - interval '7 days' and utm_campaign is not null;

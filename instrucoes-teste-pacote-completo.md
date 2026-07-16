@@ -30,10 +30,12 @@ Agrupa checkouts pagos (`paid_at is not null`) por dia × utm_campaign × plano.
 
 ## Passo 3 — Ao criar a campanha no Google Ads
 
-1. **Nome da campanha deve conter `COMPLETA`** (ex.: `[SEARCH] VF [COMPLETA] BR`).
-   É o `campMatch` no config `PRODUTO_TESTE` do dashboard.html — casa por
-   substring, case-insensitive. Se preferir outro nome, ajustar `campMatch`.
-2. **utm_campaign da LP também deve conter `completa`** (qualquer caixa) — o
+1. **Nome da campanha deve conter `PACOTAO`** — campanha real criada em 16/07:
+   `[SEARCH] [COMPRA] [LP-PACOTAO-1] [BEST] - JUL-2026`. É o `campMatch` no
+   config `PRODUTO_TESTE` do dashboard.html — casa por substring,
+   case-insensitive. Se renomear a campanha, manter "PACOTAO" no nome (ou
+   ajustar `campMatch`).
+2. **utm_campaign da LP também deve conter `pacotao`** (qualquer caixa) — o
    cross-check casa pelo mesmo `campMatch`. Conferir o valor exato gravado:
    query no fim de `site_checkouts_campaign_daily.sql`.
 3. Ajustar `inicio` no config `PRODUTO_TESTE` pra data real de lançamento
@@ -48,7 +50,7 @@ Agrupa checkouts pagos (`paid_at is not null`) por dia × utm_campaign × plano.
   período"); sem demo. Dia com custo e 0 vendas aparece no gráfico (queima de
   verba visível).
 - **Vendas reais chegando** → painel real; bloco "Consulta Base" passa a
-  DESCONTAR o teste; na página Campanhas a linha `COMPLETA 🧪` usa vendas
+  DESCONTAR o teste; na página Campanhas a linha `PACOTAO 🧪` usa vendas
   reais do produto (não rateio) e as demais campanhas rateiam o restante.
 
 ## Pendências fora do dashboard (bloqueiam dados, não código)
