@@ -12,10 +12,13 @@ as views abaixo não existirem, o painel mostra dados DEMO com chip amarelo.
 | Empate (mesma eficiência por real do funil base) | ~R$ 46 |
 | Break-even | ~R$ 51 (m2 = 79,90×0,962 − bureau real R$25,53 = R$51,33) |
 
-Bureau real do pacotão: **R$25,53/venda** (atualizado 16/07 — venda R$79,90,
-margem bruta 68%; valor anterior R$22,67 = combo checktudo R$7,57 + leilão
-q68 R$15,10). Atenção: só o leilão representa ~19% do ticket — é o maior
-item de COGS do produto.
+Bureau real do pacotão: **R$25,53/venda** (confirmado 16/07 — plano "Pacote
+Completo + Leilão", venda R$79,90, margem bruta 68%). 100% CheckTudo (leilão
+q68 é exclusivo desse bureau), 8 consultas: relatório base 0,18 · base
+nacional 1,03 · base nacional unificada 3,04 · base estadual/quem é o dono
+1,35 · roubo e furto 1,49 · gravame 1,24 · indício de sinistro 2,10 ·
+leilão completo 15,10. Atenção: só o leilão representa ~19% do ticket — é
+o maior item de COGS do produto.
 
 ## Passo 1 — View no Supabase do DASHBOARD (ftmgmfdqdqxboiktxcoj)
 
@@ -62,10 +65,14 @@ Agrupa checkouts pagos (`paid_at is not null`) por dia × utm_campaign × plano.
 
 - Setup do funil no site: utm_campaign distinto + plan_id novo (79,90) no
   analytics.ts com plan_price correto; conferir eventos do funil curto.
-- ~~Confirmar custo real de bureau~~ RESOLVIDO 16/07: R$25,53/venda
-  (atualização do mesmo dia; primeiro número era 22,67 = combo checktudo
-  7,57 + leilão q68 15,10) — já no config `PRODUTO_TESTE`. Com isso a
+- ~~Confirmar custo real de bureau~~ RESOLVIDO 16/07: R$25,53/venda,
+  composição confirmada (8 consultas 100% CheckTudo, ver régua acima;
+  primeiro número era 22,67) — já no config `PRODUTO_TESTE`. Com isso a
   régua apertou: BE ~51, vitória ≤ ~46.
+- Verificação pós-1ª venda: `bureau_chamadas_cobradas` só devolve
+  dia × bureau × custo (sem plano) — conferir se o custo **checktudo** do
+  dia sobe ~R$25,53 por venda do pacotão. Se vender e não subir, a função
+  do dev não está registrando as chamadas do pacotão.
 
 ## Commit (rodar no terminal, na pasta do repo)
 
