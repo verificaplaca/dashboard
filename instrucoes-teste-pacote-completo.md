@@ -8,9 +8,13 @@ as views abaixo não existirem, o painel mostra dados DEMO com chip amarelo.
 
 | Marco | CAC |
 |---|---|
-| Meta (vitória) | R$ 45–55 |
-| Empate (mesma eficiência por real do funil base) | ~R$ 60 |
-| Break-even | ~R$ 67 (bureau 1x; com bureau 3x cai pra ~R$ 62) |
+| Meta (vitória) | R$ 40–48 |
+| Empate (mesma eficiência por real do funil base) | ~R$ 48 |
+| Break-even | ~R$ 54 (m2 = 79,90×0,962 − bureau real R$22,67 = R$54,19) |
+
+Bureau real do pacotão: **R$22,67/venda** = combo checktudo R$7,57 + leilão
+(q68, sempre CheckTudo) R$15,10. Atenção: só o leilão representa ~19% do
+ticket — é o maior item de COGS do produto.
 
 ## Passo 1 — View no Supabase do DASHBOARD (ftmgmfdqdqxboiktxcoj)
 
@@ -57,8 +61,9 @@ Agrupa checkouts pagos (`paid_at is not null`) por dia × utm_campaign × plano.
 
 - Setup do funil no site: utm_campaign distinto + plan_id novo (79,90) no
   analytics.ts com plan_price correto; conferir eventos do funil curto.
-- Confirmar custo real de bureau da consulta completa (config usa estimativa
-  R$4,75/venda, 1x — a régua quase não muda até 3x).
+- ~~Confirmar custo real de bureau~~ RESOLVIDO 16/07: R$22,67/venda (combo
+  checktudo 7,57 + leilão q68 15,10, do SQL de custo por plano) — já no config
+  `PRODUTO_TESTE`. Com isso a régua apertou: BE ~54, vitória ≤ ~48.
 
 ## Commit (rodar no terminal, na pasta do repo)
 

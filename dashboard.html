@@ -861,7 +861,7 @@
 
   <!-- Por Produto — Teste Pacote Completo R$79,90
        Leitura ISOLADA do teste (não passa por totals()/campTotals()).
-       Benchmark 15/07/2026: meta CAC 45–55 · empate ~60 · break-even ~67 (bureau 1x). -->
+       Benchmark 15/07/2026 + bureau real R$22,67: meta CAC 40–48 · empate ~48 · break-even ~54. -->
   <div class="section-label" style="margin-top:24px">Por Produto — Teste Pacote Completo
     <span class="produto-chip demo" id="produtoDemoChip" style="display:none">DADOS DEMO · views SQL pendentes</span>
   </div>
@@ -1363,15 +1363,16 @@ const MONTHLY_NET_PROFIT_TARGET   = 30000;  // fallback — R$ meta lucro líqui
 
 // ─── TESTE PACOTE COMPLETO R$79,90 ───────────────────────────────────────────
 // Benchmark 15/07/2026 (30d reais Supabase/Pagar.me): m1 funil atual R$19,60,
-// CAC real R$17,40, lucro R$2,20/comprador. Régua do teste: meta 45–55,
-// empate ~60 (mesma eficiência por real gasto), break-even ~67 (bureau 1x;
-// com bureau 3x cai pra ~62). NÚMEROS DE BUREAU DO PACOTE AINDA ESTIMADOS.
+// CAC real R$17,40, lucro R$2,20/comprador. Régua do teste com bureau REAL
+// (R$22,67/venda = combo checktudo 7,57 + leilão q68 15,10 — SQL de custo por plano):
+//   m2 = 79,90×0,962 − 22,67 = R$54,19 → break-even ~54
+//   empate = m2×CAC1/m1 = 54,19×17,40/19,60 ≈ R$48 → meta (vitória) = 40–48
 const PRODUTO_TESTE = {
   preco:          79.90,
   campMatch:      'PACOTAO',     // casa "[SEARCH] [COMPRA] [LP-PACOTAO-1] [BEST] - JUL-2026" (substring, uppercase); utm da LP também precisa conter "pacotao"
-  inicio:         '2026-07-16',  // primeiro dia do teste — AJUSTAR quando a campanha subir
-  bureauPorVenda: 4.75,          // estimativa 1x — custo real de bureau da consulta completa pendente de confirmação
-  cacMetaMin: 45, cacMetaMax: 55, cacEmpate: 60, cacBreakEven: 67,
+  inicio:         '2026-07-16',  // primeiro dia do teste (campanha criada 16/07)
+  bureauPorVenda: 22.67,         // custo REAL por venda do pacotão: combo checktudo 7,57 + leilão q68 15,10
+  cacMetaMin: 40, cacMetaMax: 48, cacEmpate: 48, cacBreakEven: 54,
   reguaMax:   90,                // fim da escala visual da régua
   learningConv: 30,              // nº aproximado de conversões p/ sair do learning (conferir doc do Google)
 };
@@ -2798,10 +2799,10 @@ function buildReguaTeste(cac) {
   document.getElementById('ptReguaZonas').innerHTML =
     zonas.map(z => `<span style="width:${pct(z.to)-pct(z.from)}%;background:${z.c}"></span>`).join('');
   document.getElementById('ptReguaTicks').innerHTML =
-    [P.cacMetaMin, P.cacMetaMax, P.cacEmpate, P.cacBreakEven]
+    [...new Set([P.cacMetaMin, P.cacMetaMax, P.cacEmpate, P.cacBreakEven])] // dedupe: metaMax pode = empate
     .map(v => `<span style="left:${pct(v)}%">${v}</span>`).join('');
   document.getElementById('ptReguaCaption').textContent =
-    `meta ${P.cacMetaMin}–${P.cacMetaMax} · empate ${P.cacEmpate} · break-even ${P.cacBreakEven} (bureau 1x)`;
+    `meta ${P.cacMetaMin}–${P.cacMetaMax} · empate ${P.cacEmpate} · break-even ${P.cacBreakEven} (bureau real ${fmtN(P.bureauPorVenda,2,'R$')}/venda)`;
   const mk = document.getElementById('ptReguaMarker');
   if (cac == null) { mk.style.display = 'none'; return; }
   mk.style.display = 'block';
@@ -2874,7 +2875,7 @@ function buildProdutoTeste(T) {
     { label:'Receita', value:receita > 0 ? fmtR(receita) : '—',
       sub:'ticket ' + fmtR(P.preco), cls:'' },
     { label:'Lucro/venda', value:lucroVenda != null ? fmtR(lucroVenda) : '—',
-      sub:'líq. − bureau est. − CAC', cls:lucroVenda == null ? '' : lucroVenda >= 0 ? 'good' : 'danger' },
+      sub:'líq. − bureau − CAC', cls:lucroVenda == null ? '' : lucroVenda >= 0 ? 'good' : 'danger' },
   ].map(m => `<div class="ads-bal-metric ${m.cls}">
       <div class="ads-bal-metric-label">${m.label}</div>
       <div class="ads-bal-metric-value">${m.value}</div>
@@ -2884,7 +2885,7 @@ function buildProdutoTeste(T) {
   document.getElementById('ptAttrib').innerHTML = utmPct == null ? '' :
     `🔗 Cross-check de atribuição: <b>${fmtN(utmPct,0)}%</b> das vendas do produto com utm da campanha` +
     (utmPct < 90 ? ' <span class="warn">— verificar utm na LP</span>' : ' ✓') +
-    ` · bureau estimado em ${fmtR(P.bureauPorVenda)}/venda (1x, a confirmar)`;
+    ` · bureau ${fmtR(P.bureauPorVenda)}/venda (custo real do pacotão)`;
 
   // ── Bloco B: funil atual = totais globais − teste ───────────────────────
   // Só subtrai com dados REAIS do teste (demo/sem-setup subtrairia números
@@ -2930,9 +2931,9 @@ function buildProdutoTeste(T) {
       { label:'CAC', data:cacSeries, type:'line', yAxisID:'y', order:1,
         borderColor:'#7c3aed', borderWidth:2, pointRadius:2.5, pointBackgroundColor:'#7c3aed',
         tension:.3, spanGaps:true },
-      { label:'Meta 55', data:dias.map(() => P.cacMetaMax), type:'line', yAxisID:'y',
+      { label:'Meta ' + P.cacMetaMax, data:dias.map(() => P.cacMetaMax), type:'line', yAxisID:'y',
         borderColor:'rgba(22,163,74,.55)', borderDash:[4,3], borderWidth:1.5, pointRadius:0 },
-      { label:'BE 67', data:dias.map(() => P.cacBreakEven), type:'line', yAxisID:'y',
+      { label:'BE ' + P.cacBreakEven, data:dias.map(() => P.cacBreakEven), type:'line', yAxisID:'y',
         borderColor:'rgba(220,38,38,.5)', borderDash:[4,3], borderWidth:1.5, pointRadius:0 },
     ]
   }, {
