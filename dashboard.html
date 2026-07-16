@@ -1532,7 +1532,7 @@ async function loadSupabaseData() {
     supaGet(`/rest/v1/upsell_daily?${qs}&select=date,upsell_orders,upsell_rate`),
     supaGet(`/rest/v1/upsell_by_type?${qs}&select=date,addon_key,qty,revenue`),
     supaGet(`/rest/v1/bureau_daily?${qs}&select=date,custo_bureau,lucro_bruto,margem_pct`),
-    supaGet(`/rest/v1/google_ads_campaign_daily?${gadsQs}&select=date,campaign_name,cost_micros,conversions,impressions,search_impression_share,search_budget_lost_is,search_rank_lost_is&order=date.asc`),
+    supaGet(`/rest/v1/google_ads_campaign_daily?${gadsQs}&select=date,campaign_id,campaign_name,cost_micros,conversions,impressions,search_impression_share,search_budget_lost_is,search_rank_lost_is&order=date.asc`),
     supaGet(`/rest/v1/refunds_daily?${qs}&select=date,refund_count,refund_value`),
     supaGet(`/rest/v1/ads_balance_history?select=checked_at,balance_brl,alert_level&order=checked_at.desc&limit=30`).catch(() => []),
     supaGet(`/rest/v1/bureau_by_type_daily?${qs}&select=date,bureau,vendido_real,custo_bureau`).catch(() => []),
@@ -1633,6 +1633,7 @@ async function loadSupabaseData() {
   CAMPAIGN_DAILY_DATA = gadsRows.map(r => ({
     dateStr:     String(r.date).slice(0, 10),
     campaign:    String(r.campaign_name || '').toUpperCase(),
+    campaignId:  String(r.campaign_id || ''),
     cost:        (parseInt(r.cost_micros) || 0) / 1_000_000,
     conversions: parseFloat(r.conversions) || 0,
     revenue:     0,
@@ -1651,16 +1652,25 @@ async function loadSupabaseData() {
   if (compRows !== null) {
     TESTE_WIRED = true;
     TESTE_DEMO  = false;
-    // Custo/dia: soma das campanhas do Ads cujo nome contém campMatch
-    const costMap = new Map();
+    // Custo/dia: soma das campanhas do Ads cujo nome contém campMatch.
+    // De quebra coleta os campaign_ids delas — o utm_campaign real gravado nos
+    // checkouts é o ID do ValueTrack {campaignid} (ex.: "{24029972565}"), não o
+    // nome, então o cross-check casa por ID (e por nome, como fallback).
+    const costMap  = new Map();
+    const testeIds = new Set();
     for (const r of CAMPAIGN_DAILY_DATA) {
       if (!r.campaign.includes(PRODUTO_TESTE.campMatch)) continue; // campaign já é uppercase
       costMap.set(r.dateStr, (costMap.get(r.dateStr) || 0) + r.cost);
+      if (r.campaignId) testeIds.add(r.campaignId);
     }
-    // Cross-check: checkouts pagos/dia com utm_campaign contendo campMatch
+    // Cross-check: checkouts pagos/dia cujo utm_campaign é da campanha do teste
+    // (ID numérico dentro do valor OU nome contendo campMatch)
     const utmMap = new Map();
     for (const r of (utmRows || [])) {
-      if (!String(r.utm_campaign || '').toUpperCase().includes(PRODUTO_TESTE.campMatch)) continue;
+      const raw    = String(r.utm_campaign || '');
+      const digits = raw.replace(/\D/g, '');
+      const isTeste = (digits && testeIds.has(digits)) || raw.toUpperCase().includes(PRODUTO_TESTE.campMatch);
+      if (!isTeste) continue;
       const ds = String(r.date).slice(0, 10);
       utmMap.set(ds, (utmMap.get(ds) || 0) + (parseInt(r.paid_count) || 0));
     }
