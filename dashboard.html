@@ -499,8 +499,9 @@
       border-radius:4px; padding:2px 7px; margin-left:8px; vertical-align:middle; text-transform:none; }
     .produto-chip.demo { background:var(--amber-soft); color:var(--amber); border:1px dashed var(--amber); }
     .produto-metrics { margin-top:12px; }
-    .produto-attrib { font-size:11px; color:var(--text-secondary); margin-top:10px;
-      display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    /* Texto corrido (SEM flex: flexbox quebrava "100%" e "das vendas" em itens
+       separados, engolindo o espaço entre eles e forçando quebra de linha) */
+    .produto-attrib { font-size:11px; color:var(--text-secondary); margin-top:10px; line-height:1.5; }
     .produto-attrib .warn { color:var(--amber); font-weight:600; }
     .produto-chart { height:150px; margin-top:14px; position:relative; }
     /* Chip 🧪 da campanha do teste na tabela Campanhas */
@@ -2914,10 +2915,10 @@ function buildProdutoTeste(T) {
       <div class="ads-bal-metric-sub">${m.sub}</div></div>`).join('');
 
   const utmPct = vendas > 0 ? vendUtm / vendas * 100 : null;
+  // Padrão fixo pedido pelo usuário; bureau/venda já aparece na legenda da régua
   document.getElementById('ptAttrib').innerHTML = utmPct == null ? '' :
     `🔗 Cross-check de atribuição: <b>${fmtN(utmPct,0)}%</b> das vendas do produto com utm da campanha` +
-    (utmPct < 90 ? ' <span class="warn">— verificar utm na LP</span>' : ' ✓') +
-    ` · bureau ${fmtR(P.bureauPorVenda)}/venda (custo real do pacotão)`;
+    (utmPct < 90 ? ' <span class="warn">— verificar utm na LP</span>' : '');
 
   // ── Bloco B: funil atual = totais globais − teste ───────────────────────
   // Só subtrai com dados REAIS do teste (demo/sem-setup subtrairia números

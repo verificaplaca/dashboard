@@ -613,11 +613,14 @@ function renderHealth() {
   const banner = document.getElementById('statusBanner');
   if (healthy) {
     banner.className = 'status-banner ok';
-    // Nota do Meta CAPI só aparece enquanto o canal estiver de fato "skipped"
-    // (não habilitado) — e como sufixo discreto, pra não parecer alerta.
-    const metaSkipped = week.some(o => o.meta_status === 'skipped');
+    // Nota do Meta CAPI: só quando o canal NUNCA enviou no período (tudo
+    // "skipped" = não configurado). Bastou 1 success e a nota some — pedidos
+    // antigos ainda "skipped" na janela não geram falso aviso depois que o
+    // CAPI foi habilitado.
+    const metaNuncaEnviou = week.some(o => o.meta_status === 'skipped') &&
+                            !week.some(o => o.meta_status === 'success');
     banner.innerHTML = `<span class="ic">✓</span> Nenhuma ação necessária — todos os pedidos do período foram enviados para os canais configurados.` +
-      (metaSkipped ? ` <span style="opacity:.65;font-size:11.5px">Meta CAPI ainda não habilitado ("skipped" conta como OK até configurar META_PIXEL_ID/META_ACCESS_TOKEN).</span>` : '');
+      (metaNuncaEnviou ? ` <span style="opacity:.65;font-size:11.5px">Meta CAPI ainda não habilitado ("skipped" conta como OK até configurar META_PIXEL_ID/META_ACCESS_TOKEN).</span>` : '');
   } else {
     banner.className = 'status-banner bad';
     banner.innerHTML = `<span class="ic">⚠</span> ${failing} pedido(s) com falha ou pendência nos últimos 7 dias. Veja a tabela abaixo (filtro "Parcial / com falha") para os detalhes por canal.`;
