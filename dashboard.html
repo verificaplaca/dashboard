@@ -1348,17 +1348,18 @@ window.addEventListener('resize', () => {
   if (window.innerWidth > 900) document.body.classList.remove('mobile-sidebar-open');
 });
 
-// Tracking Gateway embutido via iframe reporta a própria altura (postMessage)
-// pra este iframe crescer junto com o conteúdo em vez de rolar sozinho —
-// assim existe só um scroll (o da página), e o iframe fica imperceptível.
-// google-ads-cac.html não manda essa mensagem, então continua com a altura
-// fixa (calc(100vh - 80px)) definida em CSS, sem efeito colateral aqui.
+// Tracking Gateway e Google Ads CAC embutidos via iframe reportam a própria
+// altura (postMessage) pra esses iframes crescerem junto com o conteúdo em
+// vez de rolar sozinhos — assim existe só um scroll (o da página), e os
+// iframes ficam imperceptíveis.
 window.addEventListener('message', e => {
   if (!e.data || e.data.type !== 'vp-embed-height') return;
-  const frame = document.getElementById('frame-tracking');
-  if (frame && frame.contentWindow === e.source) {
-    frame.style.height = Math.ceil(e.data.height) + 'px';
-  }
+  ['frame-tracking', 'frame-gads-cac'].forEach(id => {
+    const frame = document.getElementById(id);
+    if (frame && frame.contentWindow === e.source) {
+      frame.style.height = Math.ceil(e.data.height) + 'px';
+    }
+  });
 });
 
 (function initSidebar() {

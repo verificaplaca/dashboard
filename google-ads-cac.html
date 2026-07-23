@@ -1293,6 +1293,23 @@ document.getElementById('criteriaToggle').addEventListener('click', (e) => {
   e.currentTarget.classList.toggle('open');
 });
 
+// ─── ALTURA PRA IFRAME (embutido no dashboard.html) ──────────────────────────
+// Quando embutida via <iframe>, esta página não tem scroll próprio — o
+// dashboard.html ajusta a altura do iframe pra bater com o conteúdo real, via
+// postMessage. Resultado: só existe UM scroll (o da página do dashboard), sem
+// barra de rolagem duplicada nem "salto" ao trocar de aba — o iframe fica
+// imperceptível. ResizeObserver cobre qualquer mudança de altura (dados
+// carregando, filtro, tabela expandida, resize da janela). Mesmo padrão do
+// tracking-gateway.html.
+(function () {
+  if (window.parent === window) return; // aberta direto, sem iframe — não faz nada
+  function reportHeight() {
+    window.parent.postMessage({ type: 'vp-embed-height', height: document.documentElement.scrollHeight }, '*');
+  }
+  new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener('load', reportHeight);
+})();
+
 // ─── INIT ───────────────────────────────────────────────────────────────────
 // Meta de CAC primeiro (tabela pequena, request rápido) — garante que o
 // primeiro render já compare com a meta do mês em vez do fallback.
