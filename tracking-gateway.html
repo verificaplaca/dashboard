@@ -148,11 +148,18 @@
           box-shadow: var(--shadow); padding: 14px; margin-top: 10px; }
   .table-wrap { overflow-x: auto; }
   table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 12.5px; }
-  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th, td { padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; }
   th { color: var(--text-secondary); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .02em; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.num { font-variant-numeric: tabular-nums; }
+  /* Zebra striping (branco / cinza clarinho) — linhas normais alternam via
+     classe .row-alt (ordersTable intercala order-row com detail-row quando
+     expandido, então a alternância é controlada em JS, não por nth-child;
+     cacTable não tem linhas extras, nth-child basta). Hover usa --border
+     (mais escuro que --bg) pra continuar visível mesmo sobre linha listrada. */
+  tr.order-row.row-alt { background: var(--bg); }
+  #cacTable tbody tr:nth-child(even) { background: var(--bg); }
   tr.order-row { cursor: pointer; }
-  tr.order-row:hover { background: var(--bg); }
+  tr.order-row:hover { background: var(--border) !important; }
 
   .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
   .badge.ok      { background: var(--green-soft); color: var(--green); }
@@ -208,7 +215,7 @@
   }
 
   /* ── CAC real vs reportado (passo 8) ── */
-  #cacTable th { text-align: center; white-space: normal; }
+  #cacTable th { white-space: normal; }
   .cac-summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
   @media (max-width: 900px) { .cac-summary-row { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 600px) { .cac-summary-row { grid-template-columns: 1fr; } }
@@ -404,9 +411,10 @@ async function supaGet(path, _attempt = 1) {
     }
     return allRows;
   } catch (err) {
-    // Retry: primeiro load pode pegar o Supabase "frio" (projeto pausado/acordando),
-    // que responde com 500 antes de estabilizar — mesmo padrão do dashboard.html.
-    if (_attempt < 3) {
+    // Retry: primeiro load pode pegar o Supabase "frio" (projeto pausado/acordando)
+    // ou um 500 transiente de infra — mesmo padrão do dashboard.html, só que com
+    // mais tentativas/backoff (era 3 tentativas / até 2.4s, subiu pra 5 / até 8s).
+    if (_attempt < 5) {
       await new Promise(res => setTimeout(res, 800 * _attempt));
       return supaGet(path, _attempt + 1);
     }
@@ -855,12 +863,13 @@ function renderOrdersTable() {
   const rows = STATE.filteredOrders;
   document.getElementById('ordersEmpty').style.display = rows.length ? 'none' : 'block';
 
-  tbody.innerHTML = rows.map(o => {
+  tbody.innerHTML = rows.map((o, i) => {
     const full = orderIsFull(o);
     const statusBadge = full ? '<span class="badge full">Completo</span>' : '<span class="badge partial">Parcial</span>';
     const isOpen = STATE.expandedRow === o.checkout_id;
+    const stripeCls = i % 2 === 1 ? ' row-alt' : '';
     const mainRow = `
-      <tr class="order-row" data-checkout="${escapeHtml(o.checkout_id)}">
+      <tr class="order-row${stripeCls}" data-checkout="${escapeHtml(o.checkout_id)}">
         <td>${fmtDateTime(o.created_at)}</td>
         <td>${escapeHtml(o.order_nsu)}</td>
         <td class="num">${fmtR(o.value)}</td>
@@ -999,6 +1008,22 @@ function renderCac(revRows, gadsRows) {
     </tr>
   `).join('');
 }
+
+// ─── ALTURA PRA IFRAME (embutido no dashboard.html) ──────────────────────────
+// Quando embutida via <iframe>, esta página não tem scroll próprio — o
+// dashboard.html ajusta a altura do iframe pra bater com o conteúdo real, via
+// postMessage. Resultado: só existe UM scroll (o da página do dashboard), sem
+// barra de rolagem duplicada nem "salto" ao trocar de aba — o iframe fica
+// imperceptível. ResizeObserver cobre qualquer mudança de altura (dados
+// carregando, filtro, linha expandida, resize da janela).
+(function () {
+  if (window.parent === window) return; // aberta direto, sem iframe — não faz nada
+  function reportHeight() {
+    window.parent.postMessage({ type: 'vp-embed-height', height: document.documentElement.scrollHeight }, '*');
+  }
+  new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener('load', reportHeight);
+})();
 
 // ─── BOOTSTRAP ──────────────────────────────────────────────────────────────
 setChartDays(7);

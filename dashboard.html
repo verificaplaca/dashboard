@@ -1348,6 +1348,19 @@ window.addEventListener('resize', () => {
   if (window.innerWidth > 900) document.body.classList.remove('mobile-sidebar-open');
 });
 
+// Tracking Gateway embutido via iframe reporta a própria altura (postMessage)
+// pra este iframe crescer junto com o conteúdo em vez de rolar sozinho —
+// assim existe só um scroll (o da página), e o iframe fica imperceptível.
+// google-ads-cac.html não manda essa mensagem, então continua com a altura
+// fixa (calc(100vh - 80px)) definida em CSS, sem efeito colateral aqui.
+window.addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'vp-embed-height') return;
+  const frame = document.getElementById('frame-tracking');
+  if (frame && frame.contentWindow === e.source) {
+    frame.style.height = Math.ceil(e.data.height) + 'px';
+  }
+});
+
 (function initSidebar() {
   let savedView = 'overview';
   try { savedView = localStorage.getItem('vp_sidebar_view') || 'overview'; } catch (e) {}
@@ -1515,7 +1528,9 @@ async function supaGet(path, _attempt = 1, base = SUPA_URL, hdr = SUPA_HDR) {
     return allRows;
   } catch (err) {
     // Retry: primeiro load pode pegar o Supabase "frio" (projeto pausado/acordando)
-    if (_attempt < 3) {
+    // ou um 500 transiente de infra — mais tentativas/backoff (era 3 / até 2.4s,
+    // subiu pra 5 / até 8s) pra dar mais chance de estabilizar antes do fallback demo.
+    if (_attempt < 5) {
       await new Promise(res => setTimeout(res, 800 * _attempt));
       return supaGet(path, _attempt + 1, base, hdr);
     }
