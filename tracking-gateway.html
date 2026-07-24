@@ -105,14 +105,19 @@
   .chart-svg-wrap { margin-top: 10px; overflow-x: auto; }
 
   /* ── Filtros / tabela pedidos ── */
-  .filters-bar { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+  .filters-bar { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
   .filters-btn { display: flex; align-items: center; gap: 7px; background: var(--surface); border: 1px solid var(--border);
-                 border-radius: 999px; padding: 8px 16px; font-size: 12.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+                 border-radius: 999px; padding: 8px 16px; font-size: 12.5px; font-weight: 600; color: var(--text-primary); cursor: pointer;
+                 flex-shrink: 0; }
   .filters-btn:hover { border-color: var(--accent); color: var(--accent); }
   .filters-badge { display: none; background: var(--accent); color: #fff; border-radius: 999px; font-size: 10.5px;
                     font-weight: 700; padding: 1px 7px; }
   .filters-badge.show { display: inline-block; }
-  .filter-count { font-size: 12px; color: var(--text-muted); }
+  .filter-count { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+  /* Busca rápida na barra (fora do drawer de filtros) — pesquisa qualquer termo
+     da tabela, inclusive valor. Em telas estreitas quebra pra linha própria
+     (senão o input mín-220px espreme o botão/contador). */
+  @media (max-width: 640px) { .filters-bar .filter-input { flex-basis: 100%; order: 3; } }
 
   .filter-drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(15,15,15,.4); z-index: 400; }
   .filter-drawer-backdrop.open { display: block; }
@@ -128,6 +133,14 @@
   .filter-drawer-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; margin-top: 12px; }
   .filter-drawer-label:first-child { margin-top: 0; }
   .filter-drawer .filter-select, .filter-drawer .filter-input { width: 100%; }
+  /* Campos dentro do drawer ficam numa coluna (filter-drawer-body é
+     flex-direction:column) — herdar o "flex:1" da .filter-input (pensado pra
+     linha horizontal da filters-bar) faz o campo esticar e ocupar o espaço
+     vertical inteiro do drawer ("campo enorme"). Zera flex/min-width aqui. */
+  .filter-drawer .filter-input { flex: none; min-width: 0; }
+  .filter-value-row { display: flex; align-items: center; gap: 8px; }
+  .filter-drawer .filter-value-row .filter-input { flex: 1 1 0; width: auto; }
+  .filter-value-sep { color: var(--text-muted); font-size: 12px; flex-shrink: 0; }
   .filter-drawer-footer { padding: 14px 18px; border-top: 1px solid var(--border); }
   .filter-drawer-footer .filter-clear { width: 100%; }
 
@@ -291,6 +304,7 @@
       Filtros
       <span class="filters-badge" id="filtersBadge">0</span>
     </button>
+    <input class="filter-input" id="fSearch" placeholder="Buscar por pedido, valor, event_id..." oninput="applyFilters()" />
     <span class="filter-count" id="filterCount">0 pedido(s)</span>
   </div>
 
@@ -322,8 +336,12 @@
         <option value="sem_nada">Sem nenhum identificador</option>
         <option value="match_fraco">Match fraco</option>
       </select>
-      <div class="filter-drawer-label">Buscar</div>
-      <input class="filter-input" id="fSearch" placeholder="Buscar por pedido ou event_id..." oninput="applyFilters()" />
+      <div class="filter-drawer-label">Valor da transação</div>
+      <div class="filter-value-row">
+        <input class="filter-input" id="fValueMin" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Mín. R$" oninput="applyFilters()" />
+        <span class="filter-value-sep">–</span>
+        <input class="filter-input" id="fValueMax" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Máx. R$" oninput="applyFilters()" />
+      </div>
       <div class="filter-drawer-label">Registros exibidos</div>
       <select class="filter-select" id="fLimit" onchange="applyFilters()">
         <option value="50">50 registros</option>
@@ -789,8 +807,22 @@ function clearFilters() {
   document.getElementById('fChannel').value = '';
   document.getElementById('fAttr').value = '';
   document.getElementById('fSearch').value = '';
+  document.getElementById('fValueMin').value = '';
+  document.getElementById('fValueMax').value = '';
   document.getElementById('fLimit').value = '50';
   applyFilters();
+}
+
+// Texto de busca livre por pedido: cobre identificadores E o valor da
+// transação (em qualquer formato que o usuário digitar — "79.9", "79,90",
+// "R$ 79,90"), pra "buscar por qualquer termo da tabela, inclusive valores".
+function orderSearchHaystack(o) {
+  const valueRaw = o.value === null || o.value === undefined ? '' : String(o.value);
+  const valueFmt = fmtR(o.value); // "R$ 79,90"
+  return [
+    o.order_nsu, o.event_id, o.checkout_id,
+    valueRaw, valueFmt, valueFmt.replace('.', ','), valueFmt.replace(/[^\d,.-]/g, ''),
+  ].filter(Boolean).join(' ').toLowerCase();
 }
 
 function applyFilters() {
@@ -798,6 +830,10 @@ function applyFilters() {
   const channel = document.getElementById('fChannel').value;
   const attr = document.getElementById('fAttr').value;
   const search = document.getElementById('fSearch').value.trim().toLowerCase();
+  const valueMinRaw = document.getElementById('fValueMin').value;
+  const valueMaxRaw = document.getElementById('fValueMax').value;
+  const valueMin = valueMinRaw !== '' ? parseFloat(valueMinRaw) : null;
+  const valueMax = valueMaxRaw !== '' ? parseFloat(valueMaxRaw) : null;
   const limit = parseInt(document.getElementById('fLimit').value, 10) || 50;
 
   let rows = STATE.orders;
@@ -808,15 +844,15 @@ function applyFilters() {
   if (attr === 'sem_g') rows = rows.filter(o => !googleClickId(o));
   if (attr === 'sem_nada') rows = rows.filter(o => matchIdsCount(o) === 0);
   if (attr === 'match_fraco') rows = rows.filter(o => matchQuality(o).label === 'Fraco');
-  if (search) rows = rows.filter(o =>
-    String(o.order_nsu || '').toLowerCase().includes(search) ||
-    String(o.event_id || '').toLowerCase().includes(search) ||
-    String(o.checkout_id || '').toLowerCase().includes(search));
+  if (valueMin !== null && !isNaN(valueMin)) rows = rows.filter(o => Number(o.value) >= valueMin);
+  if (valueMax !== null && !isNaN(valueMax)) rows = rows.filter(o => Number(o.value) <= valueMax);
+  if (search) rows = rows.filter(o => orderSearchHaystack(o).includes(search));
 
   STATE.filteredOrders = rows.slice(0, limit);
   document.getElementById('filterCount').textContent = `${fmtInt(rows.length)} pedido(s)`;
 
-  const activeCount = (status ? 1 : 0) + (channel ? 1 : 0) + (attr ? 1 : 0) + (search ? 1 : 0);
+  const activeCount = (status ? 1 : 0) + (channel ? 1 : 0) + (attr ? 1 : 0) + (search ? 1 : 0) +
+    ((valueMin !== null || valueMax !== null) ? 1 : 0);
   const badge = document.getElementById('filtersBadge');
   badge.textContent = activeCount;
   badge.classList.toggle('show', activeCount > 0);
