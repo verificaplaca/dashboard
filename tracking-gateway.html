@@ -795,11 +795,78 @@ function renderChart() {
 }
 
 // ─── TABELA DE PEDIDOS ──────────────────────────────────────────────────────
+// Esta página roda embutida via <iframe> dentro do dashboard.html, com a
+// altura do iframe ajustada para o tamanho TOTAL do conteúdo (ver bloco
+// "ALTURA PRA IFRAME" no fim do arquivo) — ou seja, o iframe nunca tem
+// scroll próprio, quem rola é o dashboard.html por fora. Isso quebra
+// `position: fixed` do drawer/backdrop de duas formas: (1) `100vh` no CSS
+// passa a valer 100% da altura TOTAL do conteúdo (podem ser milhares de px),
+// não da tela visível, deixando o drawer gigante e vazio na parte de baixo;
+// (2) o "fixed" fica ancorado ao topo do iframe, não ao topo da janela —
+// então, se o usuário já rolou o dashboard até o botão "Filtros" (mais
+// abaixo na página), o que aparece na tela é justamente aquele vazio branco
+// do meio/fim do drawer gigante, com os campos reais renderizados lá em
+// cima, fora da área visível. Por isso "carrega muito pra baixo, tudo
+// branco". Corrigido calculando a posição/altura reais via JS (usa
+// window.frameElement, que só funciona same-origin — se um dia for
+// embutida em outro domínio, cai de volta pro position:fixed do CSS).
+function positionEmbeddedOverlay() {
+  const backdrop = document.getElementById('filterDrawerBackdrop');
+  const drawer = document.getElementById('filterDrawer');
+  if (!window.frameElement) return; // aberta direto (sem iframe): position:fixed do CSS já funciona normal
+  try {
+    const rect = window.frameElement.getBoundingClientRect(); // posição do iframe na janela visível do dashboard
+    const offsetTop = Math.max(0, -rect.top); // quanto o dashboard já rolou "para dentro" do iframe
+    const viewH = window.parent.innerHeight || window.innerHeight;
+    const isMobile = window.matchMedia('(max-width: 600px)').matches;
+
+    backdrop.style.position = 'absolute';
+    backdrop.style.top = offsetTop + 'px';
+    backdrop.style.height = viewH + 'px';
+
+    drawer.style.position = 'absolute';
+    if (isMobile) {
+      // Mantém a sensação de "bottom sheet": ocupa até 82% da altura
+      // visível, encostado no fundo da tela (não do iframe).
+      const sheetH = Math.round(viewH * 0.82);
+      drawer.style.top = (offsetTop + viewH - sheetH) + 'px';
+      drawer.style.height = sheetH + 'px';
+    } else {
+      drawer.style.top = offsetTop + 'px';
+      drawer.style.height = viewH + 'px';
+    }
+  } catch (e) {
+    // cross-origin — sem acesso ao parent, mantém o position:fixed padrão do CSS
+  }
+}
+
 function toggleFilterDrawer(force) {
   const drawer = document.getElementById('filterDrawer');
+  const backdrop = document.getElementById('filterDrawerBackdrop');
   const open = typeof force === 'boolean' ? force : !drawer.classList.contains('open');
   drawer.classList.toggle('open', open);
-  document.getElementById('filterDrawerBackdrop').classList.toggle('open', open);
+  backdrop.classList.toggle('open', open);
+
+  if (open) {
+    positionEmbeddedOverlay();
+    if (window.frameElement) {
+      try {
+        window.parent.addEventListener('scroll', positionEmbeddedOverlay, { passive: true });
+        window.parent.addEventListener('resize', positionEmbeddedOverlay);
+      } catch (e) { /* cross-origin */ }
+    }
+  } else {
+    if (window.frameElement) {
+      try {
+        window.parent.removeEventListener('scroll', positionEmbeddedOverlay);
+        window.parent.removeEventListener('resize', positionEmbeddedOverlay);
+      } catch (e) { /* cross-origin */ }
+    }
+    // Limpa o estilo inline: se ficasse um `top`/`height` de uma abertura
+    // anterior, o `bottom:-100%` do CSS mobile seria ignorado (over-constrained)
+    // e o drawer nunca sairia da tela ao fechar.
+    [drawer, backdrop].forEach(el => { el.style.position = ''; el.style.top = ''; el.style.height = ''; });
+  }
 }
 
 function clearFilters() {
