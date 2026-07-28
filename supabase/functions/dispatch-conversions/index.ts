@@ -82,11 +82,13 @@ Deno.serve(async (req) => {
 
     const result = await dispatchAll(data)
 
-    // P2.3 — PII hash at rest: grava só o SHA-256 de email/phone (mesma
-    // normalização usada pelos dispatchers no fluxo fresco: email lower/trim
-    // via sha256Hex, phone sem não-dígitos antes do hash).
-    const emailSha256 = data.email ? await sha256Hex(data.email) : null
-    const phoneSha256 = data.phone ? await sha256Hex(data.phone.replace(/\D/g, '')) : null
+    // P2.3 — PII hash at rest: grava só o SHA-256 de email/phone.
+    // Telefone em DOIS formatos (migration 015), porque cada canal exige o seu e
+    // o retry consome o hash pronto: a RPC do site devolve E.164 com '+'.
+    //   _e164 → Google Ads | _digits → Meta CAPI
+    const emailSha256       = data.email ? await sha256Hex(data.email) : null
+    const phoneSha256E164   = data.phone ? await sha256Hex(data.phone) : null
+    const phoneSha256Digits = data.phone ? await sha256Hex(data.phone.replace(/\D/g, '')) : null
 
     await supabase.from('conversion_dispatches').upsert({
       checkout_id: checkoutId,
@@ -95,8 +97,9 @@ Deno.serve(async (req) => {
       value:       data.valor,
       currency:    'BRL',
       paid_at:     data.paid_at ?? null,
-      email_sha256: emailSha256,
-      phone_sha256: phoneSha256,
+      email_sha256:        emailSha256,
+      phone_sha256_e164:   phoneSha256E164,
+      phone_sha256_digits: phoneSha256Digits,
       // P1.4 — atribuição capturada no client (P1.1); persistida aqui pro
       // retry não depender de nova chamada de RPC no site.
       gclid:             data.gclid ?? null,

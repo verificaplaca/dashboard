@@ -26,6 +26,15 @@ export interface CheckoutConversionData {
   // não guardam mais email/phone cru, só o hash). Quando ausente, os
   // dispatchers hasheiam `email`/`phone` na hora (fluxo fresco via RPC do site).
   email_sha256?: string | null
+  // Telefone: DOIS hashes, um por formato de canal (migration 015).
+  //   _e164   = sha256('+5511999998888')  → Google Ads (exige E.164)
+  //   _digits = sha256('5511999998888')   → Meta CAPI (exige só dígitos)
+  // A coluna antiga `phone_sha256` guardava SEMPRE o formato de dígitos, então
+  // o retry entregava o hash de dígitos pro Google e o telefone nunca casava.
+  phone_sha256_e164?: string | null
+  phone_sha256_digits?: string | null
+  // Legado: linhas gravadas ANTES da migration 015. Formato de dígitos —
+  // aproveitável só pelo Meta. NÃO usar no Google (era exatamente o bug).
   phone_sha256?: string | null
   // P1.4 — atribuição capturada no client do site (P1.1). Tudo opcional:
   // checkouts anteriores ao deploy do site vêm com esses campos null, e o
@@ -46,23 +55,23 @@ export interface DispatchResult {
   meta: { status: 'success' | 'failed' | 'skipped'; error?: string }
 }
 
-// event_id determinístico — precisa ser IDÊNTICO ao gerado no client (analytics.ts):
-//   - fluxo principal (Sucesso.tsx):        uuid: orderNsu           → 'evt_' + order_nsu
-//   - fluxo addon (CheckoutAddon/Resultado3): uuid: pixData.checkout_id → 'evt_' + checkout_id
-// Distinguido pelo prefixo do order_nsu ('addon_' vs 'order_'), confirmado nos dados reais.
-export function computeEventId(row: { checkout_id: string; order_nsu: string }): string {
-  return row.order_nsu?.startsWith('addon_')
-    ? 'evt_' + row.checkout_id
-    : 'evt_' + row.order_nsu
+// transaction_id/orderId/event_id determinísticos — precisam ser IDÊNTICOS aos
+// que o client envia. Desde o FIX overcount de 22/07/2026 o site usa order_nsu
+// em TODOS os fluxos, principal e addon:
+//   1. processar-callback/index.ts:359 manda `order_nsu` no broadcast;
+//   2. orderNsuFromBroadcast (analytics.ts:388) dá preferência ABSOLUTA a ele;
+//   3. trackPurchaseFromBroadcast (analytics.ts:433) só cai no checkout_id como
+//      fallback pra broadcast antigo (CheckoutAddon.tsx:102, Resultado3.tsx:646);
+//   4. pushPurchaseToDataLayer (analytics.ts:358) deriva event_id = 'evt_' + transaction_id.
+// A ramificação antiga por prefixo 'addon_' fazia o servidor mandar checkout_id
+// enquanto o site mandava addon_<uuid> — não casava em Ads, GA4 nem Meta.
+// Verificado no snapshot do site de 28/07/2026 (já em produção no main).
+export function computeEventId(row: { order_nsu: string }): string {
+  return 'evt_' + row.order_nsu
 }
 
-// transaction_id/orderId determinístico — precisa ser IDÊNTICO ao que o client envia:
-//   - fluxo principal (Sucesso.tsx):          transaction_id = orderNsu
-//   - fluxo addon (CheckoutAddon/Resultado3): transaction_id = pixData.checkout_id
-// Sem isso, GA4 vê 2 transações (receita de addon duplicada) e o dedup por
-// orderId no Google Ads nunca casa em addons.
-export function computeTransactionId(row: { checkout_id: string; order_nsu: string }): string {
-  return row.order_nsu?.startsWith('addon_') ? row.checkout_id : row.order_nsu
+export function computeTransactionId(row: { order_nsu: string }): string {
+  return row.order_nsu
 }
 
 // Exportado: dispatch-conversions/reconcile usam pra gravar email_sha256/
@@ -228,7 +237,9 @@ async function dispatchGoogleAds(data: CheckoutConversionData): Promise<Dispatch
 
   // Fallback: sem GADS_CLICK_CONVERSION_ACTION_ID configurada ou sem id de
   // clique — caminho de Enhanced Conversions (validado em produção).
-  if (!data.email && !data.phone && !data.email_sha256 && !data.phone_sha256) {
+  // Nota: phone_sha256 (legado, formato de dígitos) NÃO conta como identificador
+  // válido aqui — o Google exige E.164. Ver bloco de userIdentifiers abaixo.
+  if (!data.email && !data.phone && !data.email_sha256 && !data.phone_sha256_e164) {
     return { status: 'skipped', error: 'checkout sem email/phone (auth.users) — Enhanced Conversions for Leads exige ao menos um identificador' }
   }
 
@@ -241,7 +252,9 @@ async function dispatchGoogleAds(data: CheckoutConversionData): Promise<Dispatch
     // strip de não-dígitos) quando o hash é calculado aqui.
     if (data.email_sha256) userIdentifiers.push({ hashedEmail: data.email_sha256 })
     else if (data.email) userIdentifiers.push({ hashedEmail: await sha256Hex(data.email) })
-    if (data.phone_sha256) userIdentifiers.push({ hashedPhoneNumber: data.phone_sha256 })
+    // Telefone só entra em formato E.164. `phone_sha256` legado é de dígitos e
+    // é deliberadamente ignorado aqui — mandá-lo era o bug (nunca casava).
+    if (data.phone_sha256_e164) userIdentifiers.push({ hashedPhoneNumber: data.phone_sha256_e164 })
     else if (data.phone) userIdentifiers.push({ hashedPhoneNumber: await sha256Hex(data.phone) })
 
     // ⚠️ Ver aviso no topo do arquivo — formato não validado ao vivo.
@@ -287,7 +300,10 @@ async function dispatchMeta(data: CheckoutConversionData, eventId: string): Prom
   // preservando a normalização anterior (phone sem não-dígitos antes do hash).
   if (data.email_sha256) userData.em = [data.email_sha256]
   else if (data.email) userData.em = [await sha256Hex(data.email)]
-  if (data.phone_sha256) userData.ph = [data.phone_sha256]
+  // Meta quer dígitos. `phone_sha256` legado já está nesse formato, então serve
+  // de fallback pras linhas anteriores à migration 015 (não há perda aqui).
+  const phoneDigits = data.phone_sha256_digits ?? data.phone_sha256
+  if (phoneDigits) userData.ph = [phoneDigits]
   else if (data.phone) userData.ph = [await sha256Hex(data.phone.replace(/\D/g, ''))]
   // P1.4: fbp/fbc (cookies do Pixel, capturados no client em P1.1) e
   // client_user_agent melhoram o match quality da CAPI. Não bloqueante —
@@ -308,7 +324,10 @@ async function dispatchMeta(data: CheckoutConversionData, eventId: string): Prom
       custom_data: {
         currency: 'BRL',
         value: data.valor,
-        order_id: data.order_nsu,
+        // Passa por computeTransactionId pra ficar idêntico ao transaction_id do
+        // GA4 e ao orderId do Ads (antes usava order_nsu cru — hoje dá no mesmo,
+        // mas amarra os três canais na mesma função).
+        order_id: computeTransactionId(data),
       },
     }],
   }
@@ -325,12 +344,30 @@ async function dispatchMeta(data: CheckoutConversionData, eventId: string): Prom
   }
 }
 
-export async function dispatchAll(data: CheckoutConversionData): Promise<DispatchResult & { eventId: string }> {
+// Quais canais realmente disparar. Omitido = dispara (default do webhook e do
+// reconcile, que são o primeiro envio). O retry passa `false` nos canais que já
+// estavam 'success' — antes ele redisparava os três SEMPRE, e só evitava
+// sobrescrever o status; um purchase com meta_status='failed' e ga4_status='success'
+// era reenviado pro GA4 MP a cada tentativa (até 4x). Meta dedupa por event_id e o
+// enhancement do Ads é idempotente, mas o GA4 MP não tem garantia documentada de
+// dedup por transaction_id — era risco de receita inflada.
+export interface DispatchChannels {
+  ga4?: boolean
+  ads?: boolean
+  meta?: boolean
+}
+
+const NOT_REQUESTED = { status: 'skipped' as const, error: 'canal não solicitado nesta execução (já estava success)' }
+
+export async function dispatchAll(
+  data: CheckoutConversionData,
+  channels: DispatchChannels = {},
+): Promise<DispatchResult & { eventId: string }> {
   const eventId = computeEventId(data)
   const [ga4, ads, meta] = await Promise.all([
-    dispatchGA4(data, eventId),
-    dispatchGoogleAds(data),
-    dispatchMeta(data, eventId),
+    channels.ga4  === false ? Promise.resolve(NOT_REQUESTED) : dispatchGA4(data, eventId),
+    channels.ads  === false ? Promise.resolve(NOT_REQUESTED) : dispatchGoogleAds(data),
+    channels.meta === false ? Promise.resolve(NOT_REQUESTED) : dispatchMeta(data, eventId),
   ])
   return { ga4, ads, meta, eventId }
 }

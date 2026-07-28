@@ -6,9 +6,11 @@
  * attempts < 5, e re-tenta SÓ os canais que falharam (não reenvia os que já
  * tiveram sucesso — evita duplicar Purchase em GA4/Meta).
  *
- * Não precisa rechamar o RPC do site: email_sha256/phone_sha256 (P2.3 — hash
- * at rest, sem PII em claro) já estão salvos em conversion_dispatches desde
- * o primeiro dispatch.
+ * Não precisa rechamar o RPC do site: email_sha256 e phone_sha256_e164/_digits
+ * (P2.3 — hash at rest, sem PII em claro) já estão salvos em conversion_dispatches
+ * desde o primeiro dispatch. Consequência: linha gravada pelo CATCH do
+ * dispatch-conversions (RPC do site falhou → sem hash nenhum, event_id='unknown')
+ * NÃO é recuperável aqui — quem reprocessa essas é o reconcile.
  *
  * Deploy: supabase functions deploy retry-conversion-dispatches --project-ref ftmgmfdqdqxboiktxcoj
  * Cron:   cron-job.org → POST .../functions/v1/retry-conversion-dispatches, a cada 15min
@@ -41,14 +43,22 @@ Deno.serve(async (req) => {
 
   let retried = 0
   for (const row of pending) {
+    // Dispara SÓ os canais que ainda não deram success. Antes, dispatchAll
+    // reenviava os três sempre e o código abaixo só evitava sobrescrever o
+    // status — o que na prática mandava purchase repetido pro GA4 MP a cada
+    // tentativa em qualquer linha com falha parcial de outro canal.
     const result = await dispatchAll({
       checkout_id: row.checkout_id,
       order_nsu:   row.order_nsu,
       valor:       row.value,
-      // P2.3 — conversion_dispatches não guarda mais email/phone cru, só o
-      // hash (email_sha256/phone_sha256); os dispatchers usam o hash pronto.
-      email_sha256: row.email_sha256,
-      phone_sha256: row.phone_sha256,
+      // P2.3 — conversion_dispatches não guarda mais email/phone cru, só o hash.
+      // Telefone em dois formatos (migration 015): o Google precisa do E.164 e o
+      // Meta dos dígitos. `phone_sha256` é a coluna legada (dígitos), passada
+      // adiante só pro Meta aproveitar linhas anteriores à migration.
+      email_sha256:        row.email_sha256,
+      phone_sha256_e164:   row.phone_sha256_e164,
+      phone_sha256_digits: row.phone_sha256_digits,
+      phone_sha256:        row.phone_sha256,
       paid_at:     row.paid_at,
       // P1.4 — atribuição persistida em conversion_dispatches no primeiro
       // dispatch (migration 010); reaproveitada aqui sem precisar rechamar
@@ -61,10 +71,14 @@ Deno.serve(async (req) => {
       ga_client_id:      row.ga_client_id,
       event_source_url:  row.event_source_url,
       client_user_agent: row.client_user_agent,
+    }, {
+      ga4:  row.ga4_status  !== 'success',
+      ads:  row.ads_status  !== 'success',
+      meta: row.meta_status !== 'success',
     })
 
-    // Só sobrescreve o status de canais que ainda não tinham tido sucesso —
-    // se ga4 já era 'success', mantém (não reenvia, evita duplicar).
+    // Canal já 'success' não foi disparado acima e também não tem status
+    // sobrescrito aqui (dispatchAll devolve 'skipped' pra ele).
     const update: Record<string, unknown> = {
       attempts: row.attempts + 1,
       updated_at: new Date().toISOString(),
