@@ -129,7 +129,8 @@ async function dispatchGA4(data: CheckoutConversionData, eventId: string): Promi
 }
 
 // ── Google Ads — Enhanced Conversions for Leads ─────────────────────────────
-async function getGadsAccessToken(): Promise<string> {
+// Exportado: os modos ?diag= do dispatch-conversions reusam o mesmo OAuth.
+export async function getGadsAccessToken(): Promise<string> {
   const clientId     = Deno.env.get('GADS_CLIENT_ID')!
   const clientSecret = Deno.env.get('GADS_CLIENT_SECRET')!
   const refreshToken = Deno.env.get('GADS_REFRESH_TOKEN')!
@@ -145,7 +146,7 @@ async function getGadsAccessToken(): Promise<string> {
 // Formata paid_at (ISO) no formato exigido pela API: 'yyyy-MM-dd HH:mm:ss+00:00'.
 // Referência (exemplo oficial da doc): '2021-01-01 12:32:45-08:00'. Usamos sempre
 // +00:00 porque paid_at é armazenado/lido como timestamptz (UTC) no Postgres.
-function formatConversionDateTime(paidAt: string): string {
+export function formatConversionDateTime(paidAt: string): string {
   const d = new Date(paidAt)
   const pad = (n: number) => String(n).padStart(2, '0')
   const y = d.getUTCFullYear()
@@ -214,6 +215,48 @@ async function dispatchGoogleAdsClickConversion(
   }
 }
 
+// Monta o objeto ConversionAdjustment (ENHANCEMENT) enviado ao Google Ads.
+// Extraído numa função exportada de propósito: o modo `?diag=enhancement_dryrun`
+// do dispatch-conversions valida EXATAMENTE este payload (com validateOnly),
+// então não existe risco de o dry run testar uma cópia divergente do real.
+//
+// Campos de tempo (adicionados em 30/07/2026 — antes disso NENHUM ia no payload,
+// que é a causa provável do alerta "your enhanced conversions API code is sending
+// data too late" no painel de diagnóstico):
+//   - adjustmentDateTime: doc REST diz "The date time at which the adjustment
+//     occurred. Must be after the conversionDateTime." Usamos AGORA (hora do
+//     upload), que é sempre depois de paid_at. Campo documentado e seguro.
+//   - gclidDateTimePair.conversionDateTime: "The date time at which the original
+//     conversion occurred" — é o campo que informa ao Google QUANDO a conversão
+//     aconteceu. A doc REST descreve gclidDateTimePair como "for adjustments
+//     without order ID specified", enquanto o guia de Enhanced Conversions for
+//     web o recomenda JUNTO do orderId. Essa contradição não foi resolvida na
+//     doc, então o campo fica atrás da flag GADS_EC_SEND_CONVERSION_DATE_TIME=1
+//     e só deve ser ligado depois que o dry run confirmar que o Google aceita.
+export function buildEnhancementAdjustment(
+  data: CheckoutConversionData,
+  customerId: string,
+  conversionActionId: string,
+  userIdentifiers: Record<string, unknown>[],
+  nowIso: string,
+): Record<string, unknown> {
+  const adjustment: Record<string, unknown> = {
+    conversionAction: `customers/${customerId}/conversionActions/${conversionActionId}`,
+    adjustmentType: 'ENHANCEMENT',
+    orderId: computeTransactionId(data),
+    adjustmentDateTime: formatConversionDateTime(nowIso),
+    userIdentifiers,
+  }
+  // Doc: userAgent é usado "for enhancements with user identifiers" e deve bater
+  // com o da conversão original. O dado já é capturado no client (P1.1) e
+  // persistido em conversion_dispatches — só nunca tinha sido repassado ao Google.
+  if (data.client_user_agent) adjustment.userAgent = data.client_user_agent
+  if (Deno.env.get('GADS_EC_SEND_CONVERSION_DATE_TIME') === '1' && data.paid_at) {
+    adjustment.gclidDateTimePair = { conversionDateTime: formatConversionDateTime(data.paid_at) }
+  }
+  return adjustment
+}
+
 async function dispatchGoogleAds(data: CheckoutConversionData): Promise<DispatchResult['ads']> {
   const customerId       = Deno.env.get('GADS_CUSTOMER_ID')
   const devToken          = Deno.env.get('GADS_DEVELOPER_TOKEN')
@@ -268,12 +311,9 @@ async function dispatchGoogleAds(data: CheckoutConversionData): Promise<Dispatch
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          conversionAdjustments: [{
-            conversionAction: `customers/${customerId}/conversionActions/${conversionActionId}`,
-            adjustmentType: 'ENHANCEMENT',
-            orderId: computeTransactionId(data),
-            userIdentifiers,
-          }],
+          conversionAdjustments: [
+            buildEnhancementAdjustment(data, customerId, conversionActionId, userIdentifiers, new Date().toISOString()),
+          ],
           partialFailure: true,
         }),
       }

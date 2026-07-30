@@ -27,7 +27,14 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { dispatchAll, sha256Hex, type CheckoutConversionData } from '../_shared/conversion-dispatch.ts'
+import {
+  buildEnhancementAdjustment,
+  dispatchAll,
+  formatConversionDateTime,
+  getGadsAccessToken,
+  sha256Hex,
+  type CheckoutConversionData,
+} from '../_shared/conversion-dispatch.ts'
 
 Deno.serve(async (req) => {
   const url = new URL(req.url)
@@ -35,6 +42,47 @@ Deno.serve(async (req) => {
   // ── Modo diagnóstico: lista conversion actions do Google Ads ─────────────
   if (req.method === 'GET' && url.searchParams.get('diag') === 'gads_conversion_actions') {
     return await diagListConversionActions()
+  }
+
+  // ── Modo diagnóstico: quais secrets GADS_* estão configurados ────────────
+  // Devolve só booleanos (ou o ID, que não é segredo) — nunca client secret ou
+  // refresh token. Responde na hora se o caminho de Click Conversions está
+  // ativo: quando GADS_CLICK_CONVERSION_ACTION_ID existe, todo checkout com
+  // gclid pula o Enhanced Conversions e sobe SEM nenhum userIdentifier
+  // (early return no dispatchGoogleAds, em _shared/conversion-dispatch.ts).
+  if (req.method === 'GET' && url.searchParams.get('diag') === 'secrets') {
+    const has = (k: string) => Boolean(Deno.env.get(k))
+    return json({
+      ok: true,
+      secrets: {
+        GADS_CUSTOMER_ID:                   has('GADS_CUSTOMER_ID'),
+        GADS_DEVELOPER_TOKEN:               has('GADS_DEVELOPER_TOKEN'),
+        GADS_REFRESH_TOKEN:                 has('GADS_REFRESH_TOKEN'),
+        GADS_PURCHASE_CONVERSION_ACTION_ID: Deno.env.get('GADS_PURCHASE_CONVERSION_ACTION_ID') ?? null,
+        GADS_CLICK_CONVERSION_ACTION_ID:    Deno.env.get('GADS_CLICK_CONVERSION_ACTION_ID') ?? null,
+        GADS_EC_SEND_CONVERSION_DATE_TIME:  Deno.env.get('GADS_EC_SEND_CONVERSION_DATE_TIME') ?? null,
+        GA4_MEASUREMENT_ID:                 has('GA4_MEASUREMENT_ID'),
+        META_PIXEL_ID:                      has('META_PIXEL_ID'),
+      },
+      nota: 'GADS_CLICK_CONVERSION_ACTION_ID preenchido => caminho de Click Conversions ativo para checkouts com gclid, e esses NAO levam user identifiers.',
+    })
+  }
+
+  // ── Modo diagnóstico: diagnósticos de upload offline direto da API do Ads ─
+  // Fonte da verdade pros alertas do painel "Needs attention", com contagem por
+  // dia (daily_summaries) em vez de interpretação da UI.
+  // Doc: developers.google.com/google-ads/api/docs/conversions/upload-summaries
+  if (req.method === 'GET' && url.searchParams.get('diag') === 'upload_summary') {
+    return await diagUploadSummary(url.searchParams.get('conversion_action_id'))
+  }
+
+  // ── Modo diagnóstico: dry run do payload de enhancement (validateOnly) ────
+  // Manda o payload REAL (mesma função buildEnhancementAdjustment usada pelo
+  // dispatch) com validateOnly=true: o Google valida e NAO grava nada. Rodar
+  // antes de ligar GADS_EC_SEND_CONVERSION_DATE_TIME=1 em produção.
+  // Uso: ?diag=enhancement_dryrun&order_id=order_xxxxxxxx
+  if (req.method === 'GET' && url.searchParams.get('diag') === 'enhancement_dryrun') {
+    return await diagEnhancementDryRun(url.searchParams.get('order_id'))
   }
 
   const supabase = createClient(
@@ -164,6 +212,148 @@ async function diagListConversionActions(): Promise<Response> {
     if (!resp.ok) throw new Error(`Google Ads API HTTP ${resp.status}: ${await resp.text()}`)
     const data = await resp.json()
     return json({ ok: true, conversion_actions: data.results ?? [] })
+  } catch (err) {
+    return json({ ok: false, error: err instanceof Error ? err.message : String(err) }, 500)
+  }
+}
+
+// ── diag=upload_summary ─────────────────────────────────────────────────────
+// Puxa o mesmo diagnóstico que o painel "Needs attention" do Google Ads mostra,
+// mas via API e com quebra por dia. É o que permite separar "problema vivo" de
+// "resíduo de dado antigo ainda dentro da janela do painel".
+async function diagUploadSummary(conversionActionIdParam: string | null): Promise<Response> {
+  const devToken   = Deno.env.get('GADS_DEVELOPER_TOKEN')
+  const customerId = Deno.env.get('GADS_CUSTOMER_ID')
+  if (!devToken || !customerId) return json({ ok: false, error: 'secrets GADS_* não configurados' }, 500)
+
+  const actionId = conversionActionIdParam ?? Deno.env.get('GADS_PURCHASE_CONVERSION_ACTION_ID') ?? null
+
+  const R = 'offline_conversion_upload_conversion_action_summary'
+  const fields = [
+    `${R}.conversion_action_id`,
+    `${R}.conversion_action_name`,
+    `${R}.client`,
+    `${R}.status`,
+    `${R}.alerts`,
+    `${R}.total_event_count`,
+    `${R}.successful_event_count`,
+    `${R}.pending_event_count`,
+    `${R}.last_upload_date_time`,
+    `${R}.daily_summaries`,
+    `${R}.job_summaries`,
+  ]
+  let query = `SELECT ${fields.join(', ')} FROM ${R}`
+  if (actionId) query += ` WHERE ${R}.conversion_action_id = ${actionId}`
+
+  // Nível CONTA. É aqui que aparecem success_rate/pending_rate e, principalmente,
+  // o campo `alerts` agregado — o resumo por conversion action veio sem alerts
+  // nenhum em 30/07, então vale olhar se o nível de conta mostra algo.
+  const C = 'offline_conversion_upload_client_summary'
+  const clientQuery = `SELECT ${[
+    `${C}.client`,
+    `${C}.status`,
+    `${C}.alerts`,
+    `${C}.total_event_count`,
+    `${C}.successful_event_count`,
+    `${C}.pending_event_count`,
+    `${C}.success_rate`,
+    `${C}.pending_rate`,
+    `${C}.last_upload_date_time`,
+    `${C}.daily_summaries`,
+  ].join(', ')} FROM ${C}`
+
+  try {
+    const accessToken = await getGadsAccessToken()
+    const run = async (q: string) => {
+      const resp = await fetch(`https://googleads.googleapis.com/v24/customers/${customerId}/googleAds:search`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'developer-token': devToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q }),
+      })
+      const text = await resp.text()
+      let parsed: unknown
+      try { parsed = JSON.parse(text) } catch { parsed = text }
+      return { http_status: resp.status, data: parsed }
+    }
+    const [porAcao, porConta] = await Promise.all([run(query), run(clientQuery)])
+    return json({
+      ok: true,
+      agora_utc: new Date().toISOString(),
+      por_conversion_action: { query, ...porAcao },
+      por_conta: { query: clientQuery, ...porConta },
+    })
+  } catch (err) {
+    return json({ ok: false, query, error: err instanceof Error ? err.message : String(err) }, 500)
+  }
+}
+
+// ── diag=enhancement_dryrun ─────────────────────────────────────────────────
+// Valida 3 formatos de payload contra a API real com validateOnly=true (nada é
+// gravado no Google). Responde, com evidência, se dá pra ligar
+// GADS_EC_SEND_CONVERSION_DATE_TIME=1 sem quebrar o dispatch em produção.
+//   A = payload como estava até 30/07 (sem NENHUM campo de tempo) — baseline
+//   B = payload novo: adjustmentDateTime + userAgent
+//   C = B + gclidDateTimePair.conversionDateTime (o campo em dúvida na doc)
+async function diagEnhancementDryRun(orderId: string | null): Promise<Response> {
+  const devToken           = Deno.env.get('GADS_DEVELOPER_TOKEN')
+  const customerId         = Deno.env.get('GADS_CUSTOMER_ID')
+  const conversionActionId = Deno.env.get('GADS_PURCHASE_CONVERSION_ACTION_ID')
+  if (!devToken || !customerId || !conversionActionId) {
+    return json({ ok: false, error: 'GADS_CUSTOMER_ID / GADS_DEVELOPER_TOKEN / GADS_PURCHASE_CONVERSION_ACTION_ID não configurados' }, 500)
+  }
+  if (!orderId) return json({ ok: false, error: 'informe ?order_id=<order_nsu de uma compra real recente>' }, 400)
+
+  const nowIso  = new Date().toISOString()
+  const paidIso = new Date(Date.now() - 2 * 3600_000).toISOString()
+
+  try {
+    const accessToken = await getGadsAccessToken()
+    // Identificador fictício: com validateOnly o Google checa a ESTRUTURA, não
+    // se o hash casa com alguém. Não usar PII real num endpoint de diagnóstico.
+    const userIdentifiers = [{ hashedEmail: await sha256Hex('dryrun@verificaplaca.com.br') }]
+
+    const fake: CheckoutConversionData = {
+      checkout_id: '00000000-0000-0000-0000-000000000000',
+      order_nsu: orderId,
+      valor: 14.99,
+      paid_at: paidIso,
+      client_user_agent: 'Mozilla/5.0 (dry-run)',
+    }
+
+    const b = buildEnhancementAdjustment(fake, customerId, conversionActionId, userIdentifiers, nowIso)
+    delete b.gclidDateTimePair // variante B nunca leva o campo em dúvida
+    const c = { ...b, gclidDateTimePair: { conversionDateTime: formatConversionDateTime(paidIso) } }
+    const a = {
+      conversionAction: `customers/${customerId}/conversionActions/${conversionActionId}`,
+      adjustmentType: 'ENHANCEMENT',
+      orderId,
+      userIdentifiers,
+    }
+
+    const variants: Record<string, unknown> = { A_baseline_sem_tempo: a, B_adjustmentDateTime_userAgent: b, C_B_mais_conversionDateTime: c }
+    const results: Record<string, unknown> = {}
+
+    for (const [nome, adjustment] of Object.entries(variants)) {
+      const resp = await fetch(
+        `https://googleads.googleapis.com/v24/customers/${customerId}:uploadConversionAdjustments`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'developer-token': devToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversionAdjustments: [adjustment], partialFailure: true, validateOnly: true }),
+        }
+      )
+      const text = await resp.text()
+      let parsed: unknown
+      try { parsed = JSON.parse(text) } catch { parsed = text }
+      results[nome] = { http_status: resp.status, enviado: adjustment, resposta: parsed }
+    }
+
+    return json({
+      ok: true,
+      aviso: 'validateOnly=true — nada foi gravado no Google Ads.',
+      como_ler: 'Variante sem partialFailureError e com http 200 é aceita. Se C passar, pode ligar GADS_EC_SEND_CONVERSION_DATE_TIME=1. Se C falhar, deixar a flag desligada e ficar só com B.',
+      results,
+    })
   } catch (err) {
     return json({ ok: false, error: err instanceof Error ? err.message : String(err) }, 500)
   }
