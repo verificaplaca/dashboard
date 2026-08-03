@@ -244,13 +244,23 @@ export function buildEnhancementAdjustment(
     conversionAction: `customers/${customerId}/conversionActions/${conversionActionId}`,
     adjustmentType: 'ENHANCEMENT',
     orderId: computeTransactionId(data),
-    adjustmentDateTime: formatConversionDateTime(nowIso),
     userIdentifiers,
   }
-  // Doc: userAgent é usado "for enhancements with user identifiers" e deve bater
-  // com o da conversão original. O dado já é capturado no client (P1.1) e
-  // persistido em conversion_dispatches — só nunca tinha sido repassado ao Google.
-  if (data.client_user_agent) adjustment.userAgent = data.client_user_agent
+  // ⚠️ REVERTIDO EM 03/08/2026 — comportamento voltou ao de antes de 30/07.
+  // `adjustmentDateTime` e `userAgent` entraram em 30/07 22:48 UTC para tentar
+  // resolver o alerta "your enhanced conversions API code is sending data too late".
+  // Resultado: o alerta NAO mudou em 3 dias (nenhum benefício comprovado), e a
+  // entrega das campanhas caiu ~70% no dia seguinte ao deploy, sem nenhuma outra
+  // causa identificada (orçamento, saldo, pausa e reprovação foram descartados
+  // pelo Daniel; o relatório de campanhas mostra custo/impressões/cliques caindo
+  // juntos, com taxa de conversão normal).
+  // NAO há mecanismo comprovado ligando uma coisa à outra — é teste de hipótese,
+  // não diagnóstico fechado. Por isso ficou atrás de flag em vez de ser apagado:
+  // religar é só setar GADS_EC_SEND_TIMESTAMPS=1 nos secrets, sem mexer em código.
+  if (Deno.env.get('GADS_EC_SEND_TIMESTAMPS') === '1') {
+    adjustment.adjustmentDateTime = formatConversionDateTime(nowIso)
+    if (data.client_user_agent) adjustment.userAgent = data.client_user_agent
+  }
   if (Deno.env.get('GADS_EC_SEND_CONVERSION_DATE_TIME') === '1' && data.paid_at) {
     adjustment.gclidDateTimePair = { conversionDateTime: formatConversionDateTime(data.paid_at) }
   }
