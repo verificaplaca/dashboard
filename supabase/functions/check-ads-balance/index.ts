@@ -3,16 +3,16 @@
  *
  * Busca o saldo disponível na conta Google Ads via REST API (GAQL),
  * salva o snapshot em `ads_balance_history` e dispara alerta no Telegram
- * quando os DIAS RESTANTES cruzam os thresholds: ≤7d / ≤5d / ≤3d.
+ * APENAS quando o SALDO cai para R$ 1.500 ou menos. Acima disso: silêncio.
  *
- * Política de envio: alerta na hora quando o nível ESCALA (7→5, 5→3, ou
- * null→qualquer nível). Se o nível ficar estagnado (ex. sempre ≤7), reenvia
- * 1x/dia (24h desde o último envio real, rastreado via `alert_sent` em
- * `ads_balance_history`). Ao voltar pra null, envia aviso de recarga.
+ * Política de envio: alerta na hora quando o saldo cruza o limite pra baixo
+ * (acima → abaixo). Enquanto continuar abaixo, reenvia 3x por dia (a cada 8h
+ * desde o último envio real, rastreado via `alert_sent` em
+ * `ads_balance_history`). Ao voltar acima do limite, envia aviso de recarga.
  *
- * O burn rate é calculado com base nos últimos 7 dias de gasto real
- * em `google_ads_campaign_daily`. Isso torna os alertas sempre relevantes
- * independente do valor absoluto do saldo.
+ * O burn rate (média 7d de gasto real em `google_ads_campaign_daily`) NÃO
+ * dispara alerta — entra na mensagem só como contexto (dias restantes e data
+ * estimada de esgotamento).
  *
  * Variáveis de ambiente necessárias (Supabase → Project Settings → Edge Functions):
  *   GADS_DEVELOPER_TOKEN       Developer Token do Google Ads
@@ -32,13 +32,14 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// ─── Thresholds baseados em DIAS RESTANTES ───────────────────────────────────
-// alert_level armazena o threshold de dias (7, 5, 3)
-const DAY_THRESHOLDS = [
-  { days: 7, label: "⚠️ Aviso",   emoji: "🟡", msg: "Planeje a recarga nos próximos dias." },
-  { days: 5, label: "🔶 Atenção", emoji: "🟠", msg: "Recarregue em breve para não interromper campanhas." },
-  { days: 3, label: "🚨 Crítico", emoji: "🔴", msg: "Recarga urgente — campanhas param em menos de 3 dias!" },
-];
+// ─── Threshold único, baseado em VALOR do saldo ──────────────────────────────
+// Alerta só existe abaixo (ou igual) desse valor. `alert_level` grava o próprio
+// threshold (1500) quando o alerta está ativo, ou NULL quando o saldo está ok.
+const BALANCE_THRESHOLD_BRL = 1500;
+
+// Intervalo mínimo entre reenvios enquanto o saldo continua abaixo do limite.
+// 8h => até 3 mensagens por dia (o cron roda de hora em hora).
+const REALERT_INTERVAL_HOURS = 8;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function json(body: unknown, status = 200) {
@@ -208,16 +209,11 @@ Deno.serve(async () => {
 
     const daysLeft = avg7spend > 0 ? balanceBRL / avg7spend : null;
 
-    // ── 3. Determinar threshold de dias atingido ──────────────────────────
-    // Escolhe o MENOR threshold que casa (mais crítico primeiro: 3 → 5 → 7),
-    // pra não travar sempre no primeiro match (bug anterior sobrescrevia com
-    // o último threshold percorrido, que era sempre ≤7).
-    let currentAlertLevel: number | null = null;
-    if (daysLeft !== null) {
-      const ascending = [...DAY_THRESHOLDS].sort((a, b) => a.days - b.days); // 3, 5, 7
-      const match = ascending.find(t => daysLeft <= t.days);
-      currentAlertLevel = match ? match.days : null;
-    }
+    // ── 3. Determinar se o saldo está abaixo do limite ────────────────────
+    // Regra única: saldo <= R$ 1.500 → alerta. Acima disso → nada.
+    // Os dias restantes NÃO entram na decisão, só na mensagem.
+    const belowThreshold = balanceBRL <= BALANCE_THRESHOLD_BRL;
+    const currentAlertLevel: number | null = belowThreshold ? BALANCE_THRESHOLD_BRL : null;
 
     // ── 4. Verificar último nível e último envio real ──────────────────────
     const { data: lastRows } = await supabase
@@ -254,37 +250,41 @@ Deno.serve(async () => {
     }
 
     // ── 6. Enviar alerta Telegram ─────────────────────────────────────────
-    // Escala (nível menor que o anterior, ou null → qualquer nível): envia na hora.
-    // Nível igual ao anterior: re-alerta só se o último envio real foi há mais de 24h.
-    // Recarregado (nível → null): sempre envia.
-    const escalated  = currentAlertLevel !== null && (lastAlertLevel === null || currentAlertLevel < lastAlertLevel);
-    const recharged  = currentAlertLevel === null && lastAlertLevel !== null;
-    const sameLevel  = currentAlertLevel !== null && lastAlertLevel !== null && currentAlertLevel === lastAlertLevel;
-    const dailyReAlert = sameLevel && (lastSentAt === null || (hoursSinceLastSent !== null && hoursSinceLastSent >= 24));
+    // Cruzou o limite pra baixo (ok → abaixo de 1.500): envia na hora.
+    // Continua abaixo: reenvia a cada 8h (3x/dia) desde o último envio real.
+    // Voltou acima do limite (abaixo → ok): envia aviso de recarga.
+    const crossedDown = currentAlertLevel !== null && lastAlertLevel === null;
+    const recharged   = currentAlertLevel === null && lastAlertLevel !== null;
+    const stillBelow  = currentAlertLevel !== null && lastAlertLevel !== null;
+    const reAlert     = stillBelow && (
+      lastSentAt === null ||
+      (hoursSinceLastSent !== null && hoursSinceLastSent >= REALERT_INTERVAL_HOURS)
+    );
 
     let alertSent = false;
 
-    if ((escalated || dailyReAlert) && currentAlertLevel !== null && daysLeft !== null) {
-      const threshold = DAY_THRESHOLDS.find(t => t.days === currentAlertLevel)!;
-      const runout = new Date(Date.now() + daysLeft * 86400000);
-      const runoutStr = runout.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    if (crossedDown || reAlert) {
+      const runoutStr = daysLeft !== null
+        ? new Date(Date.now() + daysLeft * 86400000)
+            .toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+        : null;
+
       const msg = [
-        `${threshold.emoji} <b>Alerta de Saldo Google Ads</b>`,
+        `🔴 <b>Alerta de Saldo Google Ads</b>`,
         ``,
-        `${threshold.label}: apenas <b>${daysLeft.toFixed(1)} dias</b> de campanha restantes`,
+        `💰 Saldo atual: <b>${fmtBRL(balanceBRL)}</b> (limite: ${fmtBRL(BALANCE_THRESHOLD_BRL)})`,
+        avg7spend > 0 ? `📊 Gasto médio/dia (7d): <b>${fmtBRL(avg7spend)}</b>` : "",
+        daysLeft !== null ? `⏳ Dias restantes: <b>${daysLeft.toFixed(1)} dias</b>` : "",
+        runoutStr ? `📅 Esgotamento estimado: <b>${runoutStr}</b>` : "",
         ``,
-        `💰 Saldo atual: <b>${fmtBRL(balanceBRL)}</b>`,
-        `📊 Gasto médio/dia (7d): <b>${fmtBRL(avg7spend)}</b>`,
-        `📅 Esgotamento estimado: <b>${runoutStr}</b>`,
-        ``,
-        threshold.msg,
-      ].join("\n");
+        `Recarregue para não interromper as campanhas.`,
+      ].filter(Boolean).join("\n");
 
       await sendTelegram(botToken!, chatId!, msg);
       alertSent = true;
 
     } else if (recharged) {
-      // Saldo recarregado — voltou ao normal
+      // Saldo recarregado — voltou acima do limite
       const msg = [
         `✅ <b>Saldo Google Ads recarregado</b>`,
         ``,
@@ -306,12 +306,14 @@ Deno.serve(async () => {
     }
 
     return json({
-      ok:           true,
-      balance_brl:  balanceBRL,
-      days_left:    daysLeft,
-      avg7_spend:   avg7spend,
-      alert_level:  currentAlertLevel,
-      alert_sent:   alertSent,
+      ok:            true,
+      balance_brl:   balanceBRL,
+      threshold_brl: BALANCE_THRESHOLD_BRL,
+      below_threshold: belowThreshold,
+      days_left:     daysLeft,
+      avg7_spend:    avg7spend,
+      alert_level:   currentAlertLevel,
+      alert_sent:    alertSent,
       checked_at:   new Date().toISOString(),
     });
 
