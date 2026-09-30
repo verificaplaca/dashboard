@@ -15,7 +15,8 @@
  * Cálculos (convenções do dashboard, CLAUDE.md):
  *   custo_total  = custo_ads + custo_bureau
  *   lucro_bruto  = receita − custo_total
- *   lucro_líquido = receita * 0.92 − custo_total
+ *   lucro_líquido = receita * (1 − imposto%/100) − custo_total
+ *                   (imposto% = monthly_targets.tax_pct do mês, módulo Metas; padrão 8%)
  *   CAC real     = custo_ads / paid_orders
  *
  * Variáveis de ambiente necessárias:
@@ -46,13 +47,26 @@ async function sendTelegram(botToken: string, chatId: string, text: string): Pro
   if (!resp.ok) console.error('Telegram error:', await resp.text())
 }
 
-// ── Fator líquido pós-imposto, por data de venda (mesma netFactor() do
-// dashboard.html — imposto faseado; NÃO usar 0.92 fixo, está desatualizado) ──
-//   até mar/2026 → 0.92 | abr/2026 → 0.95 | mai/2026+ → 0.962
-function netFactor(dateStr: string): number {
-  if (!dateStr || dateStr < '2026-04-01') return 0.92
-  if (dateStr < '2026-05-01') return 0.95
-  return 0.962
+// ── Imposto (%) sobre a receita — mesma regra da netFactor() do dashboard.html:
+// tax_pct não-nulo mais recente <= mês (módulo Metas, tabela monthly_targets);
+// sem valor cadastrado (ou tabela/coluna inacessível) → 8%.
+const TAX_PCT_DEFAULT = 8
+
+// deno-lint-ignore no-explicit-any
+async function taxPctFor(supabase: any, monthStart: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('monthly_targets')
+    .select('month, tax_pct')
+    .lte('month', monthStart)
+    .not('tax_pct', 'is', null)
+    .order('month', { ascending: false })
+    .limit(1)
+  if (error) {
+    console.warn('monthly_targets.tax_pct indisponível, usando 8%:', error.message)
+    return TAX_PCT_DEFAULT
+  }
+  const v = Number(data?.[0]?.tax_pct)
+  return data?.length && Number.isFinite(v) ? v : TAX_PCT_DEFAULT
 }
 
 // ── Datas em America/Sao_Paulo (BRT = UTC-3, sem horário de verão) ─────────
@@ -96,6 +110,9 @@ Deno.serve(async () => {
     const untilUTC = `${todayStr}T03:00:00.000Z`
 
     const missing: string[] = []
+
+    // Imposto do mês de "ontem" (vale pro dia e pro acumulado do mês)
+    const netFactor = 1 - (await taxPctFor(supabase, yesterdayStr.slice(0, 7) + '-01')) / 100
 
     // ── revenue_daily ──────────────────────────────────────────────────────
     let revenue: number | null = null
@@ -224,7 +241,7 @@ Deno.serve(async () => {
     const custoTotal = (custoAds ?? 0) + (custoBureau ?? 0)
     const custoTotalKnown = custoAds !== null || custoBureau !== null
     const lucroBruto  = revenue !== null && custoTotalKnown ? revenue - custoTotal : null
-    const lucroLiquido = revenue !== null && custoTotalKnown ? revenue * netFactor(yesterdayStr) - custoTotal : null
+    const lucroLiquido = revenue !== null && custoTotalKnown ? revenue * netFactor - custoTotal : null
     const margem = lucroBruto !== null && revenue ? lucroBruto / revenue : null
     const cacReal = custoAds !== null && paidOrders ? custoAds / paidOrders : null
     const ticketMedio = revenue !== null && paidOrders ? revenue / paidOrders : null
@@ -264,8 +281,8 @@ Deno.serve(async () => {
     }
     const moCogsKnown  = moAds !== null || moBureau !== null
     const moCogs       = (moAds ?? 0) + (moBureau ?? 0)
-    // netFactor muda só em virada de mês, então o fator do dia 01 vale pro mês todo
-    const moLiquido    = moRevenue !== null && moCogsKnown ? moRevenue * netFactor(monthStart) - moCogs : null
+    // imposto é mensal, então o mesmo fator vale pro mês todo
+    const moLiquido    = moRevenue !== null && moCogsKnown ? moRevenue * netFactor - moCogs : null
     const moMargem     = moRevenue !== null && moCogsKnown && moRevenue > 0 ? (moRevenue - moCogs) / moRevenue : null
 
     // ── Montar mensagem ──────────────────────────────────────────────────────

@@ -754,7 +754,7 @@
       <span class="sidebar-nav-label">Google Ads CAC</span>
     </button>
     <button class="sidebar-nav-item" data-view="tracking" onclick="showView('tracking')" title="Tracking Gateway">
-      <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r=".8" fill="currentColor"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+      <span class="sidebar-nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/></svg></span>
       <span class="sidebar-nav-label">Tracking Gateway</span>
     </button>
   </div>
@@ -1001,11 +1001,11 @@
     <div style="height:200px"><canvas id="profitChart"></canvas></div>
   </div>
 
-  <!-- Lucro Líquido por Dia (otimizado) — full width -->
+  <!-- Lucro Líquido por Dia — full width -->
   <div class="card" style="margin-top:10px">
     <div class="card-header">
-      <div><div class="card-title">Lucro Líquido por Dia <span style="font-size:11px;font-weight:500;color:var(--text-muted);background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:2px 7px;margin-left:6px;">70% × 2% + 30% × 8%</span></div>
-           <div class="card-subtitle">Após otimização tributária · Verde = positivo · Vermelho = negativo</div></div>
+      <div><div class="card-title">Lucro Líquido por Dia <span style="font-size:11px;font-weight:500;color:var(--text-muted);background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:2px 7px;margin-left:6px;" id="netProfitTaxBadge">imposto 8%</span></div>
+           <div class="card-subtitle">Após imposto (módulo Metas) · Verde = positivo · Vermelho = negativo</div></div>
     </div>
     <div style="height:200px"><canvas id="netProfitChart"></canvas></div>
   </div>
@@ -1238,6 +1238,7 @@
       <label class="metas-field"><span>Meta receita (R$)</span><input class="filter-select" type="number" step="100" min="0" id="mtRevenue" placeholder="ex.: 163000"></label>
       <label class="metas-field"><span>Meta lucro bruto (R$)</span><input class="filter-select" type="number" step="100" min="0" id="mtProfit" placeholder="ex.: 36000"></label>
       <label class="metas-field"><span>Meta lucro líquido (R$)</span><input class="filter-select" type="number" step="100" min="0" id="mtNetProfit" placeholder="ex.: 30000"></label>
+      <label class="metas-field"><span>Imposto (%)</span><input class="filter-select" type="number" step="0.01" min="0" max="100" id="mtTax" placeholder="padrão: 8"></label>
     </div>
     <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
       <button class="date-picker-btn" type="button" id="metasSaveBtn" onclick="metasSave()" disabled>Salvar mês</button>
@@ -1261,6 +1262,7 @@
           <th class="num">Receita</th>
           <th class="num">Lucro bruto</th>
           <th class="num">Lucro líquido</th>
+          <th class="num">Imposto</th>
           <th></th>
         </tr></thead>
         <tbody></tbody>
@@ -1397,6 +1399,7 @@ const MONTHLY_BUDGET              = 89000;  // fallback — R$ orçamento Google
 const MONTHLY_REVENUE_TARGET      = 163000; // fallback — R$ meta receita
 const MONTHLY_PROFIT_TARGET       = 36000;  // fallback — R$ meta lucro bruto
 const MONTHLY_NET_PROFIT_TARGET   = 30000;  // fallback — R$ meta lucro líquido
+const TAX_PCT_DEFAULT             = 8;      // fallback — % imposto sobre a receita (todos os meses)
 
 // ─── TESTE PACOTE COMPLETO R$79,90 ───────────────────────────────────────────
 // Benchmark 15/07/2026 (30d reais Supabase/Pagar.me): m1 funil atual R$19,60,
@@ -1458,6 +1461,7 @@ function targetFor(dateStr) {
     revenue:   pick('revenue_target',    MONTHLY_REVENUE_TARGET),
     profit:    pick('profit_target',     MONTHLY_PROFIT_TARGET),
     netProfit: pick('net_profit_target', MONTHLY_NET_PROFIT_TARGET),
+    taxPct:    pick('tax_pct',           TAX_PCT_DEFAULT),
   };
 }
 
@@ -2002,14 +2006,28 @@ function applyFilters() { activeCamp = document.getElementById('campaignFilter')
 })();
 
 // ─── TAX FACTOR ──────────────────────────────────────────────────────────────
-// Fator líquido após imposto, por data de venda:
-//   até mar/2026  → 100% a 8%              → fator 0,92
-//   abr/2026      → 50% a 2% + 50% a 8%   → fator 0,95
-//   mai/2026+     → 70% a 2% + 30% a 8%   → fator 0,962
-function netFactor(dateStr) {
-  if (!dateStr || dateStr < '2026-04-01') return 0.92;
-  if (dateStr < '2026-05-01')             return 0.95;   // 0.50×0.98 + 0.50×0.92
-  return 0.962;                                          // 0.70×0.98 + 0.30×0.92
+// Fator líquido após imposto, por data de venda: 1 − imposto do mês / 100.
+// Imposto (%) vem do módulo Metas (monthly_targets.tax_pct), com a mesma herança
+// por campo das outras metas; sem valor cadastrado → TAX_PCT_DEFAULT (8%).
+// (Até 30/09/2026 era faseado fixo no código: 0,92 / 0,95 / 0,962.)
+function taxPctFor(dateStr) { return targetFor(dateStr).taxPct; }
+function netFactor(dateStr) { return 1 - taxPctFor(dateStr) / 100; }
+
+// Rótulo do imposto aplicado a um conjunto de dias: "8%" ou "3,8%–8%" se variar.
+function taxLabel(days) {
+  const f = v => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%';
+  const vals = (days && days.length ? days : [{ dateStr: null }])
+    .map(d => taxPctFor(d.dateStr || new Date().toISOString().slice(0, 10)));
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  return mn === mx ? f(mn) : f(mn) + '–' + f(mx);
+}
+
+// Recalcula netProfit por dia (após salvar imposto em Metas, sem recarregar a página).
+function recomputeNetProfit() {
+  for (const d of ALL_DAYS) {
+    const c = d.costTotal != null ? d.costTotal : (d.cost || 0);
+    d.netProfit = +(d.revenue * netFactor(d.dateStr) - c).toFixed(2);
+  }
 }
 
 // ─── TOTALS ───────────────────────────────────────────────────────────────────
@@ -2040,10 +2058,10 @@ function totals() {
   // Sem dados reais de checkout, convRate é null (o card mostra "—") — não usar
   // o MONTHLY.convRate congelado como se fosse real. No demo, mantém o fallback.
   const convRate   = checkouts > 0 ? (conv / checkouts * 100) : (usingRealData ? null : MONTHLY.convRate);
-  const netPft      = +(rev * 0.92 - costTotal).toFixed(2); // baseline: sempre 8%
-  // Otimização faseada: fator por data (até mar/26=0.92 | abr/26=0.95 | mai/26+=0.962)
+  // Lucro líquido: imposto do mês de cada dia (módulo Metas, padrão 8%) via netFactor()
   const netPftOpt   = +(filtered.reduce((s,d) =>
     s + d.revenue * revMul * netFactor(d.dateStr) - (d.costTotal||0) * costMul, 0)).toFixed(2);
+  const netPft      = netPftOpt; // mesmo cálculo (antes: baseline fixo 0.92)
   const refundCount = filtered.reduce((s,d)=>s+(d.refundCount||0),0);
   const refundValue = +filtered.reduce((s,d)=>s+(d.refundValue||0),0).toFixed(2);
   const refundRate  = (conv+refundCount)>0 ? +(refundCount/(conv+refundCount)*100).toFixed(2) : 0;
@@ -2162,9 +2180,9 @@ function prevTotals() {
   const costBur = prev.reduce((s,d)=>s+(d.costBureau||0), 0)*costMul;
   const costTot = +(cost+costBur).toFixed(2);
   const pft     = usingRealData ? prev.reduce((s,d)=>s+(d.profit||0),0)*revMul : +(rev-costTot).toFixed(2);
-  const netPft    = +(rev * 0.92 - costTot).toFixed(2); // baseline: sempre 8%
   const netPftOpt = +(prev.reduce((s,d) =>
     s + d.revenue * revMul * netFactor(d.dateStr) - (d.costTotal||0) * costMul, 0)).toFixed(2);
+  const netPft    = netPftOpt; // mesmo cálculo (antes: baseline fixo 0.92)
   const conv    = prev.reduce((s,d)=>s+d.conv,            0)*convMul;
   const checks  = prev.reduce((s,d)=>s+(d.checkouts||0),  0)*convMul;
   const upsell  = usingRealData
@@ -2592,13 +2610,15 @@ function buildKPIs(T) {
   const _projNetPft = _avgNetPft !== 0 ? Math.round(_avgNetPft * _dInMo) : 0;
   const _netPftSub  = _projNetPft !== 0
     ? `Proj.: ${_fmtK(_projNetPft)}${TGT.netProfit > 0 ? ' · Meta: '+_fmtK(TGT.netProfit) : ''}`
-    : 'imposto faseado por período';
+    : 'imposto ' + taxLabel(filtered);
+  const _netPftTip  = 'receita bruta\n× (1 − imposto ' + taxLabel(filtered) + ')\n− custo total COGS\n\nImposto definido no módulo Metas\n(padrão 8% em todos os meses)'
+    + (TGT.netProfit > 0 ? '\nMeta do mês: ' + _fmtK(TGT.netProfit) : '');
 
   const row1 = [
     { id:'r',  label:'Receita Bruta',    value:fmtR(T.rev),              delta:d(T.rev,P?.rev,false),        sub:_revSub,                    color:'blue',  dir:'up',      badge:'receita',         spark:filtered.map(x=>x.revenue),                              sc:'#16a34a', targetPct:_tgtRev },
     { id:'ct', label:'Custo Total COGS', value:fmtR(T.costTotal),        delta:d(T.costTotal,P?.costTotal,true), sub:_costSub,               color:'red',   dir:'neutral', badge:'custos',           spark:filtered.map(x=>x.costTotal||0),                         sc:'#dc2626', targetPct:_tgtCost, targetReverse:true, tip:'custo Google Ads\n+ custo bureau\n= total operacional' },
     { id:'p',  label:'Lucro Bruto',      value:fmtR(T.pft),              delta:d(T.pft,P?.pft,false),        sub:_profitSub,                 color:T.pft>=0?'green':'red', dir:T.pft>=0?'up':'down', badge:T.pft>=0?'positivo':'negativo', spark:filtered.map(x=>x.profit||0), sc:T.pft>=0?'#16a34a':'#dc2626', targetPct:_tgtProfit, tip:'receita bruta\n− custo Google Ads\n− custo bureau' },
-    { id:'npo', label:'Lucro Líquido Otimizado', value:fmtR(T.netPftOpt), delta:d(T.netPftOpt,P?.netPftOpt,false), sub:_netPftSub, color:T.netPftOpt>=0?'green':'red', dir:T.netPftOpt>=0?'up':'down', badge:T.netPftOpt>=0?'otimizado':'negativo', spark:filtered.map(x=>x.netProfit||0), sc:T.netPftOpt>=0?'#0891b2':'#dc2626', targetPct:_tgtNetProfit, tip:'Otimização tributária faseada:\naté mar/26 → 100% a 8%\nabr/26     → 50% a 2% + 50% a 8%\nmai/26+    → 70% a 2% + 30% a 8%\n− custo total COGS\nMeta: R$30k em mai/26' },
+    { id:'npo', label:'Lucro Líquido', value:fmtR(T.netPftOpt), delta:d(T.netPftOpt,P?.netPftOpt,false), sub:_netPftSub, color:T.netPftOpt>=0?'green':'red', dir:T.netPftOpt>=0?'up':'down', badge:T.netPftOpt>=0?'líquido':'negativo', spark:filtered.map(x=>x.netProfit||0), sc:T.netPftOpt>=0?'#0891b2':'#dc2626', targetPct:_tgtNetProfit, tip:_netPftTip },
     { id:'eb', label:'EBITDA',           value:fmtR(ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)), delta:null, sub:`todo o período · ${ALL_DAYS.length} dias`, color:ALL_DAYS.reduce((s,d)=>s+(d.profit||0),0)>=0?'green':'red', dir:'up', badge:'acumulado total', spark:ALL_DAYS.map(x=>x.profit||0), sc:'#16a34a', tip:'receita bruta\n− custo Google Ads\n− custo bureau\n(acumulado de todo o período disponível,\nnão muda com o filtro de datas)' },
   ];
   const row2 = [
@@ -2889,7 +2909,7 @@ function buildProdutoTeste(T) {
   const receita = dias.reduce((s,d) => s + d.receita,  0);
   const vendUtm = dias.reduce((s,d) => s + (d.vendasUtm || 0), 0);
   const cac     = vendas > 0 && inv > 0 ? +(inv / vendas).toFixed(2) : null;
-  // Lucro do teste: receita líquida de imposto (netFactor por dia) − bureau ESTIMADO − ads
+  // Lucro do teste: receita líquida de imposto (netFactor por dia = imposto do mês em Metas) − bureau ESTIMADO − ads
   const recLiq    = dias.reduce((s,d) => s + d.receita * netFactor(d.dateStr), 0);
   const bureauEst = vendas * P.bureauPorVenda;
   const lucro     = +(recLiq - bureauEst - inv).toFixed(2);
@@ -3143,8 +3163,10 @@ function buildCharts(T) {
              y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10.5},callback:v=>fmtR(v)}} }
   });
 
-  // 2b. Net Profit per day — fator de imposto faseado por data via netFactor()
+  // 2b. Net Profit per day — imposto do mês de cada dia (Metas) via netFactor()
   const netOptData = d.map(x => x.netProfit || 0);
+  const _taxBadge  = document.getElementById('netProfitTaxBadge');
+  if (_taxBadge) _taxBadge.textContent = 'imposto ' + taxLabel(d);
   const avgNetOpt  = netOptData.reduce((s,v)=>s+v,0) / (netOptData.length||1);
   mkChart('netProfitChart','bar', {
     labels,
@@ -4103,6 +4125,7 @@ function metasFillForm(monthStr) { // monthStr: 'YYYY-MM'
   set('mtCpa', row.target_cpa); set('mtUpsell', row.target_upsell_pct);
   set('mtBudget', row.monthly_budget); set('mtRevenue', row.revenue_target);
   set('mtProfit', row.profit_target); set('mtNetProfit', row.net_profit_target);
+  set('mtTax', row.tax_pct);
   const t = document.getElementById('metasFormTitle');
   if (t) t.textContent = 'Metas do mês ' + metasMonthLabel(mo);
 }
@@ -4129,8 +4152,12 @@ async function metasSave() {
     target_cpa: num('mtCpa'), target_upsell_pct: num('mtUpsell'),
     monthly_budget: num('mtBudget'), revenue_target: num('mtRevenue'),
     profit_target: num('mtProfit'), net_profit_target: num('mtNetProfit'),
+    tax_pct: num('mtTax'),
     updated_at: new Date().toISOString(),
   };
+  if (row.tax_pct !== null && !(row.tax_pct >= 0 && row.tax_pct <= 100)) {
+    msg.style.color = 'var(--red)'; msg.textContent = 'Imposto deve estar entre 0 e 100%.'; return;
+  }
   msg.textContent = 'Salvando…';
   try {
     const r = await fetch(SUPA_URL + '/rest/v1/monthly_targets?on_conflict=month', {
@@ -4158,6 +4185,7 @@ async function metasSave() {
       const rows = await supaGet('/rest/v1/monthly_targets?select=*&order=month.asc');
       MONTHLY_TARGETS = (rows || []).slice().sort((a, b) => String(a.month).localeCompare(String(b.month)));
     } catch (e) {}
+    recomputeNetProfit(); // imposto pode ter mudado → netProfit por dia
     if (typeof render === 'function' && typeof filtered !== 'undefined' && filtered.length) render();
     renderMetasView();
     msg.style.color = 'var(--green)'; msg.textContent = '✓ Salvo — dashboard atualizado.';
@@ -4187,6 +4215,7 @@ function renderMetasView() {
       <td class="num">${fmt0(r.revenue_target)}</td>
       <td class="num">${fmt0(r.profit_target)}</td>
       <td class="num">${fmt0(r.net_profit_target)}</td>
+      <td class="num">${r.tax_pct != null ? fmtN(+r.tax_pct, 2) + '%' : '—'}</td>
       <td class="num"><button class="date-picker-btn" type="button" onclick="metasFillForm('${mo.slice(0, 7)}')">Editar</button></td>`;
     tbody.appendChild(tr);
   });
