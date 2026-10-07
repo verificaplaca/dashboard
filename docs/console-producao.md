@@ -44,7 +44,7 @@ npm --prefix console-app test
 npm --prefix console-app run release
 ```
 
-`release` prepara exclusivamente a pasta gerada `console/`. Commitar fonte e saída juntas. CI de PR reconstrói, testa e compara os arquivos gerados. O workflow é manual/PR; não recria schedules de sincronização.
+`release` prepara exclusivamente a pasta gerada `console/`. Commitar fonte e saída juntas. CI em push na main, PR e execução manual reconstrói, testa e compara os arquivos gerados; não recria schedules de sincronização.
 
 O frontend usa caminhos relativos para funcionar em `/dashboard/console/` e outros subdiretórios. Demo, páginas, gráficos e SDK Auth ficam em chunks separados. O SDK Auth só é solicitado ao entrar ou restaurar uma sessão; a demonstração não é executada no modo real.
 

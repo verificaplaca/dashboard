@@ -1,5 +1,12 @@
 name: Console checks
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'console-app/**'
+      - 'console/**'
+      - 'dashboard.html'
+      - '.github/workflows/console-checks.yml'
   pull_request:
     paths:
       - 'console-app/**'
