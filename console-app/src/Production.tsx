@@ -9,7 +9,7 @@ import { greeting, saoPauloClock } from './domain/clock';
 import './home.css';
 const Dashboard = lazy(() => import('./Dashboard'));
 const ExecutiveSummary = lazy(() => import('./ExecutiveSummary'));
-const OriginalOverview = lazy(() => import('./OriginalOverview'));
+const Campaigns = lazy(() => import('./LiveCampaigns'));
 const Targets = lazy(() => import('./Targets'));
 const Tracking = lazy(() => import('./LiveTracking'));
 const Profile = lazy(() => import('./LiveProfile'));
@@ -43,7 +43,7 @@ function Shell() {
       <div className="sidebar-bottom"><button className="collapse-button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}><ChevronsLeft size={17} /><span>Recolher menu</span></button></div>
     </aside>
     <div className="app-content"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Abrir menu" onClick={() => setMobile(true)}><PanelLeftClose size={19} /></button><span>{current?.label || 'Página'}</span></div><div className="topbar-actions"><button className="global-search" aria-label="Buscar módulo" onClick={() => setSearch(true)}><Search size={15} /><span>Buscar módulo</span><kbd>⌘ K</kbd></button><span className="demo-chip"><i />DADOS REAIS</span><button className="icon-button" aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>{user ? <button className="profile-trigger" aria-label="Meu perfil" onClick={() => go('/perfil')}><Avatar name={name} /><span>{name.split(' ')[0]}<small>Conta autenticada</small></span></button> : <button className="button secondary" onClick={openLogin}><LogIn size={15} />Entrar</button>}</div></header>
-      <main id="main" tabIndex={-1} className="main-content"><Suspense fallback={<Card><p role="status">Carregando módulo…</p></Card>}>{route === '/inicio' ? <LiveHome /> : route === '/dashboard' ? <Dashboard /> : route === '/marketing' ? <><PageHeading eyebrow="AQUISIÇÃO E RESULTADOS" title="Campanhas" description="Investimento, conversões e participação de impressão, com os dados e regras do dashboard atual." /><OriginalOverview view="campanhas" /></> : route === '/tracking' ? <Tracking /> : route === '/metas' ? <Targets /> : route === '/perfil' ? <Profile /> : current ? <IntegrationStage title={current.label} /> : <Empty title="Página não encontrada" description="Escolha um módulo no menu."><button className="button primary" onClick={() => go('/inicio')}>Voltar ao início</button></Empty>}</Suspense>
+      <main id="main" tabIndex={-1} className="main-content"><Suspense fallback={<Card><p role="status">Carregando módulo…</p></Card>}>{route === '/inicio' ? <LiveHome /> : route === '/dashboard' ? <Dashboard /> : route === '/marketing' ? <Campaigns /> : route === '/tracking' ? <Tracking /> : route === '/metas' ? <Targets /> : route === '/perfil' ? <Profile /> : current ? <IntegrationStage title={current.label} /> : <Empty title="Página não encontrada" description="Escolha um módulo no menu."><button className="button primary" onClick={() => go('/inicio')}>Voltar ao início</button></Empty>}</Suspense>
         <footer className="app-footer"><span><ShieldCheck size={13} />Verifica Placa · Console</span><span>{current?.live ? 'Fontes reais · Supabase existente' : 'Módulo em integração'}</span><a href={demoLink()}>Explorar demonstração<ArrowUpRight size={12} /></a></footer>
       </main>
     </div>
