@@ -8,6 +8,13 @@
 Dashboard de performance para o produto Verifica Placa.
 Hospedado em GitHub Pages. Dados via Supabase (principal) + Google Sheets (legado/fallback).
 
+### Console (07/10/2026)
+Nova interface em `console-app/` (React/TypeScript/Vite), saída adicional em `console/`.
+Financeiro, campanhas e tracking leem os contratos existentes; metas e perfil usam
+Supabase Auth. Operação sem backend permanece explicitamente em integração, com
+demonstração separada em `?demo=1`. Nenhuma tabela, policy ou sync foi migrado.
+Arquitetura, execução, evidências e rollback: `docs/console-producao.md`.
+
 ---
 
 ## Repositórios e Pastas

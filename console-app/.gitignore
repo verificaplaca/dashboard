@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.sites-runtime/
+*.tsbuildinfo
+*.tar.gz
+src/production-config.json
