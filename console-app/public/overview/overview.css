@@ -25,6 +25,8 @@ header { position:relative; padding:12px 16px; border:1px solid var(--border); b
 .filter-select { max-width:290px; }
 #freshnessWrap { display:flex; color:var(--text-secondary); font-size:11px; }
 main { padding:0 0 18px; max-width:none; }
+/* Source status stays in the footer/export and the home summary label. */
+#demoDataBanner { display:none!important; }
 .section-label { display:flex; align-items:center; gap:10px; margin-top:26px; margin-bottom:12px; font-size:11px; font-weight:650; letter-spacing:.09em; color:var(--text-secondary); }
 .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
 .kpi-row { grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-bottom:10px; }
