@@ -12,7 +12,9 @@ Hospedado em GitHub Pages. Dados via Supabase (principal) + Google Sheets (legad
 Nova interface em `console-app/` (React/TypeScript/Vite), saída adicional em `console/`.
 Financeiro, campanhas e tracking leem os contratos existentes; metas e perfil usam
 Supabase Auth. Operação sem backend permanece explicitamente em integração, com
-demonstração separada em `?demo=1`. Nenhuma tabela, policy ou sync foi migrado.
+demonstração separada em `?demo=1`. Em 08/10/2026, Tarefas foi conectado ao Supabase
+com migrações aditivas 017/018: tarefas, memberships explícitas e auditoria privada;
+login atual, RPCs com identidade/versão e RLS. Financeiro e sync permanecem preservados.
 Arquitetura, execução, evidências e rollback: `docs/console-producao.md`.
 
 ---
@@ -56,6 +58,8 @@ Arquitetura, execução, evidências e rollback: `docs/console-producao.md`.
 - `sync_errors` — erros dos syncs
 - `google_ads_campaign_daily` — dados diários de campanhas
 - `bureau_daily` — consultas de bureau por dia
+- `console_tasks` / `console_task_events` — tarefas reais e histórico, privados; escrita apenas por RPC autenticada
+- `console_task_members` — contas habilitadas para tarefas; gestor/membro, sem permissões derivadas de metadata
 - `monthly_targets` — metas mensais do sistema (1 linha/mês; RLS anon-read, auth-write)
 
 ### Views analíticas (usam `COALESCE(paid_at, created_at)` para agrupar por data)

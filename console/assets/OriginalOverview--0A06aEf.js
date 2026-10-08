@@ -1,5 +1,5 @@
 const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./auto-C1Qm3KRQ.js","./chart-DhlI85fk.js","./chartjs-plugin-datalabels.esm-COO4rXjM.js"])))=>i.map(i=>d[i]);
-import{r as b,_ as re,j as _}from"./index-BzssMv9C.js";import{u as he,o as be}from"./home-DAt-jkdB.js";const ve=`(() => {
+import{r as b,_ as re,j as _}from"./index-DQlOBW0s.js";import{u as he,o as be}from"./home-CVwulXx9.js";const ve=`(() => {
   if (!window.Chart) return;
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const summary = new URLSearchParams(location.search).get('mode') === 'summary';
