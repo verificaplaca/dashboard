@@ -198,3 +198,12 @@ Fornecedor: Assertiva. Três faixas de preço:
 | `006_paid_at.sql` | Adiciona `paid_at` a orders + backfill + atualiza views |
 | `007` – `012` | Tracking gateway (conversion_dispatches, attribution, PII hash) + notificações |
 | `013_monthly_targets.sql` | Tabela `monthly_targets` (metas mensais) + RLS anon-read/auth-write + seed jul/26 |
+
+## Tracking — 15/10/2026
+
+Timeout 57014 de revenue_daily/upsell bloqueava a tela original de tracking por
+Promise.all compartilhado. Migração 019 aplicada individualmente: índice concorrente
+na expressão da data de pagamento de São Paulo, com colunas analíticas cobertas.
+Consulta caiu de 13.811 ms para 6,690 ms; contagens e hashes dos três agregados
+idênticos. Tracking e comparativo CAC agora têm cargas/erros independentes.
+Diagnóstico, validação e rollback: `docs/tracking-timeout-2026-10-15.md`.

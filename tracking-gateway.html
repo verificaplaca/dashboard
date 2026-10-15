@@ -493,7 +493,13 @@ async function supaGet(path, _attempt = 1) {
     let offset = 0;
     while (true) {
       const r = await fetch(SUPA_URL + path, { headers: { ...SUPA_HDR, Range: `${offset}-${offset + SUPA_PAGE_SIZE - 1}` } });
-      if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + path);
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        const err = new Error(`Supabase ${r.status}${body.code ? ' (' + body.code + ')' : ''}: ${body.message || 'Falha na consulta'}`);
+        err.status = r.status;
+        err.source = path.split('?')[0].split('/').pop();
+        throw err;
+      }
       const page = await r.json();
       allRows = allRows.concat(page);
       if (page.length < SUPA_PAGE_SIZE) break;
@@ -504,7 +510,7 @@ async function supaGet(path, _attempt = 1) {
     // Retry: primeiro load pode pegar o Supabase "frio" (projeto pausado/acordando)
     // ou um 500 transiente de infra — mesmo padrão do dashboard.html, só que com
     // mais tentativas/backoff (era 3 tentativas / até 2.4s, subiu pra 5 / até 8s).
-    if (_attempt < 5) {
+    if (_attempt < 5 && (!err.status || err.status >= 500 || err.status === 429)) {
       await new Promise(res => setTimeout(res, 800 * _attempt));
       return supaGet(path, _attempt + 1);
     }
@@ -514,6 +520,7 @@ async function supaGet(path, _attempt = 1) {
 
 // ─── ESTADO ─────────────────────────────────────────────────────────────────
 let STATE = {
+  trackingError: null,
   orders: [],          // conversion_dispatches_public, últimos N dias (janela ampla, cobre tabela + gráfico)
   filteredOrders: [],
   chartDays: 7,
@@ -609,31 +616,62 @@ async function loadAndRender() {
     const from90 = new Date(now); from90.setDate(from90.getDate() - ORDERS_WINDOW_DAYS);
     const fromCac = new Date(now); fromCac.setDate(fromCac.getDate() - 29); // CAC: últimos 30 dias
 
-    const [orders, revRows, gadsRows] = await Promise.all([
-      supaGet(`/rest/v1/conversion_dispatches_public?created_at=gte.${from90.toISOString()}&select=*&order=created_at.desc`),
+    // Tracking and the financial comparison have independent availability.
+    // A slow revenue view must never discard successful conversion dispatches.
+    const tracking = supaGet(`/rest/v1/conversion_dispatches_public?created_at=gte.${from90.toISOString()}&select=*&order=created_at.desc`).then(orders => {
+      if (myToken !== STATE.loadToken) return;
+      STATE.trackingError = null;
+      document.getElementById('ordersEmpty').textContent = 'Nenhum pedido no período/filtro selecionado.';
+      STATE.orders = orders;
+      renderLastSync(orders);
+      applyFilters();
+      renderHealth();
+      renderChannels();
+      renderAttribution();
+      renderChart();
+      hideLoadingOverlay();
+    }).catch(err => {
+      if (myToken !== STATE.loadToken) return;
+      STATE.trackingError = err;
+      STATE.orders = [];
+      STATE.filteredOrders = [];
+      STATE.expandedRow = null;
+      document.getElementById('lastSyncLabel').textContent = 'Última sincronização: indisponível';
+      document.querySelector('#ordersTable tbody').innerHTML = '';
+      document.getElementById('ordersEmpty').style.display = 'block';
+      document.getElementById('ordersEmpty').textContent = 'Histórico indisponível. Atualize para tentar novamente.';
+      document.getElementById('filterCount').textContent = 'Histórico indisponível';
+      document.getElementById('statusBanner').innerHTML = '';
+      document.getElementById('statusBanner').className = 'status-banner';
+      hideLoadingOverlay();
+      for (const id of ['healthRow', 'channelsRow', 'attrRow', 'chartSvgWrap']) {
+        document.getElementById(id).innerHTML = sourceError('Tracking indisponível', err);
+      }
+    });
+    const cac = Promise.all([
       supaGet(`/rest/v1/revenue_daily?date=gte.${iso(fromCac)}&date=lte.${iso(now)}&select=date,revenue,paid_orders`),
       supaGet(`/rest/v1/google_ads_campaign_daily?date=gte.${iso(fromCac)}&date=lte.${iso(now)}&select=date,cost_micros,conversions`),
-    ]);
-
-    if (myToken !== STATE.loadToken) return;
-
-    STATE.orders = orders;
-    renderLastSync(orders);
-    applyFilters();
-    renderHealth();
-    renderChannels();
-    renderAttribution();
-    renderChart();
-    renderCac(revRows, gadsRows);
-  } catch (err) {
-    if (myToken !== STATE.loadToken) return;
-    console.error('Erro ao carregar Tracking Gateway:', err);
-    document.getElementById('healthRow').innerHTML =
-      `<div class="kpi-card" style="grid-column: span 6"><div class="kpi-label">Erro ao carregar dados</div><div class="kpi-value red" style="font-size:13px">${escapeHtml(err.message)}</div>
-       <div class="kpi-sub">Se o erro for 401/404 na tabela conversion_dispatches_public, a view pública ainda não foi criada — ver 008_conversion_dispatches_public_view.sql.</div></div>`;
+    ]).then(([revRows, gadsRows]) => {
+      if (myToken === STATE.loadToken) renderCac(revRows, gadsRows);
+    }).catch(err => {
+      if (myToken !== STATE.loadToken) return;
+      document.getElementById('cacSummaryRow').innerHTML = sourceError('Comparativo CAC indisponível', err);
+      document.querySelector('#cacTable tbody').innerHTML = '';
+      document.getElementById('cacEmpty').style.display = 'block';
+      document.getElementById('cacEmpty').textContent = 'Não foi possível consultar o comparativo. Atualize para tentar novamente.';
+    });
+    await Promise.all([tracking, cac]);
   } finally {
     if (myToken === STATE.loadToken) hideLoadingOverlay();
   }
+}
+
+function sourceError(title, err) {
+  const detail = err.status === 401 || err.status === 403
+    ? 'A fonte recusou o acesso.'
+    : err.status === 404 ? 'A fonte não foi encontrada.'
+    : 'A fonte não respondeu. Atualize para tentar novamente.';
+  return `<div class="kpi-card" role="alert" style="grid-column:1/-1"><div class="kpi-label">${escapeHtml(title)}</div><div class="kpi-value red" style="font-size:13px">${escapeHtml(err.source || '')}: ${escapeHtml(err.message)}</div><div class="kpi-sub">${detail}</div></div>`;
 }
 
 function showLoadingOverlay() { document.getElementById('loadingOverlay').classList.add('visible'); }
@@ -800,6 +838,7 @@ document.getElementById('chartPresets').addEventListener('click', e => {
 });
 
 function renderChart() {
+  if (STATE.trackingError) return;
   const days = STATE.chartDays;
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - (days - 1)); cutoff.setHours(0,0,0,0);
 
@@ -965,6 +1004,7 @@ function orderSearchHaystack(o) {
 }
 
 function applyFilters() {
+  if (STATE.trackingError) return;
   const status = document.getElementById('fStatus').value;
   const channel = document.getElementById('fChannel').value;
   const attr = document.getElementById('fAttr').value;
@@ -1223,6 +1263,7 @@ document.querySelector('#ordersTable tbody').addEventListener('click', e => {
 
 // ─── CAC real vs reportado (passo 8) ────────────────────────────────────────
 function renderCac(revRows, gadsRows) {
+  document.getElementById('cacEmpty').textContent = 'Sem dados no período.';
   const revMap = new Map();
   for (const r of revRows) revMap.set(String(r.date).slice(0,10), r);
   const costMap = new Map(), convMap = new Map();

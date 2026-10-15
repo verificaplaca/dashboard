@@ -1,0 +1,25 @@
+name: Tracking checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tracking-gateway.html'
+      - 'tests/tracking-gateway.test.mjs'
+      - '.github/workflows/tracking-checks.yml'
+  pull_request:
+    paths:
+      - 'tracking-gateway.html'
+      - 'tests/tracking-gateway.test.mjs'
+      - '.github/workflows/tracking-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/tracking-gateway.test.mjs
