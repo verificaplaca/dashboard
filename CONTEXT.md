@@ -202,8 +202,8 @@ Fornecedor: Assertiva. Três faixas de preço:
 ## Tracking — 15/10/2026
 
 Timeout 57014 de revenue_daily/upsell bloqueava a tela original de tracking por
-Promise.all compartilhado. Migração 019 aplicada individualmente: índice concorrente
-na expressão da data de pagamento de São Paulo, com colunas analíticas cobertas.
+Promise.all compartilhado. Migrações 019/020 aplicadas individualmente: índices concorrentes
+na data de pagamento de São Paulo e na data de estorno, com colunas analíticas cobertas.
 Consulta caiu de 13.811 ms para 6,690 ms; contagens e hashes dos três agregados
 idênticos. Tracking e comparativo CAC agora têm cargas/erros independentes.
 Diagnóstico, validação e rollback: `docs/tracking-timeout-2026-10-15.md`.
