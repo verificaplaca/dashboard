@@ -8,6 +8,7 @@ O endereço original e `dashboard.html` permanecem disponíveis.
 
 - Inicial com saudação pelo horário de São Paulo, resumo financeiro real e acesso aos módulos.
 - Visão Geral com o motor original integral, sem iframe. Mantém os 15 indicadores, filtros, impostos, herança de metas e comparativos.
+- Simulador em `#/simulador`, disponível na sidebar real e na busca: decisão com CAC/lucro realizados, comparação gradual/direto até janeiro, otimizador e cenário livre. Fontes agregadas somente leitura, cálculos condicionais e hipóteses editáveis.
 - Campanhas com o painel original nativo, incluindo perdas de participação de impressão.
 - Tracking em leitura da view pública existente, paginado em 50 registros e com janela de 90 dias. Não dispara reenvios ou reconciliação.
 - Login Supabase com a conta existente; identidade verificada pelo servidor, sessão em sessionStorage e renovação pelo SDK. Sem seletor de papéis em produção.
@@ -64,3 +65,14 @@ Para contas futuras, cadastrar membership deliberadamente pelo backend administr
 Validado: 49 testes automatizados; testes SQL transacionais de autorização e fluxo; validação visual isolada com fixtures de quadro/lista, criar, comentar, mudar status, conflito com rascunho preservado, arquivar/restaurar e popup a 390px, sem overflow horizontal da página. A validação visual autenticada utiliza um harness temporário separado, que não é incluído no release. Login e ações pela conta real do operador continuam disponíveis para validação humana, sem geração de sessões de impersonação.
 
 Rollback: reverter frontend e manter as tabelas/permissões privadas preserva tarefas criadas pelo operador. Nunca apagar `console_tasks` ou o histórico para reverter uma versão da interface. Migrações 017/018 foram aplicadas individualmente pelo Management API do CLI no projeto principal; não executar `db push` em bloco sobre o histórico legado.
+
+
+## Simulador integrado à publicação principal — 26/10/2026
+
+O módulo estava disponível apenas no console separado hospedado no ChatGPT. Foi incorporado à entrada real `Production.tsx`, à navegação principal (abaixo de Visão Geral), à busca e à rota `/dashboard/console/#/simulador` do GitHub Pages. A demonstração também oferece o acesso com sua permissão de Visão Geral. O estado visual usa `UIProvider`, sem inicializar dados fictícios no modo real.
+
+Inclui as quatro áreas já validadas: Decisão de hoje, Plano até janeiro, Investimento ideal e Cenário livre, com gráficos de lucro líquido, comparação gradual/direto/controle, CAC constante/elasticidade 0,8 e aprendizado editável. Leituras GET das quatro fontes existentes, com configuração anônima pública gerada pelo mesmo verificador do console. As fórmulas financeiras e regras do indicador foram preservadas. Não grava orçamento em Ads nem altera fontes financeiras ou permissões.
+
+Snapshots de cenários e histórico de etapas permanecem locais ao navegador/origem; cópias salvas no domínio do ChatGPT não são migradas silenciosamente para o GitHub Pages. O modelo do simulador não equivale a previsão causal ou garantia de resultado. O horizonte do plano permanece 26/10/2026–31/01/2027; a base histórica avança com os dias encerrados.
+
+Validação local: 108 testes (96 de domínio/leitura e 12 de paridade), TypeScript e release aprovados. Navegador: abertura pela sidebar real, busca, recarregamento pelo link direto, base 24–25/10 nas quatro condições e menu móvel em 390×844 sem overflow horizontal. Fonte e saída `console/` são publicadas juntas; HTML original, backend, login e tarefas permanecem preservados.

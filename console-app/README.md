@@ -20,6 +20,7 @@ npm test
 - `src/context.tsx`: persistência local, sessão de demonstração e navegação por hash.
 - `src/components.tsx`, `src/styles.css` e `src/layout.css`: componentes, tokens visuais, temas, escala de leitura e responsividade. A camada de layout final mantém o ritmo comum entre os módulos.
 - `Home`, `ExecutiveSummary` e `domain/home.ts`: inicial por horário de São Paulo, foco pessoal, prioridades, agenda e evolução conforme permissões; resumo financeiro pelo mesmo motor original.
+- `Simulation`, `ScalePlan` e `InvestmentOptimizer`: simulador real na sidebar e busca, comparações de lucro até janeiro, decisão e otimização com fontes agregadas somente leitura; tema/notificações pelo contexto visual compartilhado.
 - `Dashboard`: integra a Visão Geral original ao console, com DOM no mesmo documento, tema, navegação fixa de seções, período visível, tabela dos gráficos e exportação.
 - `reference/dashboard-original.html` e `reference/provenance.json`: fonte congelada em 07/10/2026 e hash SHA-256.
 - `scripts/build-overview.mjs`: adapta apenas apresentação/navegação; preserva integralmente o script de cálculo e carga.
