@@ -2,7 +2,7 @@ import { Activity, ChartNoAxesCombined, SlidersHorizontal, TrendingUp } from 'lu
 export type SimulatorView = 'decision' | 'plan' | 'optimizer' | 'custom';
 export const SIMULATOR_VIEWS = [
   { id: 'decision', label: 'Decisão de hoje', hint: 'CAC e lucro realizados', icon: Activity },
-  { id: 'plan', label: 'Plano até janeiro', hint: 'Gradual × direto a R$ 5.000', icon: ChartNoAxesCombined },
+  { id: 'plan', label: 'Plano até janeiro', hint: 'Bases e critérios de escala', icon: ChartNoAxesCombined },
   { id: 'optimizer', label: 'Investimento ideal', hint: 'Testar bases de 7, 14 e 30 dias', icon: TrendingUp },
   { id: 'custom', label: 'Cenário livre', hint: 'Editar, salvar e reabrir hipóteses', icon: SlidersHorizontal },
 ] as const;

@@ -3,6 +3,7 @@ import { ArrowDownRight, ArrowUpRight, Check, ChevronRight, Download, Minus, Ref
 import { Card } from './components';
 import { exportFile } from './Dashboard';
 import GradualPlanComparison from './GradualPlanComparison';
+import ScaleReadiness from './ScaleReadiness';
 import type { SimulatorView } from './SimulatorNavigation';
 import { useUI } from './ui';
 import { loadSimulationData } from './domain/simulation-data';
@@ -42,7 +43,7 @@ export default function ScalePlan({ view, onNavigate, onPreview }: { view: Simul
     controller.current?.abort(); const request = new AbortController(); controller.current = request;
     const now = saoPauloToday(); setToday(now); setLoading(true); setError(''); setSnapshot(null);
     try {
-      const start = addDays(entry.changedOn, -required - state.lagDays - 7), end = addDays(now, -1);
+      const end = addDays(now, -1), start = [addDays(entry.changedOn, -required - state.lagDays - 7), addDays(end, -29), '2026-10-17'].sort()[0];
       const data = await loadSimulationData(start, end, request.signal);
       if (!request.signal.aborted) setSnapshot(data);
     } catch (e) { if (!request.signal.aborted) setError(e instanceof Error ? e.message : 'Falha ao ler os dados reais.'); }
@@ -88,7 +89,8 @@ export default function ScalePlan({ view, onNavigate, onPreview }: { view: Simul
     <div className="sim-scale-footer"><span>Semáforo independente das hipóteses e da base histórica selecionada.</span><button className="text-button" disabled={!snapshot || loading} onClick={() => exportFile('verifica-placa-plano-escala.json', JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), rules: SCALE_RULES, state, decision, snapshot }, null, 2), 'application/json;charset=utf-8')}><Download size={14} />Exportar plano e leitura real</button></div>
   </Card></section>
     <section id="sim-panel-plan" role="tabpanel" aria-labelledby="sim-tab-plan" hidden={view !== 'plan'} tabIndex={0} className="sim-view-panel">
-      <div className="sim-view-intro"><div><span className="sim-data-kind projected">PROJEÇÃO</span><h2>Aumentar aos poucos ou ir direto a R$ 5.000?</h2><p>Compare as duas estratégias até 31/01/2027 e veja o ganho sobre manter R$ 2.790/dia. As hipóteses desta aba são independentes do Cenário livre.</p></div><button className="button secondary" disabled={loading} onClick={() => void refresh()}><RefreshCw size={14} className={loading ? 'sim-spin' : ''} />Atualizar base recente</button></div>
+      <div className="sim-view-intro"><div><span className="sim-data-kind projected">PROJEÇÃO</span><h2>Manter ou dar o próximo passo?</h2><p>Compare as bases de 7, 14 e 30 dias e após 16/10. Veja quando manter R$ 2.790/dia e o que falta para testar R$ 3.100/dia. As hipóteses desta aba são independentes do Cenário livre.</p></div><button className="button secondary" disabled={loading} onClick={() => void refresh()}><RefreshCw size={14} className={loading ? 'sim-spin' : ''} />Atualizar análise</button></div>
+      <ScaleReadiness decision={decision} state={state} loading={loading} error={storageError || error} today={today} />
       {(view === 'plan' || visitedPlan) && <GradualPlanComparison snapshot={snapshot} loading={loading} sourceError={error} />}
     </section></>;
 }

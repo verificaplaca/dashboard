@@ -4,9 +4,13 @@ import { scaleScenario } from './scale-plan';
 export type GradualLearning = { days: number; lossPct: number };
 export const DEFAULT_GRADUAL_LEARNING: GradualLearning = { days: 7, lossPct: 6 };
 export function compareGradualPlan(snapshot: Snapshot, learning: GradualLearning = DEFAULT_GRADUAL_LEARNING) {
-  if (!Number.isInteger(learning.days) || learning.days < 0 || learning.days > 30 || !Number.isFinite(learning.lossPct) || learning.lossPct < 0 || learning.lossPct > 100) throw new Error('Aprendizado: use 0 a 30 dias inteiros e perda entre 0% e 100%.');
-  const start = addDays(snapshot.end, -1), end = snapshot.end;
+  const start = addDays(snapshot.end, -1);
   if (start <= '2026-10-16') throw new Error('A comparação precisa de dois dias completos após as alterações de 16/10.');
+  return comparePlanWindow(snapshot, start, snapshot.end, learning);
+}
+/** Same horizon, control and transition model; only the observed efficiency window changes. */
+export function comparePlanWindow(snapshot: Snapshot, start: string, end: string, learning: GradualLearning = DEFAULT_GRADUAL_LEARNING) {
+  if (!Number.isInteger(learning.days) || learning.days < 0 || learning.days > 30 || !Number.isFinite(learning.lossPct) || learning.lossPct < 0 || learning.lossPct > 100) throw new Error('Aprendizado: use 0 a 30 dias inteiros e perda entre 0% e 100%.');
   const base = historicalBase(snapshot, start, end);
   if (base.issues.length || snapshot.warnings.length) throw new Error([...base.issues, ...snapshot.warnings].join(' '));
   if (dates(start, end).some(d => taxAt(snapshot.targets, d).fallback)) throw new Error('Imposto sem cadastro na recuperação recente. Confira as metas antes de projetar.');
@@ -44,3 +48,22 @@ export function compareGradualPlan(snapshot: Snapshot, learning: GradualLearning
   return { source: { start, end, loadedAt: snapshot.loadedAt }, base, observedCac: base.ads / base.orders, learning: { ...learning }, start: nominal.start, end: addDays(nominal.start, 97), days: 98, controlBudget: 2790, changes: 6, affectedDays, directAffectedDays, plannedMedia: rows[0].result.scenario.ads, controlMedia: rows[0].result.control.ads, extraMedia: rows[0].result.extraAds, directBudget: 5000, directMedia: rows[0].directResult.scenario.ads, extraDirectMedia: round(rows[0].directResult.scenario.ads - rows[0].result.scenario.ads), rows };
 }
 export type GradualComparison = ReturnType<typeof compareGradualPlan>;
+
+export type PlanWindowId = 'post-change' | '7' | '14' | '30';
+export type PlanWindowComparison = { id: PlanWindowId; label: string; start: string; end: string; data: GradualComparison | null; error: string };
+export function comparePlanWindows(snapshot: Snapshot, learning: GradualLearning = DEFAULT_GRADUAL_LEARNING): PlanWindowComparison[] {
+  const windows: { id: PlanWindowId; label: string; start: string }[] = [
+    { id: 'post-change', label: 'Após 16/10', start: '2026-10-17' },
+    ...([7, 14, 30] as const).map(days => ({ id: String(days) as PlanWindowId, label: `${days} dias`, start: addDays(snapshot.end, 1 - days) })),
+  ];
+  return windows.map(window => {
+    try { return { ...window, end: snapshot.end, data: comparePlanWindow(snapshot, window.start, snapshot.end, learning), error: '' }; }
+    catch (e) { return { ...window, end: snapshot.end, data: null, error: e instanceof Error ? e.message : 'Base indisponível.' }; }
+  });
+}
+export type PlanStrategy = 'keep' | 'gradual' | 'direct';
+export function bestPlanStrategies(row: GradualComparison['rows'][number]): PlanStrategy[] {
+  const profits: [PlanStrategy, number][] = [['keep', row.result.control.profit], ['gradual', row.result.scenario.profit], ['direct', row.directResult.scenario.profit]];
+  const best = Math.max(...profits.map(([, profit]) => profit));
+  return profits.filter(([, profit]) => Math.abs(profit - best) < .005).map(([strategy]) => strategy);
+}
