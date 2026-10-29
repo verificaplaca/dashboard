@@ -3,10 +3,12 @@ import config from '../production-config.json';
 const OVERVIEW_URL = config.url, OVERVIEW_ANON_KEY = config.key;
 import { dates, saoPauloToday, taxAt, type Snapshot, type RevenueRow, type BureauRow, type AdsRow, type TaxRow } from './simulation';
 
-export async function rows(table: string, select: string, filter: string, signal?: AbortSignal): Promise<Record<string, unknown>[]> {
+export async function rows(table: string, select: string, filter: string, signal?: AbortSignal, source: 'analytics' | 'site' = 'analytics'): Promise<Record<string, unknown>[]> {
+  if (source === 'site' && table !== 'checkouts_daily') throw new Error('Somente checkouts agregados são permitidos nesta fonte.');
+  const endpoint = source === 'site' ? config.site : {url:OVERVIEW_URL,key:OVERVIEW_ANON_KEY};
   const all: Record<string, unknown>[] = [];
   for (let offset = 0; offset <= 100000; offset += 1000) {
-    const r = await readOnlyOverviewFetch(`${OVERVIEW_URL}/rest/v1/${table}?select=${select}&${filter}`, { headers: { apikey: OVERVIEW_ANON_KEY, Authorization: `Bearer ${OVERVIEW_ANON_KEY}`, Range: `${offset}-${offset + 999}` } }, signal);
+    const r = await readOnlyOverviewFetch(`${endpoint.url}/rest/v1/${table}?select=${select}&${filter}`, { headers: { apikey: endpoint.key, Authorization: `Bearer ${endpoint.key}`, Range: `${offset}-${offset + 999}` } }, signal);
     if (!r.ok) throw new Error(`Fonte ${table} indisponível (HTTP ${r.status}).`);
     const page: unknown = await r.json();
     if (!Array.isArray(page) || page.some(v => !v || typeof v !== 'object')) throw new Error(`Formato inválido em ${table}.`);

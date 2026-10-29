@@ -96,3 +96,10 @@ Verificação: 113 testes (101 domínio/leitura e 12 paridade). Novos testes cob
 O simulador passa a abrir uma tela enxuta: verba diária, duração, adaptação e efeito no lucro comparado com manter. Três curvas em um gráfico, com pico teórico limitado, permitem entender a margem das vendas adicionais. As quatro áreas completas anteriores ficam em “Ferramentas avançadas e cenários salvos”, sem apagar armazenamento local. O indicador real permanece independente das hipóteses; pendências na DRE impedem apresentar a liberação do painel como validação do lucro completo.
 
 Novo módulo Financeiro na navegação principal e busca (`#/financeiro`), DRE mensal com CSV, resultado parcial explícito e complementos privados para o gestor. Receita já exclui cancelados; estornos são informativos e não descontados duas vezes. Migração aditiva 021, RLS e RPC versionada foram aplicadas isoladamente, com testes transacionais e ROLLBACK de fixtures. Nenhuma despesa fictícia persistida ou campanha alterada. Método, privacidade, testes e rollback: [financeiro-dre.md](financeiro-dre.md).
+
+
+## Resultados Financeiros editáveis — 29/10/2026
+
+O simulador adota os mesmos 15 cards de Resultados Financeiros da Visão Geral, na mesma ordem, com lápis para premissas e cadeados explicativos para resultados. Receita permite escolher preço ou volume; CAC/transações/conversão usam um único driver para evitar circularidade; upsell exige receita e custo incrementais. Histórico calibra unidades e taxas, mas elasticidade não é tratada como medida causal. Controle, indicador real, DRE privada, fontes e snapshots avançados preservados.
+
+Leituras adicionais somente agregadas: upsell pago, checkouts do projeto original e acumulado de 2026. Fonte opcional desconhecida nunca vira zero. Sem alteração no banco/Ads. 140 testes (128 domínio/leitura, 12 paridade). Fórmulas, UX e limites: [simulador-cards.md](simulador-cards.md).

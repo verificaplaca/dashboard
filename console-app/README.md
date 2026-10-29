@@ -20,7 +20,7 @@ npm test
 - `src/context.tsx`: persistência local, sessão de demonstração e navegação por hash.
 - `src/components.tsx`, `src/styles.css` e `src/layout.css`: componentes, tokens visuais, temas, escala de leitura e responsividade. A camada de layout final mantém o ritmo comum entre os módulos.
 - `Home`, `ExecutiveSummary` e `domain/home.ts`: inicial por horário de São Paulo, foco pessoal, prioridades, agenda e evolução conforme permissões; resumo financeiro pelo mesmo motor original.
-- `Simulation` e `QuickProfitChart`: entrada simples com verba, período e comparação de resultado. `AdvancedSimulation`, `ScalePlan` e `InvestmentOptimizer` preservam cenários salvos e análises detalhadas sob demanda.
+- `Simulation`, `FinancialCards` e `QuickProfitChart`: entrada com verba, período e os 15 cards financeiros editáveis por premissas; relações e limites em [simulador-cards.md](../docs/simulador-cards.md). `AdvancedSimulation`, `ScalePlan` e `InvestmentOptimizer` preservam cenários salvos e análises detalhadas sob demanda.
 - `Finance`, `useFinance` e `domain/finance*`: DRE mensal com fontes agregadas reais, campos privados do gestor e gravação versionada. Método e limites em [financeiro-dre.md](../docs/financeiro-dre.md).
 - `Dashboard`: integra a Visão Geral original ao console, com DOM no mesmo documento, tema, navegação fixa de seções, período visível, tabela dos gráficos e exportação.
 - `reference/dashboard-original.html` e `reference/provenance.json`: fonte congelada em 07/10/2026 e hash SHA-256.
