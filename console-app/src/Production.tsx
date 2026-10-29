@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Activity, ArrowUpRight, CalendarDays, CheckCircle2, ChevronsLeft, CreditCard, Crosshair, Gauge, Headphones, Home, LayoutDashboard, LogIn, Megaphone, MessageSquare, Moon, PanelLeftClose, Search, Settings2, ShieldCheck, Sparkles, Sun, Target, TrendingUp, Users, Workflow, X } from 'lucide-react';
+import { Activity, ArrowUpRight, CalendarDays, CheckCircle2, ChevronsLeft, CreditCard, Crosshair, Wallet, Gauge, Headphones, Home, LayoutDashboard, LogIn, Megaphone, MessageSquare, Moon, PanelLeftClose, Search, Settings2, ShieldCheck, Sparkles, Sun, Target, TrendingUp, Users, Workflow, X } from 'lucide-react';
 import { Avatar, Card, Dialog, Empty, PageHeading } from './components';
 import { go, useRoute } from './format';
 import { AuthProvider, useAuth } from './Auth';
@@ -7,6 +7,7 @@ import { UIProvider, useUI } from './ui';
 import { observeEntrances } from './motion';
 import { greeting, saoPauloClock } from './domain/clock';
 import './home.css';
+const Finance = lazy(() => import('./Finance'));
 const Simulation = lazy(() => import('./Simulation'));
 const Dashboard = lazy(() => import('./Dashboard'));
 const ExecutiveSummary = lazy(() => import('./ExecutiveSummary'));
@@ -17,7 +18,7 @@ const Profile = lazy(() => import('./LiveProfile'));
 const Tasks = lazy(() => import('./LiveTasks'));
 const HomeTasks = lazy(() => import('./TaskHomeSummary'));
 const groups = [
-  { label: 'PRINCIPAL', items: [{ path: '/inicio', label: 'Início', icon: Home, live: true }, { path: '/dashboard', label: 'Visão Geral', icon: LayoutDashboard, live: true }, { path: '/simulador', label: 'Simulador', icon: Gauge, live: true }] },
+  { label: 'PRINCIPAL', items: [{ path: '/inicio', label: 'Início', icon: Home, live: true }, { path: '/dashboard', label: 'Visão Geral', icon: LayoutDashboard, live: true }, { path: '/financeiro', label: 'Financeiro', icon: Wallet, live: true }, { path: '/simulador', label: 'Simulador', icon: Gauge, live: true }] },
   { label: 'RESULTADOS', items: [{ path: '/marketing', label: 'Campanhas', icon: Megaphone, live: true }, { path: '/tracking', label: 'Tracking', icon: TrendingUp, live: true }, { path: '/metas', label: 'Metas mensais', icon: Target, live: true }] },
   { label: 'EXECUÇÃO', items: [{ path: '/tarefas', label: 'Tarefas', icon: CheckCircle2, live: true }] },
   { label: 'OPERAÇÃO · PRÓXIMA ETAPA', items: [{ path: '/crm', label: 'CRM e funis', icon: Workflow, live: false }, { path: '/clientes', label: 'Clientes', icon: Users, live: false }, { path: '/vendas', label: 'Vendas', icon: CreditCard, live: false }, { path: '/consultas', label: 'Consultas', icon: Crosshair, live: false }, { path: '/atendimento', label: 'Caixa compartilhada', icon: MessageSquare, live: false }, { path: '/whatsapp', label: 'WhatsApp', icon: Activity, live: false }, { path: '/evolucao', label: 'Evolução da equipe', icon: Sparkles, live: false }, { path: '/suporte', label: 'Suporte interno', icon: Headphones, live: false }, { path: '/administracao', label: 'Administração', icon: Settings2, live: false }] },
@@ -47,7 +48,7 @@ function Shell() {
       <div className="sidebar-bottom"><button className="collapse-button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}><ChevronsLeft size={17} /><span>Recolher menu</span></button></div>
     </aside>
     <div className="app-content"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Abrir menu" onClick={() => setMobile(true)}><PanelLeftClose size={19} /></button><span>{current?.label || 'Página'}</span></div><div className="topbar-actions"><button className="global-search" aria-label="Buscar módulo" onClick={() => setSearch(true)}><Search size={15} /><span>Buscar módulo</span><kbd>⌘ K</kbd></button><span className="demo-chip"><i />DADOS REAIS</span><button className="icon-button" aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>{user ? <button className="profile-trigger" aria-label="Meu perfil" onClick={() => go('/perfil')}><Avatar name={name} /><span>{name.split(' ')[0]}<small>Conta autenticada</small></span></button> : <button className="button secondary" onClick={openLogin}><LogIn size={15} />Entrar</button>}</div></header>
-      <main id="main" tabIndex={-1} className="main-content"><Suspense fallback={<Card><p role="status">Carregando módulo…</p></Card>}>{route === '/inicio' ? <LiveHome /> : route === '/dashboard' ? <Dashboard /> : route === '/simulador' ? <Simulation /> : route === '/marketing' ? <Campaigns /> : route === '/tracking' ? <Tracking /> : route === '/metas' ? <Targets /> : route === '/perfil' ? <Profile /> : route === '/tarefas' ? <Tasks /> : current ? <IntegrationStage title={current.label} /> : <Empty title="Página não encontrada" description="Escolha um módulo no menu."><button className="button primary" onClick={() => go('/inicio')}>Voltar ao início</button></Empty>}</Suspense>
+      <main id="main" tabIndex={-1} className="main-content"><Suspense fallback={<Card><p role="status">Carregando módulo…</p></Card>}>{route === '/inicio' ? <LiveHome /> : route === '/dashboard' ? <Dashboard /> : route === '/financeiro' ? <Finance /> : route === '/simulador' ? <Simulation /> : route === '/marketing' ? <Campaigns /> : route === '/tracking' ? <Tracking /> : route === '/metas' ? <Targets /> : route === '/perfil' ? <Profile /> : route === '/tarefas' ? <Tasks /> : current ? <IntegrationStage title={current.label} /> : <Empty title="Página não encontrada" description="Escolha um módulo no menu."><button className="button primary" onClick={() => go('/inicio')}>Voltar ao início</button></Empty>}</Suspense>
         <footer className="app-footer"><span><ShieldCheck size={13} />Verifica Placa · Console</span><span>{current?.live ? 'Fontes reais · Supabase existente' : 'Módulo em integração'}</span><a href={demoLink()}>Explorar demonstração<ArrowUpRight size={12} /></a></footer>
       </main>
     </div>

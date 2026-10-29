@@ -37,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   return <Context.Provider value={{ user, refresh, openLogin: () => { setRequested(true); setLogin(true); }, signOut }}>{children}{login && <Login close={() => setLogin(false)} refresh={refresh} />}</Context.Provider>;
 }
+export function useOptionalAuth() { return useContext(Context); }
 export function useAuth() { const value = useContext(Context); if (!value) throw new Error('AuthProvider ausente'); return value; }
 function Login({ close, refresh }: { close: () => void; refresh: () => Promise<void> }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState('');

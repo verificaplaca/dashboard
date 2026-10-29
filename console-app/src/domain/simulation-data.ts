@@ -3,7 +3,7 @@ import config from '../production-config.json';
 const OVERVIEW_URL = config.url, OVERVIEW_ANON_KEY = config.key;
 import { dates, saoPauloToday, taxAt, type Snapshot, type RevenueRow, type BureauRow, type AdsRow, type TaxRow } from './simulation';
 
-async function rows(table: string, select: string, filter: string, signal?: AbortSignal): Promise<Record<string, unknown>[]> {
+export async function rows(table: string, select: string, filter: string, signal?: AbortSignal): Promise<Record<string, unknown>[]> {
   const all: Record<string, unknown>[] = [];
   for (let offset = 0; offset <= 100000; offset += 1000) {
     const r = await readOnlyOverviewFetch(`${OVERVIEW_URL}/rest/v1/${table}?select=${select}&${filter}`, { headers: { apikey: OVERVIEW_ANON_KEY, Authorization: `Bearer ${OVERVIEW_ANON_KEY}`, Range: `${offset}-${offset + 999}` } }, signal);

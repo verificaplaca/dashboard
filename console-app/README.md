@@ -1,6 +1,6 @@
 # Verifica Placa · Business Console
 
-Console administrativo em React e TypeScript. A entrada padrão usa financeiro, campanhas, tracking, metas e identidade do Supabase existente. Metas e perfil exigem a conta autenticada do operador. A demonstração completa permanece separada em `?demo=1`; CRM, chat, WhatsApp, tarefas e gamificação ainda precisam de backend operacional.
+Console administrativo em React e TypeScript. A entrada padrão usa financeiro, campanhas, tracking, metas e identidade do Supabase existente. Metas e perfil exigem a conta autenticada do operador. A demonstração completa permanece separada em `?demo=1`; CRM, chat, WhatsApp e gamificação ainda precisam de backend operacional. Tarefas têm backend privado próprio.
 
 Fonte canônica e publicação GitHub Pages: veja [`../docs/console-producao.md`](../docs/console-producao.md). O dashboard original permanece disponível.
 
@@ -20,7 +20,8 @@ npm test
 - `src/context.tsx`: persistência local, sessão de demonstração e navegação por hash.
 - `src/components.tsx`, `src/styles.css` e `src/layout.css`: componentes, tokens visuais, temas, escala de leitura e responsividade. A camada de layout final mantém o ritmo comum entre os módulos.
 - `Home`, `ExecutiveSummary` e `domain/home.ts`: inicial por horário de São Paulo, foco pessoal, prioridades, agenda e evolução conforme permissões; resumo financeiro pelo mesmo motor original.
-- `Simulation`, `ScalePlan` e `InvestmentOptimizer`: simulador real na sidebar e busca, comparações de lucro até janeiro, decisão e otimização com fontes agregadas somente leitura; tema/notificações pelo contexto visual compartilhado.
+- `Simulation` e `QuickProfitChart`: entrada simples com verba, período e comparação de resultado. `AdvancedSimulation`, `ScalePlan` e `InvestmentOptimizer` preservam cenários salvos e análises detalhadas sob demanda.
+- `Finance`, `useFinance` e `domain/finance*`: DRE mensal com fontes agregadas reais, campos privados do gestor e gravação versionada. Método e limites em [financeiro-dre.md](../docs/financeiro-dre.md).
 - `Dashboard`: integra a Visão Geral original ao console, com DOM no mesmo documento, tema, navegação fixa de seções, período visível, tabela dos gráficos e exportação.
 - `reference/dashboard-original.html` e `reference/provenance.json`: fonte congelada em 07/10/2026 e hash SHA-256.
 - `scripts/build-overview.mjs`: adapta apenas apresentação/navegação; preserva integralmente o script de cálculo e carga.
@@ -51,7 +52,7 @@ Visão Geral: 15 KPIs, sparklines, comparativos anteriores, metas e impostos men
 
 Módulos demonstrativos (`?demo=1`): referência fixa em 6 de outubro de 2026, 12h BRT. Valores em centavos; tributo hipotético de 8%. A autenticação do modo real usa Supabase Auth. Presença simultânea, papéis de equipe e os comandos operacionais demonstrativos ainda exigem backend. Os pedidos da demonstração não alimentam o dashboard original.
 
-Pedidos pagos incluem registros posteriormente estornados. A receita bruta mantém essa história; receita após estornos e contribuição descontam devoluções. Créditos novos aguardam 7 dias e validação; uma tarefa ou mensagem não gera pontos. Eventos de entrega reconhecem o operador; venda assistida reconhece o vendedor; venda automática não cria crédito individual.
+No modelo demonstrativo, pedidos pagos incluem registros posteriormente estornados. A receita bruta mantém essa história; receita após estornos e contribuição descontam devoluções. Créditos novos aguardam 7 dias e validação; uma tarefa ou mensagem não gera pontos. Eventos de entrega reconhecem o operador; venda assistida reconhece o vendedor; venda automática não cria crédito individual.
 
 O dashboard original permanece disponível e não é alterado pelo console. Sua fonte e cálculos são reutilizados no mesmo documento da aplicação, com CSS encapsulado; não há iframe nem cópia persistida dos agregados financeiros. Os módulos demonstrativos permanecem separados dessa leitura. Antes da migração: inventariar tabelas/fontes, backup com restauração testada, comparar registros/IDs/relações/métricas, documentar diferenças de fórmulas e ensaiar rollback incluindo escritas posteriores.
 
