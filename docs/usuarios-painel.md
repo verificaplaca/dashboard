@@ -9,7 +9,7 @@ Backend ativado no projeto analytics `ftmgmfdqdqxboiktxcoj` em 30/10/2026: migra
 | Gerente | Sim | Não | Não | Não |
 | Administrador ativo | Sim | Sim | Sim | Sim |
 
-Rota real `#/usuarios`, exibida apenas para administradores. Busca por nome, paginação de 50 registros e formulário com nome, email, senha inicial (12–128 caracteres) e perfil. A senha é enviada por HTTPS ao servidor, sem persistência pela aplicação, logs ou auditoria. A criação não envia emails. O administrador deve entregar as credenciais por canal privado. O botão Redefinir senha permite ao administrador definir e confirmar uma nova senha de 12–128 caracteres, que substitui a atual imediatamente. A senha deve ser entregue ao usuário por canal privado; o painel não envia email de recuperação. Gerenciar permite editar nome, email de acesso, perfil e situação, com uma etapa de revisão. O novo email passa a valer imediatamente para login. Convites com aceite não fazem parte desta entrega.
+Rota real `#/usuarios`, exibida apenas para administradores. Busca por nome, paginação de 50 registros e formulário com nome, email, senha inicial (12–128 caracteres) e perfil. A senha é enviada por HTTPS ao servidor, sem persistência pela aplicação, logs ou auditoria. A criação não envia emails. O administrador deve entregar as credenciais por canal privado. O botão Redefinir senha permite ao administrador definir e confirmar uma nova senha de 12–128 caracteres, que substitui a atual imediatamente. A senha deve ser entregue ao usuário por canal privado; o envio de link de recuperação também foi implementado, mas depende da ativação do remetente Google descrita em `email-recuperacao.md`. Gerenciar permite editar nome, email de acesso, perfil e situação, com uma etapa de revisão. O novo email passa a valer imediatamente para login. Convites com aceite não fazem parte desta entrega.
 
 ## Autorização
 
@@ -62,3 +62,7 @@ A RPC exclusiva do servidor `console_prepare_user_change` cria uma intenção de
 Auditoria não guarda senha, hash ou marcador. O novo email é confirmado administrativamente; a revisão informa que ele substitui o login atual. A redefinição não tem duração temporária nem força troca no próximo acesso. Sessões seguem o comportamento do Supabase Auth ao alterar a senha.
 
 Validação: 11 testes da Edge Function, testes de validação/cliente na aplicação e `supabase/tests/console_user_details.sql` local/remoto com rollback. Teste completo da função publicada com contas descartáveis confirmou login pelo novo email, rejeição do antigo, troca de senha, rejeição da senha anterior e bloqueio do gerente. Todas as contas descartáveis e suas memberships/auditorias foram removidas; contas reais preservadas.
+
+## Link de redefinição por email
+
+Administradores podem solicitar link ao destinatário cadastrado e ativo. Migração 025 e função atualizada adicionam autorização, controle de reenvio e auditoria. A página `?recovery=1` valida token único em sessão isolada e permite ao usuário escolher sua senha. Remetente escolhido: suporte@verificaplaca.com.br pelo Google Workspace. Envio efetivo bloqueado até o dono autorizar SMTP; nenhuma mensagem real enviada nos testes. Ativação: [Email de recuperação](email-recuperacao.md).

@@ -1,16 +1,17 @@
 import { useGlobalLoading } from './Loading';
 import { useEffect, useRef, useState } from 'react';
-import { KeyRound, Plus, RefreshCw, Users } from 'lucide-react';
+import { KeyRound, Mail, Plus, RefreshCw, Users } from 'lucide-react';
 import { Card, Dialog, Empty, PageHeading, Toolbar } from './components';
 import { useAuth } from './Auth';
 import { getAuthClient } from './api';
 import { useUI } from './ui';
-import { createConsoleUser, listConsoleUsers, roleLabels, changeConsoleUser, type ConsoleRole, type ConsoleUser } from './domain/users';
+import { createConsoleUser, listConsoleUsers, roleLabels, changeConsoleUser, sendRecoveryEmail, type ConsoleRole, type ConsoleUser } from './domain/users';
 import './users.css';
 export default function UserManagement() {
  const {role,refresh}=useAuth(),{notify}=useUI();
  const [rows,setRows]=useState<ConsoleUser[]>([]),[count,setCount]=useState(0),[query,setQuery]=useState(''),[busy,setBusy]=useState(true),[error,setError]=useState('');
  useGlobalLoading(busy);
+ const [recoveryUser,setRecoveryUser]=useState<ConsoleUser|null>(null);
  const [passwordUser,setPasswordUser]=useState<ConsoleUser|null>(null);
  const [editor,setEditor]=useState<ConsoleUser|'new'|null>(null),revision=useRef(0);
  const load=async(append=false)=>{
@@ -26,9 +27,9 @@ export default function UserManagement() {
  <Card title="Acessos ao painel" subtitle={`${count} usuário${count===1?'':'s'}`}><Toolbar value={query} onChange={setQuery} placeholder="Buscar por nome"><button className="button secondary" disabled={busy} onClick={()=>void load()}><RefreshCw size={15}/>Atualizar</button></Toolbar>
  {error&&<p role="alert">{error}</p>}{busy&&<p role="status">Carregando usuários…</p>}
  {!busy&&!error&&!rows.length&&<Empty title="Nenhum usuário encontrado" description="Tente outro nome na busca."/>}
- <div className="users-table-wrap"><table className="users-table"><thead><tr><th>Usuário</th><th>Perfil</th><th>Situação</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{rows.map(row=><tr key={row.user_id}><td><strong>{row.display_name}</strong><small>{row.email}</small></td><td>{roleLabels[row.role]}</td><td><span className={`badge ${row.active?'active':'suspended'}`}>{row.active?'Ativo':'Suspenso'}</span></td><td><div className="users-actions"><button className="button secondary" onClick={()=>setEditor(row)}>Gerenciar</button><button className="button secondary" onClick={()=>setPasswordUser(row)} aria-label={`Redefinir senha de ${row.display_name}`}><KeyRound size={15}/>Redefinir senha</button></div></td></tr>)}</tbody></table></div>
+ <div className="users-table-wrap"><table className="users-table"><thead><tr><th>Usuário</th><th>Perfil</th><th>Situação</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{rows.map(row=><tr key={row.user_id}><td><strong>{row.display_name}</strong><small>{row.email}</small></td><td>{roleLabels[row.role]}</td><td><span className={`badge ${row.active?'active':'suspended'}`}>{row.active?'Ativo':'Suspenso'}</span></td><td><div className="users-actions"><button className="button secondary" onClick={()=>setEditor(row)}>Gerenciar</button><button className="button secondary" onClick={()=>setPasswordUser(row)} aria-label={`Redefinir senha de ${row.display_name}`}><KeyRound size={15}/>Redefinir senha</button><button className="button secondary" disabled={!row.active} title={!row.active?'Reative o usuário para enviar o link':undefined} onClick={()=>setRecoveryUser(row)} aria-label={`Enviar link por email para ${row.display_name}`}><Mail size={15}/>Enviar link por email</button></div></td></tr>)}</tbody></table></div>
  {rows.length<count&&<button className="button secondary" disabled={busy} onClick={()=>void load(true)}>Carregar mais</button>}</Card>
- {editor&&<UserEditor member={editor==='new'?null:editor} close={()=>setEditor(null)} saved={async()=>{setEditor(null);await refresh();await load();notify(editor==='new'?'Usuário criado.':'Usuário atualizado.');}}/>}{passwordUser&&<PasswordEditor member={passwordUser} close={()=>setPasswordUser(null)} saved={async()=>{setPasswordUser(null);await refresh();await load();notify('Senha redefinida. Entregue a nova senha ao usuário por um canal privado.');}}/>}</div>;
+ {editor&&<UserEditor member={editor==='new'?null:editor} close={()=>setEditor(null)} saved={async()=>{setEditor(null);await refresh();await load();notify(editor==='new'?'Usuário criado.':'Usuário atualizado.');}}/>}{passwordUser&&<PasswordEditor member={passwordUser} close={()=>setPasswordUser(null)} saved={async()=>{setPasswordUser(null);await refresh();await load();notify('Senha redefinida. Entregue a nova senha ao usuário por um canal privado.');}}/>}{recoveryUser&&<RecoveryEmailDialog member={recoveryUser} close={()=>setRecoveryUser(null)}/>}</div>;
 }
 function UserEditor({member,close,saved}:{member:ConsoleUser|null;close:()=>void;saved:()=>Promise<void>}) {
  const [review,setReview]=useState(false);
@@ -54,4 +55,9 @@ function PasswordEditor({member,close,saved}:{member:ConsoleUser;close:()=>void;
   setBusy(true);setError('');
   try{await changeConsoleUser(await getAuthClient(),member,{action:'reset_password',password});form.reset();await saved();}catch(reason){setError((reason as Error).message);}finally{setBusy(false);}
  }}><div className="form-fields live-form"><p><strong>{member.display_name}</strong><br/>{member.email}</p><p>A nova senha substitui a atual imediatamente. Entregue-a ao usuário por um canal privado.</p><label>Nova senha<input autoFocus name="password" type="password" autoComplete="new-password" required minLength={12} maxLength={128} disabled={busy}/><small>Use de 12 a 128 caracteres.</small></label><label>Confirmar nova senha<input name="confirmation" type="password" autoComplete="new-password" required minLength={12} maxLength={128} disabled={busy}/></label>{error&&<p role="alert">{error}</p>}</div><div className="dialog-footer"><button className="button secondary" type="button" disabled={busy} onClick={close}>Cancelar</button><button className="button primary" disabled={busy}>{busy?'Redefinindo…':'Confirmar nova senha'}</button></div></form></Dialog>;
+}
+
+function RecoveryEmailDialog({member,close}:{member:ConsoleUser;close:()=>void}){
+ const [busy,setBusy]=useState(false),[sent,setSent]=useState(false),[error,setError]=useState('');
+ return <Dialog title="Enviar link de redefinição" close={()=>{if(!busy)close();}}><div className="form-fields live-form"><p><strong>{member.display_name}</strong><br/>{member.email}</p>{sent?<p role="status">Envio solicitado para {member.email}. O usuário poderá criar a própria senha pelo link. Oriente-o a verificar também a pasta de spam.</p>:<p>O usuário receberá um link para criar a própria senha. A senha atual continua válida até ele concluir a alteração.</p>}{error&&<p role="alert">{error}</p>}</div><div className="dialog-footer"><button className="button secondary" disabled={busy} onClick={close}>{sent?'Fechar':'Cancelar'}</button>{!sent&&<button className="button primary" disabled={busy} onClick={async()=>{if(busy)return;setBusy(true);setError('');try{await sendRecoveryEmail(await getAuthClient(),member);setSent(true);}catch(reason){setError((reason as Error).message);}finally{setBusy(false);}}}>{busy?'Enviando…':'Enviar link por email'}</button>}</div></Dialog>;
 }

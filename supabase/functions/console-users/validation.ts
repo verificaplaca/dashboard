@@ -24,3 +24,10 @@ export function validateUserChange(value:unknown){
  if(typeof data.active!=='boolean')throw new Error('Situação inválida.');
  return {...base,action:'update' as const,name:profile.name,email:profile.email,role:profile.role,active:data.active};
 }
+export function validateRecoveryEmail(value:unknown){
+ if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Formulário inválido.');
+ const data=value as Record<string,unknown>;
+ if(data.action!=='send_recovery'||Object.keys(data).some(key=>!['action','id','version'].includes(key)))throw new Error('Campos inválidos.');
+ if(typeof data.id!=='string'||! /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.id)||!Number.isInteger(data.version)||Number(data.version)<1)throw new Error('Atualize a lista de usuários.');
+ return {id:data.id,version:Number(data.version)};
+}

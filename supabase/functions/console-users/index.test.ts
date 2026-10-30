@@ -50,3 +50,28 @@ Deno.test('stale or revoked preparation never reaches Auth; Auth failure cancels
 Deno.test('profile/reset forged fields are rejected before privileged actions',async()=>{
  for(const body of [{...edit,actor:'forged'},{...reset,role:'administrator'},{...reset,password:'short'}]){const f=changeFixture();assert((await handleRequest(request(body),f.client)).status===400);assert(f.calls.length===0);}
 });
+const recoveryBody={action:'send_recovery',id:edit.id,version:3};
+function emailFixture({role='administrator',active=true,reserveError=null,mailError=null,finishError=null}={} as {role?:string;active?:boolean;reserveError?:unknown;mailError?:unknown;finishError?:unknown}){
+ const calls:{kind:string;args:unknown}[]=[];
+ const client={auth:{getUser:async()=>({data:{user:{id:'verified-admin'}},error:null}),resetPasswordForEmail:async(email:string,options:unknown)=>{calls.push({kind:'email',args:{email,options}});return {error:mailError};}},from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{role,active},error:null})})})}),rpc:async(name:string,args:unknown)=>{calls.push({kind:name,args});return {data:{request_id:'reservation',email:'database-email@example.invalid'},error:name==='console_request_recovery_email'?reserveError:finishError};}} as unknown as SupabaseClient;
+ return {client,calls};
+}
+Deno.test('recovery emails require verified active admin and configured transport',async()=>{
+ for(const [role,active] of [['manager',true],['administrator',false]] as const){const f=emailFixture({role,active});assert((await handleRequest(request(recoveryBody),f.client,{recoveryEmailEnabled:true})).status===403);assert(!f.calls.length);}
+ const f=emailFixture();assert((await handleRequest(request(recoveryBody,false),f.client,{recoveryEmailEnabled:true})).status===401);assert((await handleRequest(request(recoveryBody),f.client)).status===503);assert(!f.calls.length);
+});
+Deno.test('email destination comes from authorized database row and redirect is fixed',async()=>{
+ const f=emailFixture(),response=await handleRequest(request(recoveryBody),f.client,{recoveryEmailEnabled:true});assert(response.status===200);
+ assert(JSON.stringify(f.calls[0].args)===JSON.stringify({p_actor:'verified-admin',p_id:edit.id,p_version:3}));
+ assert(JSON.stringify(f.calls[1].args)===JSON.stringify({email:'database-email@example.invalid',options:{redirectTo:'https://verifica-placa-ops.vercel.app/?recovery=1'}}));
+ assert((f.calls[2].args as Record<string,unknown>).p_sent===true);
+ const output=await response.text();assert(!output.includes('token')&&!output.includes('password')&&!output.includes('reservation'));
+});
+Deno.test('caller cannot override recovery email, redirect, version or authority',async()=>{
+ for(const changes of [{email:'attacker@example.invalid'},{redirectTo:'https://attacker.invalid'},{actor:'forged'},{version:0}]){const f=emailFixture();assert((await handleRequest(request({...recoveryBody,...changes}),f.client,{recoveryEmailEnabled:true})).status===400);assert(!f.calls.length);}
+});
+Deno.test('stale/rate-limited requests do not send; provider errors are not success',async()=>{
+ for(const [code,status] of [['40001',409],['P0001',429]] as const){const f=emailFixture({reserveError:{code,message:'Wait'}});assert((await handleRequest(request(recoveryBody),f.client,{recoveryEmailEnabled:true})).status===status);assert(f.calls.length===1);}
+ const f=emailFixture({mailError:{status:429}});assert((await handleRequest(request(recoveryBody),f.client,{recoveryEmailEnabled:true})).status===429);assert((f.calls[2].args as Record<string,unknown>).p_sent===false);
+ const uncertain=emailFixture({finishError:{code:'503'}});assert((await handleRequest(request(recoveryBody),uncertain.client,{recoveryEmailEnabled:true})).status===503);
+});

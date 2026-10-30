@@ -124,3 +124,7 @@ A inicial lê o snapshot do motor original da Visão Geral, com os mesmos quatro
 ## Filtro na inicial e edição de usuários · 30/10/2026
 
 A inicial permite aplicar presets e datas personalizadas compartilhadas com a Visão Geral, sem navegação adicional. Administração de usuários inclui nome/email com revisão e redefinição direta de senha com confirmação. Migração 024 e função console-users versão 2 ativas: mudanças de Auth e cadastro são atômicas, com autorização e versão rechecadas no banco e auditoria sem credenciais. Validação: 184 testes da aplicação, 11 da função, SQL local/remoto e login real usando contas descartáveis removidas ao final.
+
+## Recuperação por email · 30/10/2026
+
+Ação administrativa de envio de link e página independente de criação de senha. Template/redirect configurados; migração 025 aplicada, signup mantido fechado. Sessão de recuperação isolada, token único/expirado, confirmação de senha e conta ativa. Envio Google pendente de autorização SMTP de suporte@verificaplaca.com.br. 188 testes app +15 Edge aprovados; SQL remoto e Auth real sem mensagens aprovados. [Ativação](email-recuperacao.md).

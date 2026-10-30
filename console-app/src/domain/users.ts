@@ -40,3 +40,14 @@ export async function changeConsoleUser(client:SupabaseClient,user:ConsoleUser,c
  if(!data?.user)throw new Error('Resposta inválida. Atualize a lista antes de tentar novamente.');
  return data.user as ConsoleUser;
 }
+
+export async function sendRecoveryEmail(client:SupabaseClient,user:ConsoleUser){
+ const {data,error}=await client.functions.invoke('console-users',{body:{action:'send_recovery',id:user.user_id,version:user.version}});
+ if(error){
+  let message='Não foi possível confirmar o envio. Aguarde antes de tentar novamente.';
+  if(error.context instanceof Response){try{const body=await error.context.json();if(typeof body.error==='string')message=body.error;}catch{}}
+  throw new Error(message);
+ }
+ if(data?.sent!==true)throw new Error('Resposta de envio inválida. Aguarde antes de tentar novamente.');
+ return data.email as string;
+}

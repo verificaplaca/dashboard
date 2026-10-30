@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.3';
-import { validateNewUser, validateUserChange } from './validation.ts';
+import { validateNewUser, validateUserChange, validateRecoveryEmail } from './validation.ts';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
-export async function handleRequest(request: Request, admin: SupabaseClient) {
+export async function handleRequest(request: Request, admin: SupabaseClient, options={recoveryEmailEnabled:false}) {
  const respond = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
  if(request.method==='OPTIONS') return new Response(null,{status:204,headers:cors});
  if(request.method!=='POST') return respond(405,{error:'Método não permitido.'});
@@ -17,6 +17,18 @@ export async function handleRequest(request: Request, admin: SupabaseClient) {
   if(raw.length>4096) return respond(400,{error:'Formulário muito longo.'});
   let parsed;
   try { parsed=JSON.parse(raw); } catch { return respond(400,{error:'Formulário inválido.'}); }
+  if(parsed?.action==='send_recovery'){
+   if(!options.recoveryEmailEnabled)return respond(503,{error:'O envio por email ainda precisa ser ativado. A configuração do remetente está pendente.'});
+   let target;
+   try{target=validateRecoveryEmail(parsed);}catch(error){return respond(400,{error:error instanceof Error?error.message:'Formulário inválido.'});}
+   const {data:reservation,error:reserveError}=await admin.rpc('console_request_recovery_email',{p_actor:identity.user.id,p_id:target.id,p_version:target.version});
+   if(reserveError||!reservation)return respond(reserveError?.code==='42501'?403:reserveError?.code==='P0001'?429:409,{error:reserveError?.code==='P0001'||reserveError?.code==='22023'?reserveError.message:'Atualize a lista antes de enviar o link.'});
+   const {error:sendError}=await admin.auth.resetPasswordForEmail(reservation.email,{redirectTo:'https://verifica-placa-ops.vercel.app/?recovery=1'});
+   const {error:finishError}=await admin.rpc('console_finish_recovery_email',{p_id:reservation.request_id,p_sent:!sendError});
+   if(sendError)return respond(sendError.status===429?429:503,{error:sendError.status===429?'Limite de envio atingido. Aguarde antes de tentar novamente.':'Não foi possível enviar o email. Verifique a configuração de envio do sistema antes de tentar novamente.'});
+   if(finishError)return respond(503,{error:'O envio foi solicitado, mas não foi possível confirmar o registro. Aguarde e atualize a lista antes de tentar novamente.'});
+   return respond(200,{sent:true,email:reservation.email});
+  }
   if(parsed?.action==='update'||parsed?.action==='reset_password'){
    let change;
    try{change=validateUserChange(parsed);}catch(error){return respond(400,{error:error instanceof Error?error.message:'Formulário inválido.'});}
@@ -45,4 +57,4 @@ export async function handleRequest(request: Request, admin: SupabaseClient) {
   return respond(201,{user:member});
  } catch { return respond(503,{error:'Serviço indisponível. Atualize a lista antes de tentar novamente.'}); }
 }
-if(import.meta.main) Deno.serve(request => handleRequest(request,createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}})));
+if(import.meta.main) Deno.serve(request => handleRequest(request,createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}}),{recoveryEmailEnabled:Deno.env.get('CONSOLE_RECOVERY_EMAIL_ENABLED')==='true'}));
