@@ -9,6 +9,7 @@ import { greeting, saoPauloClock } from './domain/clock';
 import './home.css';
 import './redesign.css';
 import './modules-redesign.css';
+import './control-alignment.css';
 const Finance = lazy(() => import('./Finance'));
 const Simulation = lazy(() => import('./Simulation'));
 const Dashboard = lazy(() => import('./Dashboard'));
