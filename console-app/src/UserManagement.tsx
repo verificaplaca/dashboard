@@ -1,3 +1,4 @@
+import { useGlobalLoading } from './Loading';
 import { useEffect, useRef, useState } from 'react';
 import { Plus, RefreshCw, Users } from 'lucide-react';
 import { Card, Dialog, Empty, PageHeading, Toolbar } from './components';
@@ -8,7 +9,8 @@ import { createConsoleUser, listConsoleUsers, roleLabels, updateConsoleUser, typ
 import './users.css';
 export default function UserManagement() {
  const {role,refresh}=useAuth(),{notify}=useUI();
- const [rows,setRows]=useState<ConsoleUser[]>([]),[count,setCount]=useState(0),[query,setQuery]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [rows,setRows]=useState<ConsoleUser[]>([]),[count,setCount]=useState(0),[query,setQuery]=useState(''),[busy,setBusy]=useState(true),[error,setError]=useState('');
+ useGlobalLoading(busy);
  const [editor,setEditor]=useState<ConsoleUser|'new'|null>(null),revision=useRef(0);
  const load=async(append=false)=>{
   const request=++revision.current; setBusy(true); setError('');

@@ -1,3 +1,4 @@
+import { useGlobalLoading } from './Loading';
 import { useEffect, useState } from 'react';
 import { CalendarDays, Check, RefreshCw } from 'lucide-react';
 import { Card, Dialog, PageHeading } from './components';
@@ -11,6 +12,7 @@ export default function Targets() {
   const { user, openLogin } = useAuth(), { notify } = useUI();
   const [rows, setRows] = useState<Target[]>([]), [month, setMonth] = useState(() => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date()));
   const [values, setValues] = useState<Record<string, string>>({}), [loaded, setLoaded] = useState(false), [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState(''), [pending, setPending] = useState<Target | null>(null);
+  useGlobalLoading(loading);
   const load = async (signal?: AbortSignal) => {
     setLoaded(false); setLoading(true); setError('');
     try { const data = await readPublic<Target>('monthly_targets', new URLSearchParams({ select: '*', order: 'month.asc' }), signal); setRows(data); setLoaded(true); }

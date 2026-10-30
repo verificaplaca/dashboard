@@ -1,3 +1,4 @@
+import { useGlobalLoading } from './Loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Check, ChevronRight, Download, Minus, RefreshCw, Target, Undo2 } from 'lucide-react';
 import { Card } from './components';
@@ -36,6 +37,7 @@ export default function ScalePlan({ view, onNavigate, onPreview }: { view: Simul
   useEffect(() => { if (view === 'plan') setVisitedPlan(true); }, [view]);
   const [stored] = useState(readState), [state, setState] = useState(stored.state), [storageError, setStorageError] = useState(stored.error);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null), [loading, setLoading] = useState(true), [error, setError] = useState(''), [today, setToday] = useState(saoPauloToday());
+  useGlobalLoading(loading);
   const [level, setLevel] = useState('0'), [changedOn, setChangedOn] = useState(today), [lag, setLag] = useState(String(state.lagDays)), [conversion, setConversion] = useState(String(state.conversionDays)), [formError, setFormError] = useState('');
   const controller = useRef<AbortController | null>(null);
   const entry = state.entries.at(-1)!, required = requiredScaleDays(state.conversionDays);

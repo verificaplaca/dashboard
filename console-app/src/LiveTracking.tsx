@@ -1,3 +1,4 @@
+import { useGlobalLoading } from './Loading';
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { Card, Empty, PageHeading } from './components';
@@ -7,6 +8,7 @@ const label: Record<string, string> = { success: 'Enviado', failed: 'Falhou', pe
 function Channel({ status }: { status: string }) { return <span className={`badge ${status === 'success' ? 'paid' : status === 'failed' ? 'failed' : status === 'pending' ? 'pending' : 'neutral'}`}><i />{label[status] || status}</span>; }
 export default function LiveTracking() {
   const [rows, setRows] = useState<Dispatch[]>([]), [page, setPage] = useState(0), [filter, setFilter] = useState('all'), [loading, setLoading] = useState(true), [error, setError] = useState(''), [version, setVersion] = useState(0);
+  useGlobalLoading(loading);
   const [from] = useState(() => { const date = new Date(); date.setUTCDate(date.getUTCDate() - 90); return date.toISOString(); });
   useEffect(() => {
     const abort = new AbortController(); setLoading(true); setError('');

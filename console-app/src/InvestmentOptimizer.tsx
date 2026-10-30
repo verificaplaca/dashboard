@@ -1,3 +1,4 @@
+import { useGlobalLoading } from './Loading';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowUpRight, Crosshair, LockKeyhole, RefreshCw } from 'lucide-react';
 import { Card } from './components';
@@ -24,6 +25,7 @@ export default function InvestmentOptimizer({ anchor, scenario, onApply }: { anc
   const [range, setRange] = useState({ minBudget: 0, maxBudget: 10000, learningDays: 7, learningPct: 6 });
   const intervention = useMemo(() => ({ changeDate, recentDays }), [changeDate, recentDays]);
   const contextError = useMemo(() => { try { dates(changeDate, changeDate); if (!Number.isInteger(recentDays) || recentDays < 1 || recentDays > 30) return 'Use entre 1 e 30 dias para a janela recente.'; if (changeDate > anchor) return 'O marco de alterações precisa estar dentro ou antes do último dia encerrado selecionado.'; return ''; } catch { return 'Informe uma data válida para as alterações.'; } }, [changeDate, recentDays, anchor]);
+  useGlobalLoading(loading);
   useEffect(() => {
     if (contextError) { setSnapshot(null); setLoading(false); return; }
     const controller = new AbortController(); setLoading(true); setError(''); setSnapshot(null);

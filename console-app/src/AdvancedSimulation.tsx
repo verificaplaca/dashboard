@@ -1,3 +1,4 @@
+import { useGlobalLoading, LoadingFallback } from './Loading';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, BookOpen, Copy, Download, FlaskConical, HelpCircle, LockKeyhole, RefreshCw, Save, ShieldCheck, Trash2 } from 'lucide-react';
 import { Card, Dialog, Empty, PageHeading } from './components';
@@ -46,6 +47,7 @@ export default function Simulation() {
     } catch (e) { if (!request.signal.aborted) setError(e instanceof Error ? e.message : 'Não foi possível carregar a base.'); }
     finally { if (!request.signal.aborted) setLoading(false); }
   };
+  useGlobalLoading(loading);
   useEffect(() => { void load(addDays(today, -30), addDays(today, -1)); return () => controller.current?.abort(); }, []);
   const errors = scenario ? validateScenario(scenario) : [];
   const result = useMemo(() => base && scenario && !errors.length && !base.issues.length ? project(base, targets, scenario) : null, [base, targets, scenario]);
@@ -62,7 +64,7 @@ export default function Simulation() {
     </PageHeading>
     <div className="sim-view-anchor" ref={viewAnchor} />
     <SimulatorNavigation view={view} onChange={openView} />
-    <Suspense fallback={<p className="sim-help" role="status">Preparando o plano de escala…</p>}><ScalePlan view={view} onNavigate={openView} onPreview={(snapshot, from, to, plan) => {
+    <Suspense fallback={<LoadingFallback/>}><ScalePlan view={view} onNavigate={openView} onPreview={(snapshot, from, to, plan) => {
       controller.current?.abort(); setLoading(false);
       const actual = buildBaseline({ ...snapshot, start: from, end: to });
       if (actual.issues.length) { notify(actual.issues.join(' ')); return; }
@@ -73,7 +75,7 @@ export default function Simulation() {
     <section id="sim-panel-optimizer" role="tabpanel" aria-labelledby="sim-tab-optimizer" hidden={view !== 'optimizer'} tabIndex={0} className="sim-view-panel">
       {visited.optimizer && <>
         <div className="sim-view-intro"><div><span className="sim-data-kind projected">PROJEÇÃO</span><h2>Qual investimento pode gerar mais lucro?</h2><p>Compare as bases reais e escolha a condição de aprendizado. O ponto destacado é uma hipótese de eficiência futura.</p></div><button className="text-button" onClick={() => openView('custom')}>Editar horizonte e custos <ArrowUpRight size={14} /></button></div>
-        {optimizerInput.current ? <Suspense fallback={<p className="sim-alert" role="status">Preparando o otimizador…</p>}><InvestmentOptimizer anchor={optimizerInput.current.anchor} scenario={optimizerInput.current.scenario} onApply={value => { controller.current?.abort(); setLoading(false); setBase(value.base); setTargets(value.snapshot.targets); setSource({ start: value.start, end: value.end, loadedAt: value.snapshot.loadedAt, warnings: value.snapshot.warnings }); setStart(value.start); setEnd(value.end); setScenario(value.scenario); setRestored(false); setError(''); openView('custom'); notify('Hipótese aplicada ao Cenário livre. Confira o resultado antes de salvar.'); }} /></Suspense> : <div className="sim-alert" role="status"><p>{loading ? 'Carregando a base real…' : 'Confira a base para iniciar a otimização.'}</p><button className="text-button" onClick={() => openView('custom')}>Abrir base no Cenário livre</button></div>}
+        {optimizerInput.current ? <Suspense fallback={<LoadingFallback/>}><InvestmentOptimizer anchor={optimizerInput.current.anchor} scenario={optimizerInput.current.scenario} onApply={value => { controller.current?.abort(); setLoading(false); setBase(value.base); setTargets(value.snapshot.targets); setSource({ start: value.start, end: value.end, loadedAt: value.snapshot.loadedAt, warnings: value.snapshot.warnings }); setStart(value.start); setEnd(value.end); setScenario(value.scenario); setRestored(false); setError(''); openView('custom'); notify('Hipótese aplicada ao Cenário livre. Confira o resultado antes de salvar.'); }} /></Suspense> : <div className="sim-alert" role="status"><p>{loading ? 'Carregando a base real…' : 'Confira a base para iniciar a otimização.'}</p><button className="text-button" onClick={() => openView('custom')}>Abrir base no Cenário livre</button></div>}
       </>}
     </section>
     <section id="sim-panel-custom" role="tabpanel" aria-labelledby="sim-tab-custom" hidden={view !== 'custom'} tabIndex={0} className="sim-view-panel">
@@ -125,7 +127,7 @@ export default function Simulation() {
           </>}
         </div>
       </div>
-      {result && <Suspense fallback={<p className="sim-help" role="status">Carregando gráficos do cenário livre…</p>}><SimulationCharts base={base} targets={targets} scenario={scenario} showSummary={false} /></Suspense>}
+      {result && <Suspense fallback={<LoadingFallback/>}><SimulationCharts base={base} targets={targets} scenario={scenario} showSummary={false} /></Suspense>}
       {result && <>
         <Card title="Onde a escala muda de sinal" subtitle="Diferença de resultado contra o controle. Clique em uma célula para aplicar a elasticidade e o multiplicador às verbas atuais." className="sim-sensitivity">
           <div className="table-scroll"><table><thead><tr><th>Verbas dos ciclos</th>{[.6, .8, 1].map(e => <th key={e}>Elasticidade {num(e, 1)}</th>)}</tr></thead><tbody>{sensitivity.map(row => <tr key={row.scale}><td>{pct(row.scale * 100)} das verbas atuais</td>{row.values.map(cell => <td key={cell.elasticity}><button className={`sim-heat ${cell.delta >= 0 ? 'positive' : 'negative'}`} onClick={() => patch({ elasticity: cell.elasticity, cycles: scenario.cycles.map(c => ({ ...c, budget: round(c.budget * row.scale) })) })}>{brl(cell.delta)}<ArrowUpRight size={12} /></button></td>)}</tr>)}</tbody></table></div><p className="sim-help">Sensibilidades são hipóteses comparáveis, sem probabilidade ou intervalo de confiança. A elasticidade não foi estimada causalmente a partir do histórico.</p>

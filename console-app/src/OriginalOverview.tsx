@@ -1,3 +1,4 @@
+import { useGlobalLoading } from './Loading';
 import { costValue, netMarginPercent } from './domain/overview-series';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Chart as ChartInstance } from 'chart.js';
@@ -17,7 +18,7 @@ export interface OverviewEvent { metricDetail?: MetricDetail; dayDetail?: DayDet
 export interface OverviewHandle { scrollToSection: (section: string) => void; exportIndicators: () => void; clearSelection: () => void; }
 type Model = { body: string; styles: string; calculationScript: string };
 let modelPromise: Promise<Model> | undefined, instance = 0;
-const loadModel = () => modelPromise ||= fetch(`${import.meta.env.BASE_URL}overview/model.json`).then(response => { if (!response.ok) throw new Error('Não foi possível carregar a Visão Geral.'); return response.json(); }).catch(error => { modelPromise = undefined; throw error; });
+const loadModel = () => modelPromise ||= fetch(`${import.meta.env.BASE_URL}overview/model.json`, {signal: AbortSignal.timeout(30_000)}).then(response => { if (!response.ok) throw new Error('Não foi possível carregar a Visão Geral.'); return response.json(); }).catch(error => { modelPromise = undefined; throw error; });
 
 /** The preserved engine runs against a scoped DOM in the SAME document. */
 export default forwardRef<OverviewHandle, { summary?: boolean; view?: 'overview' | 'campanhas' | 'upsell'; onEvent?: (event: OverviewEvent) => void }>(function OriginalOverview({ summary = false, view = 'overview', onEvent }, ref) {
@@ -25,14 +26,15 @@ export default forwardRef<OverviewHandle, { summary?: boolean; view?: 'overview'
   const host = useRef<HTMLDivElement>(null), controller = useRef<ReturnType<typeof mountOverview> | null>(null);
   const callback = useRef(onEvent), currentTheme = useRef(theme);
   callback.current = onEvent; currentTheme.current = theme;
-  const [error, setError] = useState('');
+  const [error, setError] = useState(''), [loading, setLoading] = useState(true);
+  useGlobalLoading(loading);
   useImperativeHandle(ref, () => ({ scrollToSection: section => controller.current?.scrollToSection(section), exportIndicators: () => controller.current?.exportIndicators(), clearSelection: () => controller.current?.clearSelection() }), []);
   useEffect(() => {
-    let active = true;
+    let active = true; setLoading(true); setError('');
     Promise.all([loadModel(), import('chart.js/auto'), import('chartjs-plugin-datalabels')]).then(([model, charts, labels]) => {
       if (!active || !host.current) return;
-      controller.current = mountOverview(charts.default, labels.default, host.current, model, summary, currentTheme.current, event => callback.current?.(event), setTheme, view);
-    }).catch(reason => { if (active) setError(String(reason.message || reason)); });
+      controller.current = mountOverview(charts.default, labels.default, host.current, model, summary, currentTheme.current, event => callback.current?.(event), setTheme, view, value => { if(active) setLoading(value); });
+    }).catch(reason => { if (active) { setError(String(reason.message || reason)); setLoading(false); } });
     return () => { active = false; controller.current?.dispose(); controller.current = null; };
   }, [summary, view]);
   useEffect(() => { controller.current?.setTheme(theme); }, [theme]);
@@ -42,13 +44,13 @@ export default forwardRef<OverviewHandle, { summary?: boolean; view?: 'overview'
   </div>;
 });
 
-function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: unknown, host: HTMLElement, model: Model, summary: boolean, theme: string, emit: (event: OverviewEvent) => void, changeTheme: (theme: string) => void, view: 'overview' | 'campanhas' | 'upsell') {
+function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: unknown, host: HTMLElement, model: Model, summary: boolean, theme: string, emit: (event: OverviewEvent) => void, changeTheme: (theme: string) => void, view: 'overview' | 'campanhas' | 'upsell', reportLoading: (loading: boolean) => void) {
   const root = host.shadowRoot || host.attachShadow({ mode: 'open' });
   host.dataset.theme = theme === 'dark' ? 'dark' : '';
   host.dataset.mode = summary ? 'summary' : 'full';
   host.dataset.view = view;
   const styles = model.styles.replace('.view:not(#view-overview)', `.view:not(#view-${view})`).replace(/:root/g, ':host').replace(/\[data-theme="dark"\]/g, ':host([data-theme="dark"])').replace(/:host:host/g, ':host').replace(/\[data-mode="summary"\]/g, ':host([data-mode="summary"])').replace(/\bhtml\b/g, ':host').replace(/\bbody\b/g, '.native-body');
-  root.innerHTML = `<style>${styles}\n:host{display:block;position:relative;min-width:0;font-family:Inter,system-ui,sans-serif} .native-body{margin:0;min-width:0;overflow:visible}:host{overflow:visible} .date-dropdown{z-index:100} .kpi-row:empty::before{content:'Carregando indicadores…';padding:22px;color:var(--text-secondary);font-size:12px} .sidebar,.sidebar-backdrop{display:none!important}</style><div class="native-body">${model.body}</div>`;
+  root.innerHTML = `<style>${styles}\n:host{display:block;position:relative;min-width:0;font-family:Inter,system-ui,sans-serif} .native-body{margin:0;min-width:0;overflow:visible}:host{overflow:visible} .date-dropdown{z-index:100} #loadingOverlay{display:none!important} .sidebar,.sidebar-backdrop{display:none!important}</style><div class="native-body">${model.body}</div>`;
   const body = root.querySelector<HTMLElement>('.native-body')!;
   root.querySelector('header')!.id = 'section-filters';
   root.querySelectorAll<HTMLElement>(`.view:not(#view-${view}),.sidebar`).forEach(element => { element.inert = true; element.setAttribute('aria-hidden', 'true'); });
@@ -74,7 +76,17 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   } };
   const scopedTimeout = (callback: () => void, delay = 0) => { const timer = window.setTimeout(() => { timeouts.delete(timer); if (active) callback(); }, delay); timeouts.add(timer); return timer; };
   const scopedFrame = (callback: FrameRequestCallback) => { const frame = requestAnimationFrame(time => { frames.delete(frame); if (active) callback(time); }); frames.add(frame); return frame; };
-  const scopedFetch = (input: RequestInfo | URL, options: RequestInit = {}) => readOnlyOverviewFetch(input, options, abort.signal);
+  let pendingReads = 0;
+  const scopedFetch = async (input: RequestInfo | URL, options: RequestInit = {}) => {
+    pendingReads++; reportLoading(true);
+    try {
+      const response = await readOnlyOverviewFetch(input, options, AbortSignal.any([abort.signal, AbortSignal.timeout(30_000)]));
+      // A response's headers may arrive long before its data. Keep the lease
+      // through the body transfer without changing the original response.
+      await response.clone().arrayBuffer();
+      return response;
+    } finally { pendingReads--; schedule(); }
+  };
   const plugins: any[] = [];
   function ScopedChart(item: any, config: any) {
     if (!active) throw new DOMException('Visão encerrada', 'AbortError');
@@ -251,6 +263,11 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
       if (chart && !replayed.has(canvas)) chartObserver.observe(canvas);
     });
     const event = { ready: root.querySelectorAll('.kpi-row .kpi-value').length === 15, example: !!root.getElementById('demoDataBanner'), period: root.getElementById('dateRangeHint')!.textContent!.trim(), sections: Object.fromEntries([...root.querySelectorAll<HTMLElement>('[id^="section-"]')].filter(el => el.getBoundingClientRect().height).map(el => [el.id.replace('section-', ''), el.getBoundingClientRect().top + window.scrollY])) };
+    const nativeOverlay = root.getElementById('loadingOverlay');
+    const finished = event.ready || !nativeOverlay || nativeOverlay.style.opacity === '0';
+    const busy = pendingReads > 0 || !finished;
+    host.setAttribute('aria-busy', String(busy));
+    reportLoading(busy);
     const key = JSON.stringify(event); if (key !== previous) { previous = key; emit(event); }
   };
   const schedule = () => { if (!scheduled && active) { scheduled = true; scopedFrame(sync); } };

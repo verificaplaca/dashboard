@@ -1,3 +1,4 @@
+import { useGlobalLoading } from './Loading';
 import { useEffect, useRef, useState } from "react";
 import {
   Archive,
@@ -119,6 +120,7 @@ function TaskWorkspace({ userId }: { userId: string }) {
     ),
     [detail, setDetail] = useState<LiveTask | null>(null),
     [archive, setArchive] = useState<LiveTask | null>(null);
+  useGlobalLoading(loading);
   const generation = useRef(0),
     running = useRef(false),
     active = useRef(true);
@@ -855,6 +857,7 @@ function TaskEditor({
   const [baseline, setBaseline] = useState(task),
     [latest, setLatest] = useState<LiveTask | null>(null),
     [reviewing, setReviewing] = useState(false);
+  useGlobalLoading(reviewing);
   const review = async () => {
     if (!task) return;
     setReviewing(true);
@@ -1079,9 +1082,12 @@ function TaskDetail({
     [error, setError] = useState(""),
     [body, setBody] = useState(""),
     [revision, setRevision] = useState(0);
+  const quietHistory = useRef(false), loadedHistoryTask = useRef<string | null>(null);
+  useGlobalLoading(loading);
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    setLoading(!(quietHistory.current && loadedHistoryTask.current === task.id));
+    quietHistory.current = false;
     getAuthClient()
       .then((client) =>
         client
@@ -1096,6 +1102,7 @@ function TaskDetail({
         if (!active) return;
         if (result.error) setError("Não foi possível carregar o histórico.");
         else {
+          loadedHistoryTask.current = task.id;
           setEvents(result.data as TaskEvent[]);
           setCount(result.count || 0);
           setError("");
@@ -1114,8 +1121,10 @@ function TaskDetail({
   }, [task.id, task.version, revision, limit]);
   useEffect(() => {
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible")
+      if (document.visibilityState === "visible") {
+        quietHistory.current = true;
         setRevision((previous) => previous + 1);
+      }
     }, 30_000);
     return () => clearInterval(timer);
   }, []);
@@ -1255,9 +1264,10 @@ function TaskDetail({
             aria-label="Atualizar histórico"
             disabled={busy || loading}
             onClick={() => {
+              setLoading(true);
               void refresh()
                 .then(() => setRevision((previous) => previous + 1))
-                .catch((reason) => setError(reason.message));
+                .catch((reason) => { setError(reason.message); setLoading(false); });
             }}
           >
             <RefreshCw size={16} />

@@ -211,3 +211,7 @@ Diagnóstico, validação e rollback: `docs/tracking-timeout-2026-10-15.md`.
 ## Controle de usuários · 30/10/2026 (backend ativado, release GitHub Pages)
 
 Perfis reais administrador e gerente em `console_users`, entrada autenticada do console e módulo `#/usuarios`. Somente administradores criam contas via Edge Function `console-users` e gerenciam perfis/suspensões por RPC versionada, com proteção do último administrador e auditoria. Migração 022 sincroniza tarefas/financeiro e restringe escrita em metas a contas ativas. Agregados e dashboard legado continuam públicos. Interface publicada em `https://verifica-placa-ops.vercel.app/#/usuarios` pelo commit `d69e243`; Vercel confirmou sucesso e a entrada online exige login. Migração 022 aplicada isoladamente e função remota ativa com JWT obrigatório. Signup público desabilitado; única conta existente promovida a administrador. Testes SQL remotos revertidos, sem contas fictícias persistidas. Ativação, testes e limites: `docs/usuarios-painel.md`.
+
+## Loader global · 30/10/2026
+
+Loader gooey compartilhado cobre a tela durante leituras e entrada de módulos, com inscrições independentes, limpeza ao trocar de rota, proteção de foco/rolagem e erros preservados. Componente enviado em `console-app/src/components/ui/loader-10.tsx`; Tailwind 4 sem Preflight e aliases shadcn configurados. Fonte, arquitetura, testes e setup: `docs/loader-global.md`. Sem alteração no banco/perfis nem no script de cálculo original.

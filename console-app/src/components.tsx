@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef } from 'react';
+import { lockBodyScroll } from './lib/scroll-lock';
 import { ArrowUpRight, ChevronRight, Search, X, Info } from 'lucide-react';
 import { statusNames } from './format';
 
@@ -14,7 +15,6 @@ export function Toolbar({ value, onChange, placeholder = 'Buscar registros...', 
 export function LinkButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) { return <button className="text-button" onClick={onClick}>{children}<ChevronRight size={15} /></button>; }
 export function InfoNote({ children }: { children: React.ReactNode }) { return <p className="info-note"><Info size={15} />{children}</p>; }
 const dialogStack: HTMLElement[] = [];
-let unlockedOverflow = '';
 function useDialog(close: () => void) {
   const ref = useRef<HTMLElement>(null);
   const closeRef = useRef(close);
@@ -23,7 +23,7 @@ function useDialog(close: () => void) {
     let previous = document.activeElement as HTMLElement;
     while (previous?.shadowRoot?.activeElement) previous = previous.shadowRoot.activeElement as HTMLElement;
     const dialog = ref.current!;
-    if (!dialogStack.length) unlockedOverflow = document.body.style.overflow;
+    const releaseScroll = lockBodyScroll();
     dialogStack.push(dialog);
     const focusables = () => Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]')).filter(n => n.getClientRects().length && !n.closest('[inert]'));
     const listener = (e: KeyboardEvent) => {
@@ -38,13 +38,13 @@ function useDialog(close: () => void) {
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     };
-    document.addEventListener('keydown',listener); document.body.style.overflow='hidden';
+    document.addEventListener('keydown',listener);
     (dialog.querySelector<HTMLElement>('[autofocus],input:not([disabled]):not([type="hidden"]),textarea:not([disabled]),select:not([disabled])') || focusables()[0] || dialog).focus({preventScroll:true});
     return () => {
       document.removeEventListener('keydown',listener);
       const wasTop = dialogStack.at(-1) === dialog;
       dialogStack.splice(dialogStack.indexOf(dialog), 1);
-      if (!dialogStack.length) document.body.style.overflow = unlockedOverflow;
+      releaseScroll();
       if (wasTop) {
         const parent = dialogStack.at(-1);
         if(previous?.isConnected && (!parent || parent.contains(previous))) previous.focus({preventScroll:true});

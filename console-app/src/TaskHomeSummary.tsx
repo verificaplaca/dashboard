@@ -1,3 +1,4 @@
+import { useGlobalLoading } from './Loading';
 import { useEffect, useState } from "react";
 import { ArrowUpRight, CheckCircle2, Clock3 } from "lucide-react";
 import { Card } from "./components";
@@ -18,6 +19,7 @@ export default function TaskHomeSummary() {
     [tasks, setTasks] = useState<LiveTask[]>([]),
     [loaded, setLoaded] = useState(false),
     [error, setError] = useState("");
+  useGlobalLoading(!!user&&!loaded&&!error);
   useEffect(() => {
     let active = true,
       running = false;

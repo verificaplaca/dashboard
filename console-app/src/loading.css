@@ -1,0 +1,6 @@
+.global-loading-content{display:contents}
+.global-loading-overlay{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:var(--bg,#f7f8fa);color:var(--text,#18221d);isolation:isolate;cursor:progress;outline:none}
+.global-loading-center{display:grid;justify-items:center;gap:25px;text-align:center}
+.global-loading-center p{font-size:14px;font-weight:600;line-height:1.7;letter-spacing:.01em}
+.global-loading-center p span{display:block;margin-top:4px;font-size:12px;font-weight:400;color:var(--muted,#657268)}
+@media(max-width:600px){.global-loading-center{gap:20px}}
