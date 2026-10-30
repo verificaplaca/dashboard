@@ -107,3 +107,7 @@ Leituras adicionais somente agregadas: upsell pago, checkouts do projeto origina
 ## Redesign visual · 29/10/2026
 
 Novo shell claro com rail integrado, cabeçalho em cápsulas e logo oficial sem wordmark. Visão Geral mantém 15 indicadores em 5×3, fórmulas originais e demais painéis, com estados de resultado, comparação e meta separados. Progresso mensal explicita escopo e não mistura meses. Financeiro e Simulador recebem a mesma família visual, preservando permissões e cálculos. Build/release local e 144 testes aprovados; detalhes em [redesign-console-2026-10-29.md](./redesign-console-2026-10-29.md). Sem push/publicação nesta etapa.
+
+## Controle de usuários · 30/10/2026 (backend ativado, release GitHub Pages)
+
+Nova entrada do console com sessão e membership ativa, perfis gerente/administrador e administração real em `#/usuarios`. Criação de contas exclusiva de administradores no servidor; troca de perfil, suspensão e reativação com versão/auditoria e proteção do último administrador. A migração 022 foi aplicada e a função `console-users` está ativa com validação JWT. Cadastro público desabilitado; conta preexistente habilitada como administrador. Testes de autorização passaram também no backend real, com ROLLBACK e conferência de ausência de fixtures. Fontes públicas e dashboard legado preservados. Instruções completas e evidências de validação: [Controle de usuários](usuarios-painel.md).

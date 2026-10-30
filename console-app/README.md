@@ -1,6 +1,6 @@
 # Verifica Placa · Business Console
 
-Console administrativo em React e TypeScript. A entrada padrão usa financeiro, campanhas, tracking, metas e identidade do Supabase existente. Metas e perfil exigem a conta autenticada do operador. A demonstração completa permanece separada em `?demo=1`; CRM, chat, WhatsApp e gamificação ainda precisam de backend operacional. Tarefas têm backend privado próprio.
+Console administrativo em React e TypeScript. A entrada padrão usa financeiro, campanhas, tracking, metas e identidade do Supabase existente. O painel exige conta autenticada e acesso ativo de gerente ou administrador. Somente administradores gerenciam usuários. O controle usa a migração 022 e a função de servidor já ativadas no Supabase; veja `../docs/usuarios-painel.md`. A demonstração completa permanece separada em `?demo=1`; CRM, chat, WhatsApp e gamificação ainda precisam de backend operacional. Tarefas têm backend privado próprio.
 
 Fonte canônica e publicação GitHub Pages: veja [`../docs/console-producao.md`](../docs/console-producao.md). O dashboard original permanece disponível.
 
@@ -50,7 +50,7 @@ No modo `?demo=1`, use o menu superior para simular proprietário, gestor, comer
 
 Visão Geral: 15 KPIs, sparklines, comparativos anteriores, metas e impostos mensais, produtos, saldo real Ads, bureau e fornecedores, estornos, saúde, funil, gráficos e médias por dia da semana. Lê as 12 fontes originais via GET, com a mesma paginação e regras de fallback. Falha principal segue o original e mostra dados de exemplo com aviso explícito; não são apresentados como reais. A seleção de campanha mantém os totais globais como no original. Atualizações futuras no código da referência exigem captura deliberada, revisão e testes de equivalência; não há atualização automática do motor.
 
-Módulos demonstrativos (`?demo=1`): referência fixa em 6 de outubro de 2026, 12h BRT. Valores em centavos; tributo hipotético de 8%. A autenticação do modo real usa Supabase Auth. Presença simultânea, papéis de equipe e os comandos operacionais demonstrativos ainda exigem backend. Os pedidos da demonstração não alimentam o dashboard original.
+Módulos demonstrativos (`?demo=1`): referência fixa em 6 de outubro de 2026, 12h BRT. Valores em centavos; tributo hipotético de 8%. A autenticação do modo real usa Supabase Auth. Os perfis reais gerente/administrador têm backend próprio em `console_users`; presença simultânea, papéis adicionais da demonstração e comandos operacionais demonstrativos ainda exigem integração. Os pedidos da demonstração não alimentam o dashboard original.
 
 No modelo demonstrativo, pedidos pagos incluem registros posteriormente estornados. A receita bruta mantém essa história; receita após estornos e contribuição descontam devoluções. Créditos novos aguardam 7 dias e validação; uma tarefa ou mensagem não gera pontos. Eventos de entrega reconhecem o operador; venda assistida reconhece o vendedor; venda automática não cria crédito individual.
 

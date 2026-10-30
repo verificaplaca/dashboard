@@ -5,10 +5,20 @@ insert into auth.users(id,aud,role,email,created_at,updated_at) values
  ('10000000-0000-4000-8000-000000000001','authenticated','authenticated','task-member@example.invalid',now(),now()),
  ('10000000-0000-4000-8000-000000000002','authenticated','authenticated','task-outsider@example.invalid',now(),now()),
  ('10000000-0000-4000-8000-000000000003','authenticated','authenticated','task-revoked@example.invalid',now(),now());
+-- On 022+ these legacy scoped-task fixtures also need active console access.
+-- Preserve the member task role below to keep exercising the old scoped contract.
+do $$begin
+ if to_regclass('public.console_users') is not null then
+  insert into public.console_users(user_id,display_name,email,role,active)
+  select id,'Task test',email,'manager',id<>'10000000-0000-4000-8000-000000000003'::uuid
+  from auth.users where id in ('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000003');
+ end if;
+end$$;
 insert into public.console_task_members(user_id,display_name,role,active) values
  ('10000000-0000-4000-8000-000000000001','Test member','member',true),
  ('10000000-0000-4000-8000-000000000002','Test outsider','member',true),
- ('10000000-0000-4000-8000-000000000003','Test revoked','member',false);
+ ('10000000-0000-4000-8000-000000000003','Test revoked','member',false)
+on conflict(user_id) do update set display_name=excluded.display_name,role=excluded.role,active=excluded.active;
 
 set local role authenticated;
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('test.task_manager'),'role','authenticated')::text,true);

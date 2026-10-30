@@ -207,3 +207,7 @@ na data de pagamento de São Paulo e na data de estorno, com colunas analíticas
 Consulta caiu de 13.811 ms para 6,690 ms; contagens e hashes dos três agregados
 idênticos. Tracking e comparativo CAC agora têm cargas/erros independentes.
 Diagnóstico, validação e rollback: `docs/tracking-timeout-2026-10-15.md`.
+
+## Controle de usuários · 30/10/2026 (backend ativado, release GitHub Pages)
+
+Perfis reais administrador e gerente em `console_users`, entrada autenticada do console e módulo `#/usuarios`. Somente administradores criam contas via Edge Function `console-users` e gerenciam perfis/suspensões por RPC versionada, com proteção do último administrador e auditoria. Migração 022 sincroniza tarefas/financeiro e restringe escrita em metas a contas ativas. Agregados e dashboard legado continuam públicos. Migração 022 aplicada isoladamente e função remota ativa com JWT obrigatório. Signup público desabilitado; única conta existente promovida a administrador. Testes SQL remotos revertidos, sem contas fictícias persistidas. Ativação, testes e limites: `docs/usuarios-painel.md`.
