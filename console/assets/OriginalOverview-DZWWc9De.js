@@ -1,5 +1,5 @@
 const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./auto-C1Qm3KRQ.js","./chart-DhlI85fk.js","./chartjs-plugin-datalabels.esm-COO4rXjM.js"])))=>i.map(i=>d[i]);
-import{r as te,j as z,c as Xe,u as Qe,_ as je}from"./index-BGwRFPqS.js";import{d as Ze,o as Ke}from"./modules-redesign-BWIRcrOf.js";import{a as Ge,g as et,t as tt,r as at}from"./overview-BpDm6eQa.js";function Ue(e,i){return Number.isFinite(e)&&Number.isFinite(i)&&e>0?i/e*100:null}function nt(e,i){const c=i==="ads"?e.cost:i==="bureau"?e.costBureau:e.costTotal;return typeof c=="number"&&Number.isFinite(c)?c:null}const ot=`(() => {
+import{r as te,j as z,c as Xe,u as Qe,_ as je}from"./index-DFJtSxSD.js";import{d as Ze,o as Ke}from"./modules-redesign-C-HtcYWB.js";import{a as Ge,g as et,t as tt,r as at}from"./overview-BpDm6eQa.js";function Ue(e,i){return Number.isFinite(e)&&Number.isFinite(i)&&e>0?i/e*100:null}function nt(e,i){const c=i==="ads"?e.cost:i==="bureau"?e.costBureau:e.costTotal;return typeof c=="number"&&Number.isFinite(c)?c:null}const ot=`(() => {
   if (!window.Chart) return;
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const summary = new URLSearchParams(location.search).get('mode') === 'summary';
