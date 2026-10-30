@@ -1,6 +1,6 @@
 # Controle de usuários do painel · 30/10/2026
 
-Backend ativado no projeto analytics `ftmgmfdqdqxboiktxcoj` em 30/10/2026: migração 022 aplicada isoladamente, função `console-users` ativa com validação JWT e cadastro público de Auth desativado. A conta preexistente recebeu o perfil administrador. Nenhum usuário real novo foi criado, nenhuma conta real foi suspensa e nenhuma credencial privilegiada foi incluída no frontend. A interface acompanha o release `console/` do GitHub Pages.
+Backend ativado no projeto analytics `ftmgmfdqdqxboiktxcoj` em 30/10/2026: migração 022 aplicada isoladamente, função `console-users` ativa com validação JWT e cadastro público de Auth desativado. A conta preexistente recebeu o perfil administrador. Nenhum usuário real novo foi criado, nenhuma conta real foi suspensa e nenhuma credencial privilegiada foi incluída no frontend. A interface está publicada em https://verifica-placa-ops.vercel.app/#/usuarios pela integração Vercel, a partir do commit `d69e243`. O mesmo release `console/` acompanha a publicação secundária GitHub Pages.
 
 ## Perfis
 
@@ -39,6 +39,7 @@ Publicar backend antes do novo frontend, para evitar bloquear a conta atual por 
 - Seis testes da Edge Function: acesso anônimo, gerente/admin inativo, campos forjados, identidade verificada, compensação e token inválido.
 - PostgreSQL 17 local: migrações 013/017/018/021/022 e testes transacionais de usuários, tarefas e financeiro aprovados. Todos os fixtures de testes revertidos. A emulação local utiliza tabela Auth mínima; A migração também foi aplicada e os testes de usuários passaram no Supabase real, com ROLLBACK. A conferência posterior confirmou uma conta, um administrador ativo na versão 1, zero eventos e zero contas de teste.
 - Navegador isolado com respostas fictícias: login, lista administrativa, criação de gerente, suspensão, último administrador protegido, rota/menu restritos ao administrador, bloqueio de conta suspensa e tela de 390×844 sem overflow horizontal da página. Nenhuma sessão de usuário real foi gerada para estes testes.
+- Verificação online em Vercel: entrada exige login; bundles da rota `/usuarios` disponíveis; diretório de usuários anônimo rejeitado com HTTP 401. Publicação Vercel confirmou sucesso no commit `d69e243`.
 - Função remota: status ACTIVE, verify_jwt=true; chamada sem sessão de usuário rejeitada com HTTP 401. Cadastro público confirmado desativado.
 - TypeScript, build e release local aprovados. O script de cálculo original continua íntegro.
 

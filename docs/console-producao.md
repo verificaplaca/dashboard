@@ -1,6 +1,7 @@
 # Console — primeira integração de produção
 
 Fonte canônica: `console-app/`, no repositório `verificaplaca/dashboard`.
+Painel principal: https://verifica-placa-ops.vercel.app/ (Vercel, deploy automático da main).
 Saída publicada: `console/`, pelo GitHub Pages existente (main, raiz).
 O endereço original e `dashboard.html` permanecem disponíveis.
 
