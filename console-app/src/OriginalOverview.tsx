@@ -12,33 +12,34 @@ import { enhanceOverviewChart, selectOverviewChartDay } from './overview-chart-e
 import { styleAnalyticalChart } from './analytical-chart-theme';
 import { createOverviewPresentation } from './overview-presentation';
 import { readOnlyOverviewFetch } from './domain/overview';
+import type { OverviewHomeSnapshot } from './domain/overview-home-snapshot';
 
 export interface DayDetail { date: string; revenue: number; tax: number; ads: number; bureau: number; result: number; example: boolean; }
-export interface OverviewEvent { metricDetail?: MetricDetail; dayDetail?: DayDetail; action?: 'rules' | 'export'; ready?: boolean; example?: boolean; period?: string; sections?: Record<string, number>; csv?: string; chartTable?: { title: string; headers: string[]; rows: string[][] }; }
-export interface OverviewHandle { scrollToSection: (section: string) => void; exportIndicators: () => void; clearSelection: () => void; }
+export interface OverviewEvent { snapshot?: OverviewHomeSnapshot; loading?: boolean; error?: string; metricDetail?: MetricDetail; dayDetail?: DayDetail; action?: 'rules' | 'export'; ready?: boolean; example?: boolean; period?: string; sections?: Record<string, number>; csv?: string; chartTable?: { title: string; headers: string[]; rows: string[][] }; }
+export interface OverviewHandle { scrollToSection: (section: string) => void; exportIndicators: () => void; clearSelection: () => void; refresh: () => void; }
 type Model = { body: string; styles: string; calculationScript: string };
 let modelPromise: Promise<Model> | undefined, instance = 0;
 const loadModel = () => modelPromise ||= fetch(`${import.meta.env.BASE_URL}overview/model.json`, {signal: AbortSignal.timeout(30_000)}).then(response => { if (!response.ok) throw new Error('Não foi possível carregar a Visão Geral.'); return response.json(); }).catch(error => { modelPromise = undefined; throw error; });
 
 /** The preserved engine runs against a scoped DOM in the SAME document. */
-export default forwardRef<OverviewHandle, { summary?: boolean; view?: 'overview' | 'campanhas' | 'upsell'; onEvent?: (event: OverviewEvent) => void }>(function OriginalOverview({ summary = false, view = 'overview', onEvent }, ref) {
+export default forwardRef<OverviewHandle, { dataOnly?: boolean; summary?: boolean; view?: 'overview' | 'campanhas' | 'upsell'; onEvent?: (event: OverviewEvent) => void }>(function OriginalOverview({ dataOnly = false, summary = false, view = 'overview', onEvent }, ref) {
   const { theme, setTheme } = useUI();
   const host = useRef<HTMLDivElement>(null), controller = useRef<ReturnType<typeof mountOverview> | null>(null);
   const callback = useRef(onEvent), currentTheme = useRef(theme);
   callback.current = onEvent; currentTheme.current = theme;
-  const [error, setError] = useState(''), [loading, setLoading] = useState(true);
+  const [error, setError] = useState(''), [loading, setLoading] = useState(true), [attempt,setAttempt] = useState(0);
   useGlobalLoading(loading);
-  useImperativeHandle(ref, () => ({ scrollToSection: section => controller.current?.scrollToSection(section), exportIndicators: () => controller.current?.exportIndicators(), clearSelection: () => controller.current?.clearSelection() }), []);
+  useImperativeHandle(ref, () => ({ scrollToSection: section => controller.current?.scrollToSection(section), exportIndicators: () => controller.current?.exportIndicators(), clearSelection: () => controller.current?.clearSelection(), refresh: () => { if(controller.current)controller.current.refresh();else setAttempt(n=>n+1); } }), []);
   useEffect(() => {
-    let active = true; setLoading(true); setError('');
+    let active = true; setLoading(true); setError(''); callback.current?.({loading:true});
     Promise.all([loadModel(), import('chart.js/auto'), import('chartjs-plugin-datalabels')]).then(([model, charts, labels]) => {
       if (!active || !host.current) return;
-      controller.current = mountOverview(charts.default, labels.default, host.current, model, summary, currentTheme.current, event => callback.current?.(event), setTheme, view, value => { if(active) setLoading(value); });
-    }).catch(reason => { if (active) { setError(String(reason.message || reason)); setLoading(false); } });
+      controller.current = mountOverview(charts.default, labels.default, host.current, model, summary, currentTheme.current, event => callback.current?.(event), setTheme, view, value => { if(active) { setLoading(value); callback.current?.({loading:value}); } });
+    }).catch(reason => { if (active) { setError(String(reason.message || reason)); setLoading(false); callback.current?.({error:String(reason.message||reason),loading:false}); } });
     return () => { active = false; controller.current?.dispose(); controller.current = null; };
-  }, [summary, view]);
+  }, [summary, view, attempt]);
   useEffect(() => { controller.current?.setTheme(theme); }, [theme]);
-  return <div className={`native-overview ${summary ? 'native-summary' : ''}`}>
+  return <div className={`native-overview ${summary ? 'native-summary' : ''}`} aria-hidden={dataOnly||undefined} inert={dataOnly} style={dataOnly?{position:'fixed',left:'-200vw',top:0,width:1200,height:1,overflow:'hidden',visibility:'hidden',pointerEvents:'none'}:undefined}>
     {error && <p role="alert" className="info-note">{error} Recarregue a página para tentar novamente.</p>}
     <div ref={host} className="native-overview-host" aria-label={summary ? 'Resumo financeiro das fontes originais' : 'Indicadores e gráficos da Visão Geral'} />
   </div>;
@@ -162,7 +163,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   new Function('window', 'document', 'Chart', 'location', 'matchMedia', presentationScript)(scopedWindow, scopedDocument, ScopedChart, { search: summary ? '?mode=summary' : '' }, () => presentationMotion);
   const functions = [...model.calculationScript.matchAll(/^(?:async )?function (\w+)\(/gm)].map(match => match[1]);
   const quietConsole = Object.fromEntries(['log', 'warn', 'error', 'info'].map(level => [level, (...args: unknown[]) => { if (active) (console as any)[level](...args); }]));
-  api = new Function('window', 'document', 'fetch', 'Chart', 'ChartDataLabels', 'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'console', `${model.calculationScript}\nreturn {${functions.join(',')},charts,sparkRefs,readChartSnapshot:()=>({current:filtered,allDays:ALL_DAYS}),readDay:(i)=>{const d=filtered[i];if(!d)return null;return {date:d.dateStr,revenue:d.revenue,tax:d.revenue*(1-netFactor(d.dateStr)),ads:(d.costTotal||0)-(d.costBureau||0),bureau:d.costBureau||0,result:d.netProfit||0,example:!usingRealData}},readPresentation:()=>({funnel:[filtered.reduce((s,d)=>s+(d.checkouts||0),0),filtered.reduce((s,d)=>s+(d.conv||0),0),filtered.reduce((s,d)=>s+(d.pedidosUpsell!=null?d.pedidosUpsell:Math.round((d.conv||0)*((d.upsellRate||0)/100))),0)],totals:totals(),previous:prevTotals(),dayCount:filtered.length,upsellOrders:usingRealData?filtered.reduce((s,d)=>s+(d.pedidosUpsell||0),0):null,targets:activeTargets(),real:usingRealData,months:new Set(filtered.map(d=>d.dateStr.slice(0,7))).size,month:filtered.at(-1)?.dateStr.slice(0,7)})};`)(scopedWindow, scopedDocument, scopedFetch, ScopedChart, ChartDataLabels, scopedTimeout, clearTimeout, scopedFrame, cancelAnimationFrame, quietConsole);
+  api = new Function('window', 'document', 'fetch', 'Chart', 'ChartDataLabels', 'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'console', `${model.calculationScript}\nreturn {${functions.join(',')},charts,sparkRefs,readChartSnapshot:()=>({current:filtered,allDays:ALL_DAYS}),readDay:(i)=>{const d=filtered[i];if(!d)return null;return {date:d.dateStr,revenue:d.revenue,tax:d.revenue*(1-netFactor(d.dateStr)),ads:(d.costTotal||0)-(d.costBureau||0),bureau:d.costBureau||0,result:d.netProfit||0,example:!usingRealData}},readHomeSnapshot:()=>({real:usingRealData,totals:totals(),targets:activeTargets(),days:filtered.map(d=>({date:d.dateStr,revenue:d.revenue}))}),readPresentation:()=>({funnel:[filtered.reduce((s,d)=>s+(d.checkouts||0),0),filtered.reduce((s,d)=>s+(d.conv||0),0),filtered.reduce((s,d)=>s+(d.pedidosUpsell!=null?d.pedidosUpsell:Math.round((d.conv||0)*((d.upsellRate||0)/100))),0)],totals:totals(),previous:prevTotals(),dayCount:filtered.length,upsellOrders:usingRealData?filtered.reduce((s,d)=>s+(d.pedidosUpsell||0),0):null,targets:activeTargets(),real:usingRealData,months:new Set(filtered.map(d=>d.dateStr.slice(0,7))).size,month:filtered.at(-1)?.dateStr.slice(0,7)})};`)(scopedWindow, scopedDocument, scopedFetch, ScopedChart, ChartDataLabels, scopedTimeout, clearTimeout, scopedFrame, cancelAnimationFrame, quietConsole);
   // Navigation lived in a separate upstream script; select the shell-owned view
   // directly without changing any calculation or loading function.
   root.querySelectorAll<HTMLElement>('.view').forEach(element => element.classList.toggle('is-hidden', element.id !== `view-${view}`));
@@ -268,7 +269,8 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
     const busy = pendingReads > 0 || !finished;
     host.setAttribute('aria-busy', String(busy));
     reportLoading(busy);
-    const key = JSON.stringify(event); if (key !== previous) { previous = key; emit(event); }
+    const output: OverviewEvent = {...event,...(!busy && event.ready ? {snapshot:api.readHomeSnapshot()} : {})};
+    const key = JSON.stringify(output); if (key !== previous) { previous = key; emit(output); }
   };
   const schedule = () => { if (!scheduled && active) { scheduled = true; scopedFrame(sync); } };
   const observer = new MutationObserver(schedule); observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
@@ -282,6 +284,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   const stopEntrances = observeEntrances(root); schedule();
   return {
     setTheme,
+    refresh: () => { void api.initDashboard(); },
     clearSelection: () => owned.forEach(chart => selectOverviewChartDay(chart, -1)),
     scrollToSection: (section: string) => { const element = root.getElementById(`section-${section}`); if (element) window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - (document.querySelector('.topbar')?.getBoundingClientRect().height || 72) - (document.querySelector('.overview-navigation')?.getBoundingClientRect().height || 0) - 14, behavior: motion.matches ? 'instant' : 'smooth' }); },
     exportIndicators: () => { const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"'; const rows = [...root.querySelectorAll('.kpi-row .kpi-card')].map(card => ['.kpi-label', '.kpi-value', '.kpi-value-secondary', '.kpi-delta', '.kpi-sub'].map(selector => quote(selector === '.kpi-delta' ? card.querySelector(selector)?.getAttribute('data-original-delta') ?? card.querySelector(selector)?.textContent : card.querySelector(selector)?.textContent)).join(';')); emit({ csv: ['Período;' + quote(root.getElementById('dateRangeHint')?.textContent), 'Fonte;' + quote(root.getElementById('footerBar')?.textContent), 'Indicador;Valor;Complemento;Comparativo;Contexto', ...rows].join('\n') }); },

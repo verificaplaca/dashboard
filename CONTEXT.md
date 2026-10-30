@@ -218,4 +218,8 @@ Loader gooey compartilhado cobre a tela durante leituras e entrada de módulos, 
 
 ## Inicial como resumo da operação · 30/10/2026
 
-`#/inicio` usa `OperationsHome`, com quatro KPIs do Financeiro, barras de receita recente, anel de meta mensal, prioridades reais, aquisição/tracking e atalhos dos módulos. Composição e CSS próprios, sem montar `OriginalOverview` nessa rota. Financeiro considera dias encerrados e indica resultado parcial; tracking limita e explicita a amostra. Início volta ao menu lateral. Permissões e motor original preservados. Detalhes: `docs/inicio-resumo.md`.
+`#/inicio` usa `OperationsHome`, com quatro KPIs da Visão Geral, barras de receita recente, anel de meta mensal, prioridades reais, aquisição/tracking e atalhos dos módulos. Composição e CSS próprios; `OriginalOverview` fornece somente dados em DOM isolado, inerte e fora da tela. Usa o mesmo período salvo e totais, incluindo hoje, sem despesas complementares da DRE; tracking limita e explicita a amostra. Início volta ao menu lateral. Permissões e motor original preservados. Detalhes: `docs/inicio-resumo.md`.
+
+## Indicadores e autorização de metas · 30/10/2026
+
+`overview-home-snapshot` lê diretamente `totals()` e `activeTargets()` do motor preservado. Inicial e Visão Geral compartilham `vp_filter` e incluem hoje no mês atual. Migração 023 aplicada isoladamente: metas/imposto somente por administrador ativo; gerente apenas consulta. Testes SQL remotos passaram com rollback (zero fixtures persistidas, duas memberships reais preservadas). 180 testes frontend/paridade e build aprovados.

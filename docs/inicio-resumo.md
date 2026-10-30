@@ -1,31 +1,21 @@
 # Início · resumo da operação
 
-A inicial de produção (`#/inicio`) passa a ter composição própria em `OperationsHome.tsx` e CSS isolado em `operations-home.css`. Não monta o painel legado, seus controles, gráficos e cards dentro da página. O componente antigo `ExecutiveSummary` permanece preservado para os usos existentes; a Visão Geral e o motor original não são alterados.
+A inicial de produção (`#/inicio`) tem composição própria em `OperationsHome.tsx` e CSS isolado em `operations-home.css`. Seus quatro indicadores usam exatamente os totais do motor preservado da Visão Geral: Receita Bruta (`rev`), Lucro Líquido (`netPftOpt`), Transações (`conv`) e CAC (`cac`). O snapshot também fornece investimento, metas e receita diária.
 
-## Leitura da página
+## Período e cálculo
 
-- Cabeçalho compacto com saudação, data de São Paulo e atualização das fontes da inicial.
-- Quatro indicadores: receita, resultado gerencial/resultado parcial, pedidos pagos e CAC por pedido pago.
-- Gráfico de barras dos até sete dias mais recentes do período financeiro, com valores e alternativa textual acessível.
-- Meta de receita mensal com anel de progresso, valor-alvo e acesso às metas. Percentual pode exceder 100%; o anel visual é limitado a uma volta.
-- Prioridades reais, pendências, tarefas atrasadas e vencimentos do operador.
-- Investimento em Google Ads, orçamento mensal e resumo de tracking.
-- Acessos rápidos aos módulos operacionais; Usuários aparece exclusivamente para administrador. Início também passa a ter entrada própria no menu lateral, distinta de Visão Geral.
+O mesmo filtro salvo em `vp_filter` rege os dois módulos. O mês atual inclui hoje; uma seleção explícita de outro intervalo na Visão Geral é respeitada na inicial. O cabeçalho mostra o período e indica quando inclui hoje. Os dados do dia seguem sujeitos a atualização das fontes.
 
-## Fontes e limites
+`OriginalOverview` executa o motor original em DOM isolado, fora da tela, inerte e oculto da árvore de acessibilidade. A ponte `readHomeSnapshot` lê `totals()`, `activeTargets()` e os dias filtrados; não duplica nem altera as fórmulas originais. O usuário continua vendo apenas a composição própria da inicial. O lucro segue a Visão Geral, após imposto, Ads e bureau; despesas complementares da DRE pertencem ao Financeiro.
 
-O resumo financeiro usa `useFinanceSource`, `useExpenseMonth` e `buildDre`, os mesmos leitores e cálculos do Financeiro. Mostra o mês do último dia encerrado, com intervalo explícito; hoje não é tratado como um dia completo. No primeiro dia do mês, mostra o mês anterior fechado. Portanto, comparar com a Visão Geral exige selecionar o mesmo intervalo. A inicial não projeta receita ou lucro futuro.
+Os até sete dias mais recentes do filtro formam o gráfico. A meta é mensal: períodos com mais de um mês não exibem percentual de realização contra uma única meta. Falha ou dados de exemplo não são apresentados como indicadores reais. Atualizar resumo relê o motor, tracking e tarefas, com loader global e saída suave.
 
-Resultado inclui as despesas privadas disponíveis. Categorias ausentes, imposto em fallback ou despesas sem acesso impedem o rótulo de resultado completo. Campos não disponíveis não aparecem como zero. Uma falha financeira não impede consultar tarefas, metas disponíveis e atalhos. Receita e CAC não recebem fórmulas novas: CAC é mídia realizada dividida pelos pedidos pagos; sem pedidos não existe divisão por zero.
+## Outros blocos
 
-Metas de receita, CAC e orçamento vêm da tabela `monthly_targets`, com herança individual do último campo não nulo até o mês selecionado. Nunca herda mês futuro nem substitui zero explícito. Ausência/falha é indicada; não inventa meta. A meta de receita é do mês inteiro, mesmo com o realizado até ontem.
+Tarefas obedecem à conta autenticada. Tracking consulta os últimos 50 envios em sete dias de calendário e explicita essa amostra. Falha tem prioridade sobre pendência e status desconhecido fica a conferir; `skipped` não é confirmação de entrega. Os atalhos mantêm suas permissões; Usuários aparece apenas para administradores.
 
-Tracking consulta somente os 50 envios mais recentes nos sete dias de calendário indicados. Contagens são por evento: falha tem prioridade sobre pendência; status desconhecido fica a conferir. `skipped` não é tratado como confirmação de entrega. A amostra não é apresentada como total da operação ou taxa global de sucesso. Tarefas continuam privadas e obedecem à conta autenticada. A atualização geral também atualiza o resumo das tarefas; a consulta silenciosa existente permanece.
-
-O loader global, seu fade e os temas existentes continuam em uso. Não há novas escritas no banco, alteração de contas ou ação em campanhas nesta revisão.
+Metas podem ser consultadas por gerentes. Somente administradores ativos podem alterá-las, inclusive o imposto. A interface, o salvamento e as políticas do banco verificam essa regra (migração 023).
 
 ## Validação
 
-Testes específicos cobrem herança por campo, mês futuro, zero explícito, metas inválidas e contagem de tracking sem duplicar eventos ou confundir skipped/unknown. Os testes existentes de DRE e paridade preservam os contratos financeiros.
-
-Validação concluída: 166 testes de domínio e 12 de paridade aprovados (178 no total), build TypeScript/Vite aprovado. Revisão visual da versão compilada em desktop e em 390×844, nos temas claro/escuro, com atualização pelo loader global e tratamento de indisponibilidade financeira. Os fixtures locais usam conta e tarefas fictícias, sem criar sessões reais ou executar escritas no backend.
+180 testes aprovados: 168 de domínio e 12 de paridade do motor original. O teste do snapshot executa a função original com ontem e hoje e compara cada total. Build TypeScript/Vite aprovado. Testes SQL locais e remotos cobrem escrita de administrador, leitura de gerente e bloqueio de mutações por gerente, metadata forjada, administrador inativo e anônimo, com ROLLBACK. Conferência remota: zero contas e metas de teste persistidas; duas memberships reais preservadas.

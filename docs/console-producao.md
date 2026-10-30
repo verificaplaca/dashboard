@@ -115,4 +115,8 @@ Nova entrada do console com sessão e membership ativa, perfis gerente/administr
 
 ## Inicial de resumo · 30/10/2026
 
-A inicial passa a usar composição React própria, com panorama financeiro, receita recente, meta de receita, execução e canais da operação, além dos atalhos de cada módulo. Usa o mesmo `buildDre` do Financeiro, com dias encerrados e despesas privadas disponíveis; os períodos e limites das amostras são explícitos. Mantém loader global e permissões. Fonte e validação: [Inicial de resumo](inicio-resumo.md).
+A inicial passa a usar composição React própria, com panorama financeiro, receita recente, meta de receita, execução e canais da operação, além dos atalhos de cada módulo. Usa os totais e o filtro salvo da Visão Geral, incluindo hoje quando selecionado; despesas complementares permanecem na DRE. Os períodos e limites das amostras são explícitos. Mantém loader global e permissões. Fonte e validação: [Inicial de resumo](inicio-resumo.md).
+
+## Alinhamento de indicadores e metas · 30/10/2026
+
+A inicial lê o snapshot do motor original da Visão Geral, com os mesmos quatro valores e período salvo, incluindo o dia atual. Migração 023 aplicada no servidor: apenas administrador ativo altera metas/imposto. Gerente consulta em modo de leitura. Validação: 180 testes e build aprovados, autorização também testada no banco remoto com rollback. Detalhes em [Inicial](inicio-resumo.md) e [Usuários](usuarios-painel.md).

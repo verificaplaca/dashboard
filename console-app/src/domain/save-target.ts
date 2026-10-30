@@ -1,9 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Target } from './targets';
+import { readConsoleAccess } from './users';
 /** Match the existing auth/RLS contract and reject concurrent replacement. */
 export async function saveTarget(client: SupabaseClient, row: Target, previous?: Target) {
   const { data: identity, error: authError } = await client.auth.getUser();
   if (authError || !identity.user) throw new Error('Entre novamente para salvar as metas.');
+  const access=await readConsoleAccess(client,identity.user.id);
+  if(!access?.active||access.role!=='administrator') throw new Error('Somente administradores ativos podem alterar as metas do sistema.');
   if (previous && previous.month !== row.month) throw new Error('O mês foi alterado. Revise os dados antes de salvar.');
   let request;
   if (previous) {

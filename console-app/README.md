@@ -71,3 +71,7 @@ Leituras de dados e entrada de módulos usam o loader gooey compartilhado, exibi
 ## Início: central de resumo
 
 A rota real `#/inicio` usa `OperationsHome.tsx` e `operations-home.css`: quatro indicadores, receita recente, meta mensal, prioridades e canais, com navegação direta aos módulos. O financeiro reutiliza a DRE do Financeiro; a Visão Geral permanece no motor original. Escopos, fontes e validação: [`../docs/inicio-resumo.md`](../docs/inicio-resumo.md).
+
+### Inicial e metas
+
+A inicial usa snapshot do motor preservado da Visão Geral: mesmos totais e filtro salvo, incluindo hoje. A apresentação continua própria e o DOM do motor fica inerte/fora da tela. Metas e imposto são editáveis apenas por administradores ativos, com nova checagem no salvamento e RLS da migração 023. Gerentes consultam mês e histórico. Validação SQL: `supabase/tests/targets_administrator_only.sql` (transação revertida).

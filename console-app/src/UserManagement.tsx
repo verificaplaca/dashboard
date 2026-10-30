@@ -21,7 +21,7 @@ export default function UserManagement() {
  useEffect(()=>{const timer=setTimeout(()=>void load(),250);return()=>{clearTimeout(timer);revision.current++;};},[query]);
  if(role!=='administrator') return <Empty title="Acesso restrito" description="Somente administradores podem gerenciar usuários." />;
  return <div className="module-page users-page"><PageHeading eyebrow="ADMINISTRAÇÃO" title="Usuários" description="Controle quem pode acessar o painel do Verifica Placa."><button className="button primary" onClick={()=>setEditor('new')}><Plus size={16}/>Novo usuário</button></PageHeading>
- <div className="users-permissions"><Card title="Gerente"><p>Acessa os módulos do painel, tarefas, metas e financeiro.</p></Card><Card title="Administrador"><p>Também cria usuários, altera perfis e suspende ou reativa acessos.</p></Card></div>
+ <div className="users-permissions"><Card title="Gerente"><p>Acessa o painel, tarefas e financeiro. Consulta as metas em modo de leitura.</p></Card><Card title="Administrador"><p>Também altera metas, cria usuários, altera perfis e suspende ou reativa acessos.</p></Card></div>
  <Card title="Acessos ao painel" subtitle={`${count} usuário${count===1?'':'s'}`}><Toolbar value={query} onChange={setQuery} placeholder="Buscar por nome"><button className="button secondary" disabled={busy} onClick={()=>void load()}><RefreshCw size={15}/>Atualizar</button></Toolbar>
  {error&&<p role="alert">{error}</p>}{busy&&<p role="status">Carregando usuários…</p>}
  {!busy&&!error&&!rows.length&&<Empty title="Nenhum usuário encontrado" description="Tente outro nome na busca."/>}

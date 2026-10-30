@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { saveTarget } from './save-target';
 import { targetPayload } from './targets';
-function fake(authed: boolean, rows: { month: string }[] | null, denied = false) {
+function fake(authed: boolean, rows: { month: string }[] | null, denied = false, role = 'administrator', active = true) {
   const calls: unknown[][] = [];
   const query = { update: (row: unknown) => { calls.push(['update', row]); return query; }, insert: (row: unknown) => { calls.push(['insert', row]); return query; }, eq: (...args: unknown[]) => { calls.push(['eq', ...args]); return query; }, is: (...args: unknown[]) => { calls.push(['is', ...args]); return query; }, select: async () => ({ data: rows, error: denied ? new Error('RLS denied') : null }) };
-  const client = { auth: { getUser: async () => ({ data: { user: authed ? { id: 'real-auth-id' } : null }, error: null }) }, from: (table: string) => { calls.push(['from', table]); return query; } } as unknown as SupabaseClient;
+  const client = { auth: { getUser: async () => ({ data: { user: authed ? { id: 'real-auth-id' } : null }, error: null }) }, from: (table: string) => { calls.push(['from', table]); return table==='console_users'?{select:()=>({eq:()=>({maybeSingle:async()=>({data:{role,active},error:null})})})}:query; } } as unknown as SupabaseClient;
   return { client, calls };
 }
 test('expired or missing identity never sends a monthly target write', async () => {
@@ -25,4 +25,8 @@ test('inserts a new month without upserting over someone else’s newly created 
   const row = targetPayload('2026-10', { tax_pct: '8' });
   const { client, calls } = fake(true, [{ month: row.month }]);
   await saveTarget(client, row); assert.ok(calls.some(call => call[0] === 'insert')); assert.ok(!calls.some(call => call[0] === 'update'));
+});
+
+test('manager or inactive administrator never submits a target mutation',async()=>{
+ for(const [role,active] of [['manager',true],['administrator',false]] as const){const {client,calls}=fake(true,[],false,role,active);await assert.rejects(saveTarget(client,targetPayload('2026-10',{})),/Somente administradores/);assert.ok(!calls.some(call=>call[0]==='insert'||call[0]==='update'));}
 });
