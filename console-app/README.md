@@ -67,3 +67,7 @@ Revisão final de layout: escalas de 12–13 px para conteúdo e 10–11 px para
 ## Loader global e componentes UI
 
 Leituras de dados e entrada de módulos usam o loader gooey compartilhado, exibido sobre toda a tela até as fontes da página assentarem. O componente reutilizável fica em `src/components/ui/loader-10.tsx`; `@/components/ui` é o alias canônico. Tailwind 4 foi integrado sem reset global, mantendo os estilos existentes. Setup shadcn, detalhes de concorrência/cancelamento/acessibilidade e validação: [`../docs/loader-global.md`](../docs/loader-global.md).
+
+## Início: central de resumo
+
+A rota real `#/inicio` usa `OperationsHome.tsx` e `operations-home.css`: quatro indicadores, receita recente, meta mensal, prioridades e canais, com navegação direta aos módulos. O financeiro reutiliza a DRE do Financeiro; a Visão Geral permanece no motor original. Escopos, fontes e validação: [`../docs/inicio-resumo.md`](../docs/inicio-resumo.md).

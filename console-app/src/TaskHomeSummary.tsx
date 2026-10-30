@@ -13,7 +13,7 @@ import {
   type TaskSummary,
 } from "./domain/tasks";
 import "./tasks.css";
-export default function TaskHomeSummary() {
+export default function TaskHomeSummary({revision=0}:{revision?:number}) {
   const { user, openLogin } = useAuth();
   const [summary, setSummary] = useState<TaskSummary>(emptyTaskSummary),
     [tasks, setTasks] = useState<LiveTask[]>([]),
@@ -70,7 +70,7 @@ export default function TaskHomeSummary() {
       active = false;
       clearInterval(timer);
     };
-  }, [user?.id]);
+  }, [user?.id, revision]);
   return (
     <Card
       title="Sua execução, em foco"

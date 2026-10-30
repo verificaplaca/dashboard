@@ -112,3 +112,7 @@ Novo shell claro com rail integrado, cabeçalho em cápsulas e logo oficial sem 
 ## Controle de usuários · 30/10/2026 (backend ativado, release GitHub Pages)
 
 Nova entrada do console com sessão e membership ativa, perfis gerente/administrador e administração real em `#/usuarios`. Criação de contas exclusiva de administradores no servidor; troca de perfil, suspensão e reativação com versão/auditoria e proteção do último administrador. A migração 022 foi aplicada e a função `console-users` está ativa com validação JWT. Cadastro público desabilitado; conta preexistente habilitada como administrador. Testes de autorização passaram também no backend real, com ROLLBACK e conferência de ausência de fixtures. Fontes públicas e dashboard legado preservados. Instruções completas e evidências de validação: [Controle de usuários](usuarios-painel.md).
+
+## Inicial de resumo · 30/10/2026
+
+A inicial passa a usar composição React própria, com panorama financeiro, receita recente, meta de receita, execução e canais da operação, além dos atalhos de cada módulo. Usa o mesmo `buildDre` do Financeiro, com dias encerrados e despesas privadas disponíveis; os períodos e limites das amostras são explícitos. Mantém loader global e permissões. Fonte e validação: [Inicial de resumo](inicio-resumo.md).

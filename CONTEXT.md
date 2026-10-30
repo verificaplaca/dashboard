@@ -215,3 +215,7 @@ Perfis reais administrador e gerente em `console_users`, entrada autenticada do 
 ## Loader global · 30/10/2026
 
 Loader gooey compartilhado cobre a tela durante leituras e entrada de módulos, com inscrições independentes, limpeza ao trocar de rota, proteção de foco/rolagem e erros preservados. Componente enviado em `console-app/src/components/ui/loader-10.tsx`; Tailwind 4 sem Preflight e aliases shadcn configurados. Fonte, arquitetura, testes e setup: `docs/loader-global.md`. Sem alteração no banco/perfis nem no script de cálculo original.
+
+## Inicial como resumo da operação · 30/10/2026
+
+`#/inicio` usa `OperationsHome`, com quatro KPIs do Financeiro, barras de receita recente, anel de meta mensal, prioridades reais, aquisição/tracking e atalhos dos módulos. Composição e CSS próprios, sem montar `OriginalOverview` nessa rota. Financeiro considera dias encerrados e indica resultado parcial; tracking limita e explicita a amostra. Início volta ao menu lateral. Permissões e motor original preservados. Detalhes: `docs/inicio-resumo.md`.

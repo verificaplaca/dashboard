@@ -1,12 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Activity, ArrowUpRight, CalendarDays, CheckCircle2, ChevronsLeft, CreditCard, Crosshair, Wallet, Gauge, Headphones, Home, LayoutDashboard, LogIn, Megaphone, MessageSquare, Moon, PanelLeftClose, Search, Settings2, ShieldCheck, Sparkles, Sun, Target, TrendingUp, Users, Workflow, X } from 'lucide-react';
+import { Activity, ArrowUpRight, CheckCircle2, ChevronsLeft, CreditCard, Crosshair, Wallet, Gauge, Headphones, Home, LayoutDashboard, LogIn, Megaphone, MessageSquare, Moon, PanelLeftClose, Search, Settings2, ShieldCheck, Sparkles, Sun, Target, TrendingUp, Users, Workflow, X } from 'lucide-react';
 import { Avatar, Card, Dialog, Empty, PageHeading } from './components';
 import { go, useRoute } from './format';
 import { AuthProvider, useAuth } from './Auth';
 import { LoadingFallback, useGlobalLoading } from './Loading';
 import { UIProvider, useUI } from './ui';
 import { observeEntrances } from './motion';
-import { greeting, saoPauloClock } from './domain/clock';
 import './home.css';
 import './users.css';
 import './redesign.css';
@@ -16,15 +15,14 @@ const UserManagement = lazy(() => import('./UserManagement'));
 const Finance = lazy(() => import('./Finance'));
 const Simulation = lazy(() => import('./Simulation'));
 const Dashboard = lazy(() => import('./Dashboard'));
-const ExecutiveSummary = lazy(() => import('./ExecutiveSummary'));
+const OperationsHome = lazy(() => import('./OperationsHome'));
 const Campaigns = lazy(() => import('./LiveCampaigns'));
 const Targets = lazy(() => import('./Targets'));
 const Tracking = lazy(() => import('./LiveTracking'));
 const Profile = lazy(() => import('./LiveProfile'));
 const Tasks = lazy(() => import('./LiveTasks'));
-const HomeTasks = lazy(() => import('./TaskHomeSummary'));
 const groups = [
-  { label: 'PRINCIPAL', items: [{ path: '/inicio', label: 'Início', icon: Home, live: true }, { path: '/dashboard', label: 'Visão Geral', icon: Home, live: true }, { path: '/financeiro', label: 'Financeiro', icon: Wallet, live: true }, { path: '/simulador', label: 'Simulador', icon: Gauge, live: true }] },
+  { label: 'PRINCIPAL', items: [{ path: '/inicio', label: 'Início', icon: Home, live: true }, { path: '/dashboard', label: 'Visão Geral', icon: LayoutDashboard, live: true }, { path: '/financeiro', label: 'Financeiro', icon: Wallet, live: true }, { path: '/simulador', label: 'Simulador', icon: Gauge, live: true }] },
   { label: 'RESULTADOS', items: [{ path: '/marketing', label: 'Campanhas', icon: Megaphone, live: true }, { path: '/tracking', label: 'Tracking', icon: TrendingUp, live: true }, { path: '/metas', label: 'Metas mensais', icon: Target, live: true }] },
   { label: 'ADMINISTRAÇÃO', items: [{ path: '/usuarios', label: 'Usuários', icon: Users, live: true }] },
   { label: 'EXECUÇÃO', items: [{ path: '/tarefas', label: 'Tarefas', icon: CheckCircle2, live: true }] },
@@ -70,28 +68,15 @@ function Shell() {
     <button className="skip-link" onClick={() => document.getElementById('main')?.focus()}>Pular para o conteúdo</button>
     {mobile && <button className="sidebar-shade" aria-label="Fechar menu" onClick={() => setMobile(false)} />}
     <aside className="sidebar"><button className="brand" onClick={() => go('/inicio')} title="Verifica Placa" aria-label="Verifica Placa · Início"><span className="brand-mark"><img src={`${import.meta.env.BASE_URL}verifica-placa-logo.png`} alt="" /></span></button><div className="workspace-label"><ShieldCheck size={18} /><span>Verifica Placa<small>Dados da operação</small></span></div>
-      <nav aria-label="Navegação principal">{groups.filter(group => group.items.some(item => item.live && item.path !== '/inicio' && allowed(item))).map(group => <div className="nav-group" key={group.label}><div className="nav-label">{group.label}</div>{group.items.filter(item => item.live && item.path !== '/inicio' && allowed(item)).map(item => <button key={item.path} onClick={() => go(item.path)} title={`${item.label}${item.live ? '' : ' · em integração'}`} aria-current={route === item.path ? 'page' : undefined} className={`nav-item ${route === item.path ? 'active' : ''} ${item.live ? '' : 'planned-module'}`}><item.icon size={19} /><span>{item.label}</span>{!item.live && <i className="planned-dot" />}</button>)}</div>)}</nav>
+      <nav aria-label="Navegação principal">{groups.filter(group => group.items.some(item => item.live && allowed(item))).map(group => <div className="nav-group" key={group.label}><div className="nav-label">{group.label}</div>{group.items.filter(item => item.live && allowed(item)).map(item => <button key={item.path} onClick={() => go(item.path)} title={`${item.label}${item.live ? '' : ' · em integração'}`} aria-current={route === item.path ? 'page' : undefined} className={`nav-item ${route === item.path ? 'active' : ''} ${item.live ? '' : 'planned-module'}`}><item.icon size={19} /><span>{item.label}</span>{!item.live && <i className="planned-dot" />}</button>)}</div>)}</nav>
       <div className="sidebar-bottom"><button className="rail-more" aria-label="Todos os módulos" title="Todos os módulos" onClick={() => setSearch(true)}><Settings2 size={19} /></button><button className="rail-account" aria-label={user ? 'Meu perfil' : 'Entrar na conta'} title={user ? 'Meu perfil' : 'Entrar na conta'} onClick={() => user ? go('/perfil') : openLogin()}><Avatar name={name} /></button><button className="collapse-button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}><ChevronsLeft size={17} /><span>Recolher menu</span></button></div>
     </aside>
     <div className="app-content"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Abrir menu" onClick={() => setMobile(true)}><PanelLeftClose size={19} /></button><span className="mobile-route">{current?.label || 'Página'}</span></div><nav className="primary-tabs" aria-label="Áreas principais">{items.filter(item => ['/dashboard', '/financeiro', '/simulador', '/marketing'].includes(item.path)).map(item => <button key={item.path} onClick={() => go(item.path)} aria-current={route === item.path ? 'page' : undefined}>{item.label}</button>)}</nav><div className="topbar-actions"><button className="global-search" aria-label="Buscar módulo" onClick={() => setSearch(true)}><Search size={15} /><span>Buscar módulo</span><kbd>⌘ K</kbd></button><span className="demo-chip" role="status"><i />{route === '/dashboard' ? overviewSource : current?.live ? 'FONTES DA OPERAÇÃO' : 'EM INTEGRAÇÃO'}</span><button className="icon-button" aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>{user ? <button className="profile-trigger" aria-label="Meu perfil" onClick={() => go('/perfil')}><Avatar name={name} /><span>{name.split(' ')[0]}<small>{role === 'administrator' ? 'Administrador' : 'Gerente'}</small></span></button> : <button className="button secondary" onClick={openLogin}><LogIn size={15} />Entrar</button>}</div></header>
-      <main id="main" tabIndex={-1} className="main-content" data-module={route.slice(1)}><Suspense fallback={<LoadingFallback/>}>{route === '/usuarios' ? role === 'administrator' ? <UserManagement /> : <Empty title="Acesso restrito" description="Somente administradores podem gerenciar usuários." /> : route === '/inicio' ? <LiveHome /> : route === '/dashboard' ? <Dashboard /> : route === '/financeiro' ? <Finance /> : route === '/simulador' ? <Simulation /> : route === '/marketing' ? <Campaigns /> : route === '/tracking' ? <Tracking /> : route === '/metas' ? <Targets /> : route === '/perfil' ? <Profile /> : route === '/tarefas' ? <Tasks /> : current ? <IntegrationStage title={current.label} /> : <Empty title="Página não encontrada" description="Escolha um módulo no menu."><button className="button primary" onClick={() => go('/inicio')}>Voltar ao início</button></Empty>}</Suspense>
+      <main id="main" tabIndex={-1} className="main-content" data-module={route.slice(1)}><Suspense fallback={<LoadingFallback/>}>{route === '/usuarios' ? role === 'administrator' ? <UserManagement /> : <Empty title="Acesso restrito" description="Somente administradores podem gerenciar usuários." /> : route === '/inicio' ? <OperationsHome /> : route === '/dashboard' ? <Dashboard /> : route === '/financeiro' ? <Finance /> : route === '/simulador' ? <Simulation /> : route === '/marketing' ? <Campaigns /> : route === '/tracking' ? <Tracking /> : route === '/metas' ? <Targets /> : route === '/perfil' ? <Profile /> : route === '/tarefas' ? <Tasks /> : current ? <IntegrationStage title={current.label} /> : <Empty title="Página não encontrada" description="Escolha um módulo no menu."><button className="button primary" onClick={() => go('/inicio')}>Voltar ao início</button></Empty>}</Suspense>
         <footer className="app-footer"><span><ShieldCheck size={13} />Verifica Placa · Console</span><span>{current?.live ? 'Fontes reais · Supabase existente' : 'Módulo em integração'}</span><a href={demoLink()}>Explorar demonstração<ArrowUpRight size={12} /></a></footer>
       </main>
     </div>
     {search && <Dialog title="Buscar módulo" close={() => setSearch(false)}><label className="search-field"><Search size={18} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Visão Geral, campanhas, metas…" /></label><div className="search-results">{items.filter(allowed).filter(item => item.label.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))).map(item => <button key={item.path} onClick={() => { go(item.path); setSearch(false); setQuery(''); }}><item.icon size={17} /><span>{item.label}<small>{item.live ? 'Dados reais' : 'Em integração'}</small></span><ArrowUpRight size={15} /></button>)}</div></Dialog>}
-  </div>;
-}
-function LiveHome() {
-  const { user } = useAuth();
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => { const timer = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(timer); }, []);
-  const clock = saoPauloClock(now), name = typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.split(' ')[0] : '';
-  const GreetingIcon = clock.hour < 5 || clock.hour >= 18 ? Moon : Sun;
-  return <div className="home-page live-home"><div className="live-welcome card"><div><span className="eyebrow"><GreetingIcon size={16} />{new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: 'numeric', month: 'long' }).format(now)}</span><h1>{greeting(clock.hour)}{name ? `, ${name}` : ''}.</h1><p>Acompanhe o resultado da operação e prepare os próximos passos.</p><div className="live-welcome-actions"><button className="button primary" onClick={() => go('/dashboard')}>Abrir Visão Geral<ArrowUpRight size={15} /></button><button className="button secondary" onClick={() => go('/metas')}><CalendarDays size={15} />Revisar metas</button></div></div><div className="live-orbit" aria-hidden="true"><ShieldCheck size={42} /></div></div>
-    <ExecutiveSummary />
-    <HomeTasks />
-    <div className="live-quick-grid">{[['/marketing', 'Campanhas', 'Investimento e performance de aquisição.'], ['/tracking', 'Tracking', 'Entregas de eventos aos canais de mídia.'], ['/metas', 'Metas mensais', 'Objetivos e imposto vigentes por mês.']].map(([path, title, description]) => <Card key={path} title={title}><p>{description}</p><button className="text-button" onClick={() => go(path)}>Acompanhar<ArrowUpRight size={15} /></button></Card>)}</div>
-    <Card title="Seu próximo ciclo de evolução" subtitle="Metas individuais, desafios e conquistas fazem parte da próxima etapa da operação."><p>Explore os fluxos de equipe na demonstração enquanto conectamos as vendas, entregas e responsabilidades reais.</p><a className="button secondary" href={demoLink()}><Sparkles size={15} />Explorar metas e evolução</a></Card>
   </div>;
 }
 function IntegrationStage({ title }: { title: string }) {
