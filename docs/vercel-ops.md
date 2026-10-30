@@ -30,4 +30,24 @@ Rollback do frontend: restaurar o deployment anterior na Vercel ou usar temporar
 
 ## Estado
 
-Preparação local concluída; implantação e validação do DNS ainda pendentes. Atualizar esta seção com o deployment e a verificação final.
+Publicado em produção em 30/10/2026: https://verifica-placa-ops.vercel.app/.
+
+- Projeto: https://vercel.com/verificaplacas-projects/verifica-placa-ops
+- Deployment: `dpl_2PrvygTTCecR8WN9guLYqcjhrDex`
+- Fonte: `7d2c41879147dcf44a3d5b536c6c21dbeb0597ed`, branch main, publicação automática pelo GitHub.
+- 140 testes aprovados; build Pages e Vercel aprovados. CI Console checks e Pages no GitHub concluídos com sucesso.
+- HTTP 200 no console, modelo da Visão Geral e páginas/serviço legados. HTML legado idêntico à fonte. Redirecionamentos dos caminhos antigos e cabeçalho noindex conferidos em produção.
+- `ops.verificaplaca.com.br` adicionado ao ambiente Production, pendente de DNS e verificação de propriedade. A Vercel informa que o domínio já está vinculado a outra conta Vercel; nenhum projeto ou domínio existente foi removido ou transferido.
+- Usuário confirmou que perdeu o acesso Cloudflare e pedirá nova liberação ao desenvolvedor. Não houve alteração no DNS.
+
+Registros exatos exibidos pela Vercel em 30/10/2026, na zona `verificaplaca.com.br`:
+
+| Tipo | Nome | Conteúdo | Proxy |
+| --- | --- | --- | --- |
+| CNAME | ops | 91fbe417f5c8ecdf.vercel-dns-017.com. | Desativado (DNS only) |
+| TXT | _vercel | vc-domain-verify=ops.verificaplaca.com.br,614835aed71b436cf4d7 | DNS only |
+
+Adicionar o TXT de verificação sem apagar outros valores TXT em `_vercel`. O TXT acima pode ser removido após a verificação ser concluída. Usar apenas o subdomínio ops; preservar o domínio principal, MX e demais serviços. Após a liberação, conferir DNS na Vercel, certificado HTTPS, navegação, dados reais e login no endereço final. Até lá, usar o endereço provisório acima.
+
+
+Validação no navegador publicado: Visão Geral carregou os 15 indicadores e as fontes reais; Financeiro carregou receita de R$ 136.412,32 e 8.442 pedidos até 29/10; Simulador carregou os 15 cards e a base histórica até 29/10. Nenhum erro de execução observado. Formulário de login existente abre corretamente; salvamento autenticado não foi executado sem o login do operador. Banco, permissões e integrações existentes preservados.
