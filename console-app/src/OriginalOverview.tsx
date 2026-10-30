@@ -1,12 +1,20 @@
+import { costValue, netMarginPercent } from './domain/overview-series';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Chart as ChartInstance } from 'chart.js';
 import presentationScript from '../public/overview/chart-presentation.js?raw';
 import { useUI } from './ui';
 import { observeEntrances } from './motion';
+import { createOverviewInsights } from './overview-insights-ui';
+import type { MetricDetail } from './domain/overview-insights';
+import { createOverviewSections } from './overview-sections';
+import { enhanceOverviewChart, selectOverviewChartDay } from './overview-chart-enhancements';
+import { styleAnalyticalChart } from './analytical-chart-theme';
+import { createOverviewPresentation } from './overview-presentation';
 import { readOnlyOverviewFetch } from './domain/overview';
 
-export interface OverviewEvent { ready?: boolean; example?: boolean; period?: string; sections?: Record<string, number>; csv?: string; chartTable?: { title: string; headers: string[]; rows: string[][] }; }
-export interface OverviewHandle { scrollToSection: (section: string) => void; exportIndicators: () => void; }
+export interface DayDetail { date: string; revenue: number; tax: number; ads: number; bureau: number; result: number; example: boolean; }
+export interface OverviewEvent { metricDetail?: MetricDetail; dayDetail?: DayDetail; action?: 'rules' | 'export'; ready?: boolean; example?: boolean; period?: string; sections?: Record<string, number>; csv?: string; chartTable?: { title: string; headers: string[]; rows: string[][] }; }
+export interface OverviewHandle { scrollToSection: (section: string) => void; exportIndicators: () => void; clearSelection: () => void; }
 type Model = { body: string; styles: string; calculationScript: string };
 let modelPromise: Promise<Model> | undefined, instance = 0;
 const loadModel = () => modelPromise ||= fetch(`${import.meta.env.BASE_URL}overview/model.json`).then(response => { if (!response.ok) throw new Error('Não foi possível carregar a Visão Geral.'); return response.json(); }).catch(error => { modelPromise = undefined; throw error; });
@@ -18,7 +26,7 @@ export default forwardRef<OverviewHandle, { summary?: boolean; view?: 'overview'
   const callback = useRef(onEvent), currentTheme = useRef(theme);
   callback.current = onEvent; currentTheme.current = theme;
   const [error, setError] = useState('');
-  useImperativeHandle(ref, () => ({ scrollToSection: section => controller.current?.scrollToSection(section), exportIndicators: () => controller.current?.exportIndicators() }), []);
+  useImperativeHandle(ref, () => ({ scrollToSection: section => controller.current?.scrollToSection(section), exportIndicators: () => controller.current?.exportIndicators(), clearSelection: () => controller.current?.clearSelection() }), []);
   useEffect(() => {
     let active = true;
     Promise.all([loadModel(), import('chart.js/auto'), import('chartjs-plugin-datalabels')]).then(([model, charts, labels]) => {
@@ -46,6 +54,9 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   root.getElementById('campaignFilter')!.setAttribute('aria-label', 'Campanha');
   root.getElementById('dateFrom')!.setAttribute('aria-label', 'Data inicial');
   root.getElementById('dateTo')!.setAttribute('aria-label', 'Data final');
+  let comparePeriod = false;
+  let costMode = 'total';
+  let showRevenue = true;
   let active = true, api: Record<string, any> = {}, scheduled = false;
   const id = ++instance, abort = new AbortController(), timeouts = new Set<number>(), frames = new Set<number>(), cleanups: (() => void)[] = [], owned = new Set<ChartInstance>();
   const listen = (target: EventTarget, type: string, listener: EventListener, options?: boolean | AddEventListenerOptions) => { target.addEventListener(type, listener, options); cleanups.push(() => target.removeEventListener(type, listener, options)); };
@@ -66,6 +77,56 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   const plugins: any[] = [];
   function ScopedChart(item: any, config: any) {
     if (!active) throw new DOMException('Visão encerrada', 'AbortError');
+    if (item instanceof HTMLCanvasElement && item.id === 'revenueChart') {
+      if (config.options.plugins?.legend) config.options.plugins.legend.display = false;
+      const rows = api.readChartSnapshot?.().current || [];
+      config.options.plugins.datalabels.color = (ctx: any) => ctx.datasetIndex === 0 ? '#477c25' : '#b84659';
+      config.options.plugins.datalabels.font = {size: 10, weight:'500'};
+      config.options.layout.padding = {top:32, right:28, bottom:22, left:12};
+      for (const series of config.data.datasets) {
+        const revenue = series.label.includes('Receita');
+        const cost = series.label === 'Investimento';
+        if (revenue || series.label === 'Meta/dia') series.hidden = !showRevenue;
+        const projectedCost = series.label === 'Projeção Investimento';
+        if (revenue || cost || projectedCost) {
+          series.borderColor = revenue ? '#83cf39' : '#fb8792';
+          series.backgroundColor = revenue ? 'rgba(164,231,90,.16)' : 'rgba(251,135,146,.12)';
+          series.pointBackgroundColor = series.borderColor; series.pointRadius = 0;
+          series.borderWidth = 2; series.tension = .28;
+        }
+        if (cost) {
+          series.label = costMode === 'total' ? 'Custos totais' : costMode === 'ads' ? 'Apenas Ads' : 'Apenas Bureau';
+          series.data = series.data.map((v: number | null, i: number) => i >= rows.length ? null : costMode === 'total' ? v : costValue(rows[i], costMode));
+        }
+        if (projectedCost && costMode !== 'total') series.hidden = true;
+      }
+    }
+    if (item instanceof HTMLCanvasElement && item.id.startsWith('ks_')) {
+      const key = item.id.slice(3), totals = api.totals?.(), targets = api.activeTargets?.();
+      const negative = ['p', 'npo'].includes(key) && config.data.datasets[0].borderColor === '#dc2626' || key === 'npo' && totals?.netPftOpt < targets?.netProfit || key === 'tk' && totals?.ticket < api.prevTotals?.()?.ticket || key === 'ca' && totals?.cac > targets?.cpa || key === 'up' && totals?.upsell < targets?.upsell;
+      const neutral = ['ct', 'ro', 'ga', 'gb', 'tr'].includes(key);
+      if (key === 'eb' && !summary && view === 'overview') {
+        const days = api.readChartSnapshot?.().current || [];
+        config.data.labels = days.map((d: any) => d.dateStr);
+        config.data.datasets[0].data = days.map((d: any) => netMarginPercent(d.revenue, d.netProfit));
+      }
+      config.options.scales.x = { ...config.options.scales.x, offset: true };
+      config.options.layout = { padding: 0, autoPadding: false };
+      const values = config.data.datasets[0].data.filter((v: unknown) => typeof v === 'number' && Number.isFinite(v));
+      config.options.scales.y = {display:false, min:Math.min(0,...values), max:Math.max(0,...values) || 1, grace:0};
+      config.options.elements = {point:{radius:0,hoverRadius:0}};
+      config.type = 'bar';
+      config.data.datasets[0] = { ...config.data.datasets[0], backgroundColor: key === 'eb' ? config.data.datasets[0].data.map((v: number | null) => v === null ? 'transparent' : v < 0 ? '#ff8290' : '#a0f644') : negative ? '#ff8290' : neutral ? '#c6c9d1' : '#a0f644', borderColor: 'transparent', borderWidth: 0, borderRadius: 1, barPercentage: .62, categoryPercentage: .85 };
+    }
+    if (item instanceof HTMLCanvasElement) styleAnalyticalChart(item.id, config);
+    if (!summary && view === 'overview' && ['profitChart', 'netProfitChart', 'revenueChart'].includes(item.id)) {
+      config.options.onClick = (_event: unknown, elements: { index: number }[]) => {
+        const index = elements[0]?.index;
+        if (index !== undefined) { const detail = api.readDay?.(index); if (detail) { owned.forEach(chart => selectOverviewChartDay(chart, index)); emit({ dayDetail: detail }); } }
+      };
+    }
+    if (item instanceof HTMLCanvasElement && api.readChartSnapshot && view === 'overview' && !summary) enhanceOverviewChart(item.id, config, { ...api.readChartSnapshot(), compare: comparePeriod, reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches });
+    if (item.id === 'revenueChart' && !showRevenue) config.data.datasets.forEach((s: any) => { if (s.label === 'Período anterior') s.hidden = true; });
     const chart = new Chart(item, config);
     const destroy = chart.destroy.bind(chart); chart.destroy = () => { owned.delete(chart); destroy(); };
     owned.add(chart); return chart;
@@ -88,7 +149,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   new Function('window', 'document', 'Chart', 'location', 'matchMedia', presentationScript)(scopedWindow, scopedDocument, ScopedChart, { search: summary ? '?mode=summary' : '' }, () => presentationMotion);
   const functions = [...model.calculationScript.matchAll(/^(?:async )?function (\w+)\(/gm)].map(match => match[1]);
   const quietConsole = Object.fromEntries(['log', 'warn', 'error', 'info'].map(level => [level, (...args: unknown[]) => { if (active) (console as any)[level](...args); }]));
-  api = new Function('window', 'document', 'fetch', 'Chart', 'ChartDataLabels', 'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'console', `${model.calculationScript}\nreturn {${functions.join(',')},charts,sparkRefs};`)(scopedWindow, scopedDocument, scopedFetch, ScopedChart, ChartDataLabels, scopedTimeout, clearTimeout, scopedFrame, cancelAnimationFrame, quietConsole);
+  api = new Function('window', 'document', 'fetch', 'Chart', 'ChartDataLabels', 'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'console', `${model.calculationScript}\nreturn {${functions.join(',')},charts,sparkRefs,readChartSnapshot:()=>({current:filtered,allDays:ALL_DAYS}),readDay:(i)=>{const d=filtered[i];if(!d)return null;return {date:d.dateStr,revenue:d.revenue,tax:d.revenue*(1-netFactor(d.dateStr)),ads:(d.costTotal||0)-(d.costBureau||0),bureau:d.costBureau||0,result:d.netProfit||0,example:!usingRealData}},readPresentation:()=>({funnel:[filtered.reduce((s,d)=>s+(d.checkouts||0),0),filtered.reduce((s,d)=>s+(d.conv||0),0),filtered.reduce((s,d)=>s+(d.pedidosUpsell!=null?d.pedidosUpsell:Math.round((d.conv||0)*((d.upsellRate||0)/100))),0)],totals:totals(),previous:prevTotals(),dayCount:filtered.length,upsellOrders:usingRealData?filtered.reduce((s,d)=>s+(d.pedidosUpsell||0),0):null,targets:activeTargets(),real:usingRealData,months:new Set(filtered.map(d=>d.dateStr.slice(0,7))).size,month:filtered.at(-1)?.dateStr.slice(0,7)})};`)(scopedWindow, scopedDocument, scopedFetch, ScopedChart, ChartDataLabels, scopedTimeout, clearTimeout, scopedFrame, cancelAnimationFrame, quietConsole);
   // Navigation lived in a separate upstream script; select the shell-owned view
   // directly without changing any calculation or loading function.
   root.querySelectorAll<HTMLElement>('.view').forEach(element => element.classList.toggle('is-hidden', element.id !== `view-${view}`));
@@ -120,9 +181,10 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   };
   bindControls();
   const chartTable = (chart: ChartInstance) => {
-    const title = chart.canvas.closest('.card')?.querySelector('.card-title')?.textContent?.trim() || 'Valores do gráfico';
-    const headers = ['Período', ...chart.data.datasets.map(series => series.label || 'Série')];
-    const rows = chart.data.labels!.map((label, index) => [String(label), ...chart.data.datasets.map((series, datasetIndex) => {
+    const title = chart.canvas.closest('.card,.produto-card')?.querySelector('.card-title')?.textContent?.trim() || 'Valores do gráfico';
+    const visible = chart.data.datasets.map((series, datasetIndex) => ({series, datasetIndex})).filter(({datasetIndex}) => chart.isDatasetVisible(datasetIndex));
+    const headers = ['Período', ...visible.map(({series}) => series.label || 'Série')];
+    const rows = chart.data.labels!.map((label, index) => [String(label), ...visible.map(({series, datasetIndex}) => {
       const value = series.data[index]; if (value == null) return '—';
       const formatter = (chart.config as any).options.plugins?.tooltip?.callbacks?.label;
       const text = formatter ? String(formatter({ raw: value, dataset: series, datasetIndex, dataIndex: index, label, formattedValue: String(value) })).trim() : Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
@@ -140,16 +202,51 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
       if (!motion.matches && !summary && (chart.config as any).options.animation !== false) { chart.reset(); chart.update(); }
     }
   }, { threshold: .15 });
+  const present = createOverviewPresentation(root, () => api.readPresentation(), summary, view, action => emit({ action }));
+  const presentSections = createOverviewSections(root, () => api.readPresentation(), summary, view);
+  const presentInsights = createOverviewInsights(root, () => api.readPresentation(), detail => emit({ metricDetail: detail }), summary || view !== 'overview');
   let previous = '';
   const sync = () => {
-    scheduled = false; if (!active) return; bindControls();
-    if (!summary) root.querySelectorAll<HTMLCanvasElement>('#view-overview .card canvas').forEach(canvas => {
+    scheduled = false; if (!active) return; bindControls(); present(); presentSections(); presentInsights();
+    if (!summary) root.querySelectorAll<HTMLCanvasElement>('#view-overview .card canvas,#view-overview .produto-card canvas').forEach(canvas => {
       canvas.setAttribute('role', 'img');
-      const header = canvas.closest('.card')?.querySelector('.card-header'); if (!header) return;
-      canvas.setAttribute('aria-label', header.querySelector('.card-title')?.textContent || 'Gráfico de performance');
+      const header = canvas.closest('.card,.produto-card')?.querySelector('.product-chart-header,.card-header'); if (!header) return;
+      canvas.setAttribute('aria-label', canvas.closest('.produto-card')?.querySelector('.produto-card-label')?.textContent || header.querySelector('.card-title')?.textContent || 'Gráfico de performance');
       let button = header.querySelector<HTMLButtonElement>('.chart-values-button');
       if (!button) { button = document.createElement('button'); button.className = 'chart-values-button'; button.textContent = 'Ver valores'; button.setAttribute('aria-label', `Ver valores de ${canvas.getAttribute('aria-label')}`); button.onclick = () => { const chart = Chart.getChart(canvas); if (chart) chartTable(chart); }; header.appendChild(button); }
       const chart = Chart.getChart(canvas); button.disabled = !chart;
+      if (chart && ['revenueChart', 'profitChart', 'netProfitChart'].includes(canvas.id) && !header.querySelector('.chart-comparison-control')) {
+        const label = document.createElement('label'); label.className = 'chart-comparison-control';
+        const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = comparePeriod;
+        label.append(checkbox, document.createTextNode('Comparar: mesma duração anterior'));
+        checkbox.onchange = () => { comparePeriod = checkbox.checked; root.querySelectorAll<HTMLInputElement>('.chart-comparison-control input').forEach(input => input.checked = comparePeriod); api.buildCharts(api.totals()); schedule(); };
+        header.append(label);
+        const key = document.createElement('p'); key.className = 'chart-reading-key'; key.textContent = 'Realizado: contínuo · Anterior: cinza tracejado · Projeções e metas: identificadas na legenda'; header.after(key);
+      }
+      if (chart && canvas.id === 'revenueChart' && !header.querySelector('.cost-switcher')) {
+        const group = document.createElement('div'); group.className = 'cost-switcher'; group.setAttribute('role', 'group'); group.setAttribute('aria-label', 'Custos comparados à receita');
+        for (const [mode, name] of [['total', 'Custos totais'], ['ads', 'Apenas Ads'], ['bureau', 'Apenas Bureau']]) {
+          const button = document.createElement('button'); button.textContent = name; button.setAttribute('aria-pressed', String(costMode === mode));
+          button.onclick = () => { costMode = mode; group.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === button))); api.buildCharts(api.totals()); schedule(); };
+          group.append(button);
+        }
+        header.append(group);
+        const revenueButton = document.createElement('button'); revenueButton.className = 'revenue-toggle'; revenueButton.textContent = 'Receita'; revenueButton.setAttribute('aria-pressed', String(showRevenue));
+        revenueButton.onclick = () => { showRevenue = !showRevenue; revenueButton.setAttribute('aria-pressed', String(showRevenue)); api.buildCharts(api.totals()); schedule(); };
+        header.querySelector('.revenue-legend')?.replaceWith(revenueButton);
+      }
+      if (chart && ['revenueChart', 'profitChart', 'netProfitChart'].includes(canvas.id)) {
+        const key = header.parentElement?.querySelector('.chart-reading-key');
+        const available = chart.data.datasets.some((d: any) => d.label === 'Período anterior');
+        const text = comparePeriod ? available ? 'Anterior: cinza tracejado · Datas equivalentes nos detalhes do gráfico.' : 'Sem dados equivalentes disponíveis no período anterior.' : 'Ative a comparação para consultar o período anterior de mesma duração.';
+        if (key && key.textContent !== text) key.textContent = text;
+      }
+      if (chart && ['netProfitChart', 'profitChart'].includes(canvas.id)) {
+        let select = header.querySelector<HTMLSelectElement>('.day-detail-select');
+        if (!select) { select = document.createElement('select'); select.className = 'day-detail-select'; select.setAttribute('aria-label', 'Investigar resultado de um dia'); header.appendChild(select); select.onchange = () => { if (select!.value !== '') { const detail = api.readDay(Number(select!.value)); if (detail) { owned.forEach(chart => selectOverviewChartDay(chart, Number(select!.value))); emit({ dayDetail: detail }); } select!.value = ''; } }; }
+        const labels = (chart.data.labels || []).map(String);
+        if (select.dataset.labels !== JSON.stringify(labels)) { select.replaceChildren(new Option('Investigar dia…', ''), ...labels.map((label, i) => new Option(label, String(i)))); select.dataset.labels = JSON.stringify(labels); }
+      }
       if (chart && !replayed.has(canvas)) chartObserver.observe(canvas);
     });
     const event = { ready: root.querySelectorAll('.kpi-row .kpi-value').length === 15, example: !!root.getElementById('demoDataBanner'), period: root.getElementById('dateRangeHint')!.textContent!.trim(), sections: Object.fromEntries([...root.querySelectorAll<HTMLElement>('[id^="section-"]')].filter(el => el.getBoundingClientRect().height).map(el => [el.id.replace('section-', ''), el.getBoundingClientRect().top + window.scrollY])) };
@@ -160,14 +257,16 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   const resize = new ResizeObserver(schedule); resize.observe(body);
   const noteParent = root.getElementById('chartSub')?.parentElement;
   if (noteParent) { const note = document.createElement('p'); note.className = 'chart-context-note'; note.textContent = 'Investimento = Google Ads + bureau. Linhas tracejadas indicam projeções e metas.'; noteParent.appendChild(note); }
-  const outside = (event: Event) => { if (!event.composedPath().includes(host)) { root.getElementById('dateDD')?.classList.remove('open'); root.querySelectorAll('.has-tip.tip-open').forEach(el => el.classList.remove('tip-open')); } };
+  const outside = (event: Event) => { const tools = root.querySelector<HTMLDetailsElement>('.overview-tools'); if (tools?.open && !event.composedPath().includes(tools)) tools.open = false; if (!event.composedPath().includes(host)) { root.getElementById('dateDD')?.classList.remove('open'); root.querySelectorAll('.has-tip.tip-open').forEach(el => el.classList.remove('tip-open')); } };
   listen(document, 'click', outside);
+  listen(document, 'keydown', event => { if ((event as KeyboardEvent).key === 'Escape') { const tools = root.querySelector<HTMLDetailsElement>('.overview-tools'); if (tools?.open) tools.open = false; } });
 
   const stopEntrances = observeEntrances(root); schedule();
   return {
     setTheme,
+    clearSelection: () => owned.forEach(chart => selectOverviewChartDay(chart, -1)),
     scrollToSection: (section: string) => { const element = root.getElementById(`section-${section}`); if (element) window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - (document.querySelector('.topbar')?.getBoundingClientRect().height || 72) - (document.querySelector('.overview-navigation')?.getBoundingClientRect().height || 0) - 14, behavior: motion.matches ? 'instant' : 'smooth' }); },
-    exportIndicators: () => { const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"'; const rows = [...root.querySelectorAll('.kpi-row .kpi-card')].map(card => ['.kpi-label', '.kpi-value', '.kpi-value-secondary', '.kpi-delta', '.kpi-sub'].map(selector => quote(card.querySelector(selector)?.textContent)).join(';')); emit({ csv: ['Período;' + quote(root.getElementById('dateRangeHint')?.textContent), 'Fonte;' + quote(root.getElementById('footerBar')?.textContent), 'Indicador;Valor;Complemento;Comparativo;Contexto', ...rows].join('\n') }); },
-    dispose: () => { active = false; abort.abort(); observer.disconnect(); resize.disconnect(); chartObserver.disconnect(); stopEntrances(); cleanups.forEach(cleanup => cleanup()); timeouts.forEach(clearTimeout); frames.forEach(cancelAnimationFrame); owned.forEach(chart => chart.destroy()); plugins.forEach(plugin => Chart.unregister(plugin)); root.replaceChildren(); },
+    exportIndicators: () => { const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"'; const rows = [...root.querySelectorAll('.kpi-row .kpi-card')].map(card => ['.kpi-label', '.kpi-value', '.kpi-value-secondary', '.kpi-delta', '.kpi-sub'].map(selector => quote(selector === '.kpi-delta' ? card.querySelector(selector)?.getAttribute('data-original-delta') ?? card.querySelector(selector)?.textContent : card.querySelector(selector)?.textContent)).join(';')); emit({ csv: ['Período;' + quote(root.getElementById('dateRangeHint')?.textContent), 'Fonte;' + quote(root.getElementById('footerBar')?.textContent), 'Indicador;Valor;Complemento;Comparativo;Contexto', ...rows].join('\n') }); },
+    dispose: () => { active = false; abort.abort(); observer.disconnect(); resize.disconnect(); chartObserver.disconnect(); stopEntrances(); presentSections.dispose?.(); cleanups.forEach(cleanup => cleanup()); timeouts.forEach(clearTimeout); frames.forEach(cancelAnimationFrame); owned.forEach(chart => chart.destroy()); plugins.forEach(plugin => Chart.unregister(plugin)); root.replaceChildren(); },
   };
 }

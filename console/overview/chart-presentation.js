@@ -10,6 +10,11 @@
     const muted = color('--text-secondary', '#6b7280');
     if (options.animation !== false) options.animation = motion.matches || summary ? false : { duration: 420, easing: 'easeOutQuart' };
     options.resizeDelay = 120;
+    if (chart.config.type === 'line') {
+      options.elements = { ...options.elements, line: { ...options.elements?.line, borderWidth: 1.6 }, point: { ...options.elements?.point, radius: 2, hoverRadius: 5 } };
+      // Values remain available through the original tooltips and accessible tables.
+      if (options.plugins?.datalabels && chart.canvas.id !== 'revenueChart') options.plugins.datalabels.display = false;
+    }
     if (options.plugins?.legend?.labels) {
       options.plugins.legend.labels.color = muted;
       options.plugins.legend.labels.font = { ...options.plugins.legend.labels.font, family: 'Inter, system-ui, sans-serif' };

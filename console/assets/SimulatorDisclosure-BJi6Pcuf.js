@@ -1,0 +1,1 @@
+import{r as a,j as s}from"./index---tUG7DL.js";function n({title:e,children:r}){const[t,i]=a.useState(!1);return s.jsxs("details",{className:"sim-ux-disclosure",onToggle:o=>{o.currentTarget.open&&i(!0)},children:[s.jsx("summary",{children:e}),t&&r]})}export{n as S};

@@ -1,0 +1,14 @@
+.period-reading { padding:20px 24px; margin:0 0 24px; border-radius:20px; border:1px solid var(--border); background:linear-gradient(110deg,#edf8f5,var(--surface) 65%); min-height:118px; box-sizing:border-box; }
+.reading-eyebrow { font-size:9px; letter-spacing:.14em; color:var(--text-secondary); }
+.period-reading p { font-size:15px; line-height:1.65; margin:8px 0 12px; max-width:1000px; color:var(--text-primary); }
+.reading-actions { display:flex; flex-wrap:wrap; gap:16px; }
+.reading-actions button,.metric-explain { border:0; padding:4px 0; background:none; color:var(--text-secondary); font:11px Inter,system-ui; cursor:pointer; }
+.reading-actions button:hover,.metric-explain:hover { color:var(--text-primary); text-decoration:underline; }
+.chart-comparison-control { display:inline-flex; gap:8px; align-items:center; font-size:11px; line-height:1.5; color:var(--text-secondary); cursor:pointer; }
+.chart-comparison-control input { accent-color:#17242a; }
+.chart-reading-key { display:flex; gap:16px; flex-wrap:wrap; font-size:10px; color:var(--text-secondary); margin:8px 0 16px; }
+[data-theme=dark] .period-reading { background:linear-gradient(110deg,#18302b,var(--surface) 65%); }
+
+.metric-target-distance{font-size:12px;line-height:1.6;margin:0 0 16px;color:var(--text2,#5e6774)}
+.metric-target-distance[data-tone="negative"]{color:#ae394a}
+.metric-target-distance[data-tone="positive"]{color:#356b28}

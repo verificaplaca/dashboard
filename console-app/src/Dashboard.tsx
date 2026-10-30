@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { CalendarDays, Download, ExternalLink, Info, ShieldCheck } from 'lucide-react';
-import { Dialog, Empty, PageHeading } from './components';
-import OriginalOverview, { type OverviewEvent, type OverviewHandle } from './OriginalOverview';
+import { useRef, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
+import { Dialog, Empty } from './components';
+import OriginalOverview, { type OverviewEvent, type OverviewHandle, type DayDetail } from './OriginalOverview';
+import type { MetricDetail } from './domain/overview-insights';
 import { money } from './format';
 import { useUI } from './ui';
 
@@ -18,40 +19,41 @@ export function TrendChart({ values, secondary, labels }: { values: number[]; se
 export default function Dashboard() {
   const { notify } = useUI();
   const overview = useRef<OverviewHandle>(null);
+  const [metric, setMetric] = useState<MetricDetail | null>(null);
+  const [day, setDay] = useState<DayDetail | null>(null);
   const [rules, setRules] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [period, setPeriod] = useState('Período');
-  const [sections, setSections] = useState<Record<string, number>>({});
-  const [activeSection, setActiveSection] = useState('financial');
   const [chartTable, setChartTable] = useState<{ title: string; headers: string[]; rows: string[][] } | null>(null);
   const handleOverview = (event: OverviewEvent) => {
-    if (typeof event.period === 'string') setPeriod(event.period || 'Período');
-    if (event.sections) setSections(event.sections);
+    if (event.ready) window.dispatchEvent(new CustomEvent('vp-overview-source', { detail: event.example ? 'EXEMPLO · FONTE INDISPONÍVEL' : 'DADOS REAIS' }));
+    if (event.action === 'rules') setRules(true);
+    if (event.action === 'export') overview.current?.exportIndicators();
+    if (event.metricDetail) setMetric(event.metricDetail);
+    if (event.dayDetail) setDay(event.dayDetail);
     if (event.chartTable) setChartTable(event.chartTable);
-    if (typeof event.ready === 'boolean') setReady(event.ready);
     if (event.csv) { exportFile('verifica-placa-visao-geral.csv', event.csv); notify('Os 15 indicadores e comparativos foram exportados.'); }
   };
-  useEffect(() => {
-    let pending = false;
-    const update = () => {
-      pending = false;
-      const offset = document.querySelector('.overview-navigation')?.getBoundingClientRect().bottom || 128;
-      const next = ['financial', 'products', 'operation', 'performance'].filter(id => Number.isFinite(sections[id]) && sections[id] - window.scrollY <= offset + 40).at(-1);
-      setActiveSection(next || 'financial');
-    };
-    const onScroll = () => { if (!pending) { pending = true; requestAnimationFrame(update); } };
-    window.addEventListener('scroll', onScroll, { passive: true }); update();
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [sections]);
   return <div className="original-overview">
-    <PageHeading eyebrow="INTELIGÊNCIA DA OPERAÇÃO" title="Visão Geral" description="Vendas, custos e performance. Todos os indicadores do dashboard atual, em uma leitura mais clara.">
-      <button className="button secondary" onClick={() => setRules(true)}><Info size={15} />Regras e comparativos</button>
-      <button className="button secondary" disabled={!ready} onClick={() => overview.current?.exportIndicators()}><Download size={15} />Exportar</button>
-    </PageHeading>
-    <div className="overview-navigation"><nav aria-label="Seções da visão geral">{[['financial', 'Financeiro'], ['products', 'Produtos'], ['operation', 'Operação'], ['performance', 'Performance']].map(([id, label]) => <button key={id} aria-current={activeSection === id ? 'location' : undefined} onClick={() => overview.current?.scrollToSection(id)}>{label}</button>)}</nav><button className="overview-period" onClick={() => overview.current?.scrollToSection('filters')}><CalendarDays size={14} />{period}</button><a href={import.meta.env.VITE_ORIGINAL_DASHBOARD_URL || "https://verificaplaca.github.io/dashboard/dashboard.html"} target="_blank" rel="noreferrer">Dashboard original<ExternalLink size={12} /></a></div>
     <OriginalOverview ref={overview} onEvent={handleOverview} />
     <p className="overview-source-note"><ShieldCheck size={14} />Leitura das fontes originais. As metas, impostos e comparativos seguem as regras do dashboard atual.</p>
     {chartTable && <Dialog title={chartTable.title} close={() => setChartTable(null)} wide><p className="dialog-description">As mesmas séries do gráfico em formato de tabela. “—” indica ausência de valor; projeções e metas mantêm suas próprias colunas.</p><div className="table-scroll chart-data-table"><table><caption className="sr-only">Valores de {chartTable.title}</caption><thead><tr>{chartTable.headers.map((header, index) => <th key={index}>{header}</th>)}</tr></thead><tbody>{chartTable.rows.map((row, index) => <tr key={index}>{row.map((cell, column) => <td key={column} className={column ? 'num' : ''}>{cell}</td>)}</tr>)}</tbody></table></div><div className="dialog-footer"><button className="button secondary" onClick={() => { const quote = (value: string) => '"' + String(value).replace(/"/g, '""') + '"'; exportFile('verifica-placa-grafico.csv', [chartTable.headers, ...chartTable.rows].map(row => row.map(quote).join(';')).join('\n')); }}>Exportar valores</button><button className="button primary" onClick={() => setChartTable(null)}>Fechar tabela</button></div></Dialog>}
+    {metric && <Dialog title={metric.title} close={() => setMetric(null)} side>
+      <p className="detail-eyebrow">ENTENDA O INDICADOR</p>
+      <div className={`detail-total ${metric.tone === 'negative' ? 'loss' : metric.tone === 'positive' ? 'gain' : ''}`}>{metric.value}</div>
+      <p className="detail-formula">{metric.formula}</p>
+      <dl className="detail-ledger">{metric.rows.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>
+      <div className="detail-comparison"><p><strong>Comparação</strong><br />{metric.comparison}</p><p><strong>Meta ou referência</strong><br />{metric.target}</p></div>
+      <p className="detail-explanation">{metric.context}</p>
+      <a href="#/metas" className="button primary detail-link" onClick={() => setMetric(null)}>Conferir metas ↗</a>
+    </Dialog>}
+    {day && <Dialog title="Detalhe do resultado" close={() => { setDay(null); overview.current?.clearSelection(); }} side>
+      <p className="detail-eyebrow">{day.example ? 'DADOS DE EXEMPLO' : 'DADOS REAIS'} · {day.date.split('-').reverse().join('/')}</p>
+      <h3>Lucro líquido do dia</h3><div className={`detail-total ${day.result < 0 ? 'loss' : 'gain'}`}>{money(Math.round(day.result * 100))}</div>
+      <span className={`detail-status ${day.result < 0 ? 'loss' : 'gain'}`}>{day.result < 0 ? 'Resultado negativo' : day.result > 0 ? 'Resultado positivo' : 'Resultado neutro'}</span>
+      <h3 className="detail-section-title">Como o resultado é formado</h3>
+      <dl className="detail-ledger">{[['Receita', day.revenue], ['Imposto', -day.tax], ['Google Ads', -day.ads], ['Bureau', -day.bureau], ['Resultado', day.result]].map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{money(Math.round(Number(value) * 100))}</dd></div>)}</dl>
+      <p className="detail-explanation">Resultado após imposto, Ads e bureau. Despesas complementares da DRE não incluídas. Os valores acima correspondem ao dia selecionado; metas mensais são avaliadas no resumo do período.</p>
+      <a className="button primary detail-link" href="#/financeiro" onClick={() => setDay(null)}>Abrir financeiro ↗</a>
+    </Dialog>}
     {rules && <Dialog title="Regras da visão geral" close={() => setRules(false)}><div className="overview-rules">
       <p>Esta visão utiliza as mesmas fontes, filtros e cálculos do dashboard original. O período anterior corresponde à janela de calendário imediatamente anterior, com a mesma duração.</p>
       <dl><dt>Custos e resultado</dt><dd>COGS = Google Ads + bureau. Lucro bruto = receita − COGS. Lucro líquido aplica o imposto vigente em cada mês. ROAS = receita ÷ COGS.</dd><dt>Aquisição e conversão</dt><dd>CAC = Google Ads ÷ pedidos pagos. CAC Google Ads usa as conversões reportadas pelo Google. CPV = COGS ÷ pedidos. Conversão = pedidos ÷ checkouts iniciados.</dd><dt>Metas e histórico</dt><dd>As metas e o imposto são carregados por mês, com a mesma herança do original. EBITDA usa todo o histórico disponível e não muda com o filtro de datas.</dd><dt>Escopo dos blocos</dt><dd>O resumo financeiro mantém o consolidado, inclusive ao selecionar uma campanha, como no original. O saldo usa a conta de mídia; bureau operacional usa o mês atual. Dias da semana exibem médias, de segunda a domingo.</dd><dt>Disponibilidade dos dados</dt><dd>O rodapé e as exportações identificam a fonte e a atualização dos dados, inclusive quando uma consulta fica indisponível e o dashboard utiliza dados de exemplo. Os módulos operacionais em integração estão disponíveis na demonstração.</dd></dl>

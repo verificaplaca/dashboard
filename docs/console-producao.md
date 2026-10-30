@@ -103,3 +103,7 @@ Novo módulo Financeiro na navegação principal e busca (`#/financeiro`), DRE m
 O simulador adota os mesmos 15 cards de Resultados Financeiros da Visão Geral, na mesma ordem, com lápis para premissas e cadeados explicativos para resultados. Receita permite escolher preço ou volume; CAC/transações/conversão usam um único driver para evitar circularidade; upsell exige receita e custo incrementais. Histórico calibra unidades e taxas, mas elasticidade não é tratada como medida causal. Controle, indicador real, DRE privada, fontes e snapshots avançados preservados.
 
 Leituras adicionais somente agregadas: upsell pago, checkouts do projeto original e acumulado de 2026. Fonte opcional desconhecida nunca vira zero. Sem alteração no banco/Ads. 140 testes (128 domínio/leitura, 12 paridade). Fórmulas, UX e limites: [simulador-cards.md](simulador-cards.md).
+
+## Redesign visual · 29/10/2026
+
+Novo shell claro com rail integrado, cabeçalho em cápsulas e logo oficial sem wordmark. Visão Geral mantém 15 indicadores em 5×3, fórmulas originais e demais painéis, com estados de resultado, comparação e meta separados. Progresso mensal explicita escopo e não mistura meses. Financeiro e Simulador recebem a mesma família visual, preservando permissões e cálculos. Build/release local e 144 testes aprovados; detalhes em [redesign-console-2026-10-29.md](./redesign-console-2026-10-29.md). Sem push/publicação nesta etapa.
