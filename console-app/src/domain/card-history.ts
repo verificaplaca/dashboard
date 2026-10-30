@@ -67,17 +67,17 @@ export function financialCardValues(p:Projection,rates:CardRates,edits:CardEdits
  const keepsConversion=edits.orderRate!==undefined&&edits.volumeSource!=='conversion';
  const checkouts=keepsConversion?(rates.conversionPct!==null&&rates.conversionPct>0?p.orders/(rates.conversionPct/100):null):rates.checkoutPerReal===null?null:p.ads*rates.checkoutPerReal;
  const conversion=checkouts!==null&&checkouts>0?p.orders/checkouts*100:null;
- return {r:p.revenue,ct:cogs,p:gross,npo:p.profit,eb:global?.value??null,ro:cogs>0?p.revenue/cogs:null,cpv:p.orders>0?cogs/p.orders:null,ca:p.orders>0?p.ads/p.orders:null,ga:p.ads,gb:p.bureau,m:p.revenue>0?gross/p.revenue*100:null,cv:conversion!==null&&conversion<=100.000001?Math.min(100,conversion):null,up:edits.upsell?.rate??rates.upsellPct,tr:p.orders,tk:p.orders>0?p.revenue/p.orders:null};
+ return {r:p.revenue,ct:cogs,p:gross,npo:p.profit,eb:global?.value??null,ro:cogs>0?p.revenue/cogs:null,cpv:p.orders>0?cogs/p.orders:null,ca:p.orders>0?p.ads/p.orders:null,ga:p.ads,gb:p.bureau,ml:p.revenue>0?p.profit/p.revenue*100:null,m:p.revenue>0?gross/p.revenue*100:null,cv:conversion!==null&&conversion<=100.000001?Math.min(100,conversion):null,up:edits.upsell?.rate??rates.upsellPct,tr:p.orders,tk:p.orders>0?p.revenue/p.orders:null};
 }
 export type CardId=keyof ReturnType<typeof financialCardValues>;
 export function cardSparks(s:Snapshot,h:CardHistory|null,start:string,end:string):Record<CardId,(number|null)[]>{
- const out=Object.fromEntries(['r','ct','p','npo','eb','ro','cpv','ca','ga','gb','m','cv','up','tr','tk'].map(id=>[id,[]])) as unknown as Record<CardId,(number|null)[]>;
+ const out=Object.fromEntries(['r','ct','p','npo','eb','ro','cpv','ca','ga','gb','m','ml','cv','up','tr','tk'].map(id=>[id,[]])) as unknown as Record<CardId,(number|null)[]>;
  for(const day of dates(start,end)){
   const revenue=s.revenue.find(r=>r.date===day),bureau=s.bureau.find(r=>r.date===day),ads=s.ads.filter(r=>r.date===day),checkout=h?.checkouts?.find(r=>r.date===day),upsell=h?.upsell?.find(r=>r.date===day);
   if(!revenue||!bureau||!ads.length){for(const id of Object.keys(out) as CardId[])out[id].push(null);continue;}
   const a=ads.reduce((n,r)=>n+r.cost_micros/1e6,0),gross=revenue.revenue-a-bureau.custo_bureau;
   const tax=taxAt(s.targets,day).value;
-  const values={r:revenue.revenue,ct:a+bureau.custo_bureau,p:gross,npo:gross-revenue.revenue*tax/100,eb:null,ro:a+bureau.custo_bureau>0?revenue.revenue/(a+bureau.custo_bureau):null,cpv:revenue.paid_orders>0?(a+bureau.custo_bureau)/revenue.paid_orders:null,ca:revenue.paid_orders>0?a/revenue.paid_orders:null,ga:a,gb:bureau.custo_bureau,m:revenue.revenue>0?gross/revenue.revenue*100:null,cv:checkout&&checkout.count>0?revenue.paid_orders/checkout.count*100:null,up:upsell&&revenue.paid_orders>0?upsell.orders/revenue.paid_orders*100:null,tr:revenue.paid_orders,tk:revenue.paid_orders>0?revenue.revenue/revenue.paid_orders:null};
+  const values={r:revenue.revenue,ct:a+bureau.custo_bureau,p:gross,npo:gross-revenue.revenue*tax/100,eb:null,ro:a+bureau.custo_bureau>0?revenue.revenue/(a+bureau.custo_bureau):null,cpv:revenue.paid_orders>0?(a+bureau.custo_bureau)/revenue.paid_orders:null,ca:revenue.paid_orders>0?a/revenue.paid_orders:null,ga:a,gb:bureau.custo_bureau,ml:revenue.revenue>0?(gross-revenue.revenue*tax/100)/revenue.revenue*100:null,m:revenue.revenue>0?gross/revenue.revenue*100:null,cv:checkout&&checkout.count>0?revenue.paid_orders/checkout.count*100:null,up:upsell&&revenue.paid_orders>0?upsell.orders/revenue.paid_orders*100:null,tr:revenue.paid_orders,tk:revenue.paid_orders>0?revenue.revenue/revenue.paid_orders:null};
   for(const id of Object.keys(out) as CardId[])out[id].push(values[id]);
  }
  out.eb=h?.global?.daily??[];return out;

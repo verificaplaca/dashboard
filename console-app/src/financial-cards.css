@@ -4,3 +4,20 @@
 @media(prefers-reduced-motion:no-preference){.sc-card{transition:border-color .15s}.sc-card:hover{border-color:var(--cyan)}}
 
 .sc-context-tag{font-size:10px;color:var(--muted);border:1px solid var(--border);padding:6px 10px;border-radius:20px;white-space:nowrap}
+/* Mirrors the approved overview financial-grid: five columns, three equal rows. */
+.simulation-financials{--sc-blue:#a9b8c8;--sc-green:#a8dc69;--sc-red:#fb8792;--sc-amber:#c4c8ce;--sc-purple:#b9b0cf;margin:28px 0}
+.sc-heading{margin-bottom:14px}.sc-heading h2{font-size:22px;font-weight:400;letter-spacing:-.4px;text-transform:none}
+.sc-scroll{max-width:100%;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain;padding:0 0 4px}
+.sc-grid{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:172px;gap:16px;min-width:1100px}
+.sc-grid .sc-card{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:18px 34px 21px 18px 17px 20px;gap:2px;height:172px;min-height:172px;max-height:172px;box-sizing:border-box;padding:17px 18px;border:0;border-radius:20px;background:var(--surface);box-shadow:none;overflow:hidden}
+.sc-grid .sc-card:last-child:nth-child(odd){grid-column:auto}
+.sc-top{grid-row:1;margin:0;min-height:0;line-height:18px;padding-right:16px}.sc-top h3{font-size:13px;font-weight:400;line-height:18px;color:var(--text)}
+.sc-icon{position:absolute;top:14px;right:12px;width:22px;height:22px;min-width:22px;border:0;border-radius:50%;color:var(--muted)}
+.sc-value{grid-row:2;font-size:clamp(23px,1.9vw,29px);font-weight:400;line-height:34px;letter-spacing:-.8px;margin:0;color:var(--text)}
+.sc-focus .sc-value{color:var(--green)}.sc-partial .sc-value{color:var(--text)}.sc-value.sc-negative{color:var(--red)}
+.sc-sub{grid-row:3;margin:0;min-height:0;line-height:20px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-delta{grid-row:4;justify-self:start;align-self:center;min-height:0;max-width:100%;font-size:8.5px;line-height:13px;height:16px;padding:1px 5px;box-sizing:border-box;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2);color:var(--muted)}
+.sc-delta.positive{color:var(--green);background:color-mix(in srgb,var(--green) 10%,var(--surface))}.sc-delta.negative{color:var(--red);background:color-mix(in srgb,var(--red) 10%,var(--surface))}
+.sc-state{grid-row:5;margin:0;font-size:10px;line-height:17px;color:var(--muted)}
+.sc-spark{grid-row:6;width:calc(100% + 18px);height:26px;margin:0;align-self:end}.sc-accent{display:none}
+.sc-card:hover{box-shadow:none}.sc-icon:focus-visible{outline:2px solid var(--green);outline-offset:2px}

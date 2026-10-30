@@ -1,5 +1,5 @@
 const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./auto-C1Qm3KRQ.js","./chart-DhlI85fk.js","./chartjs-plugin-datalabels.esm-COO4rXjM.js"])))=>i.map(i=>d[i]);
-import{r as ee,j as z,c as Xe,_ as He}from"./index-DLJ11y32.js";import{a as Qe,o as Ze}from"./modules-redesign-CpnTPY0S.js";import{a as Ue,g as Ke,t as et,r as tt}from"./overview-BpDm6eQa.js";function Ye(e,s){return Number.isFinite(e)&&Number.isFinite(s)&&e>0?s/e*100:null}function at(e,s){const c=s==="ads"?e.cost:s==="bureau"?e.costBureau:e.costTotal;return typeof c=="number"&&Number.isFinite(c)?c:null}const nt=`(() => {
+import{r as ee,j as z,c as Xe,_ as He}from"./index-CQU9t2qK.js";import{a as Qe,o as Ze}from"./modules-redesign-BKr3ix9I.js";import{a as Ue,g as Ke,t as et,r as tt}from"./overview-BpDm6eQa.js";function Ye(e,s){return Number.isFinite(e)&&Number.isFinite(s)&&e>0?s/e*100:null}function at(e,s){const c=s==="ads"?e.cost:s==="bureau"?e.costBureau:e.costTotal;return typeof c=="number"&&Number.isFinite(c)?c:null}const nt=`(() => {
   if (!window.Chart) return;
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const summary = new URLSearchParams(location.search).get('mode') === 'summary';

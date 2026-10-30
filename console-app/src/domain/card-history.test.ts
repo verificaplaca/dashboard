@@ -10,7 +10,7 @@ const project=(edits:CardEdits={},budget=1500)=>quickProjection(b,s.targets,{...
 const near=(a:number,b:number,tolerance=.31)=>assert.ok(Math.abs(a-b)<=tolerance,`${a} vs ${b}`);
 test('cloned financial definitions reconcile with the original panel while net includes known DRE expenses',()=>{
  const p=project().proposed,v=financialCardValues(p,rates,{},h.global);
- assert.equal(v.ct,p.ads+p.bureau);near(v.p,p.revenue-v.ct,.011);assert.equal(v.ro,p.revenue/v.ct);assert.equal(v.cpv,v.ct/p.orders);assert.equal(v.ca,p.ads/p.orders);assert.equal(v.m,v.p/p.revenue*100);assert.equal(v.up,20);assert.equal(v.eb,800);
+ assert.equal(v.ct,p.ads+p.bureau);near(v.p,p.revenue-v.ct,.011);assert.equal(v.ro,p.revenue/v.ct);assert.equal(v.cpv,v.ct/p.orders);assert.equal(v.ca,p.ads/p.orders);assert.equal(v.m,v.p/p.revenue*100);assert.equal(v.ml,p.profit/p.revenue*100);assert.equal(v.up,20);assert.equal(v.eb,800);
  assert.equal(v.npo,p.profit);near(v.npo,v.p-p.tax-p.fees-p.fixed,.011);
 });
 test('price edits keep volume, costs and the historical control, but flow through revenue, tax, fees and profit',()=>{
@@ -33,7 +33,7 @@ test('manual CAC defines one final efficiency without stacking elasticity or an 
 test('orders and checkout conversion edit the same acquisition driver, including an explicit zero-sales loss',()=>{
  const old=project(),e=applyCardEdit('tr',5000,'',b,rates,{},old.proposed,30).edits,p=project(e);near(p.proposed.orders,5000,.0001);
  const c=project(applyCardEdit('cv',20,'',b,rates,{},old.proposed,30).edits),v=financialCardValues(c.proposed,rates,{},null);near(v.cv!,20,.0001);
- const zero=project(applyCardEdit('tr',0,'',b,rates,{},old.proposed,30).edits);assert.equal(zero.proposed.orders,0);assert.equal(zero.proposed.revenue,0);assert.ok(zero.proposed.profit<0);assert.equal(financialCardValues(zero.proposed,rates,{},null).ca,null);
+ const zero=project(applyCardEdit('tr',0,'',b,rates,{},old.proposed,30).edits);assert.equal(zero.proposed.orders,0);assert.equal(zero.proposed.revenue,0);assert.equal(financialCardValues(zero.proposed,rates,{},null).ml,null);assert.ok(zero.proposed.profit<0);assert.equal(financialCardValues(zero.proposed,rates,{},null).ca,null);
 });
 test('cost edits retain Ads or sales as disclosed and preserve costs when changing upsell or price again',()=>{
  const old=project();assert.throws(()=>applyCardEdit('ct',old.proposed.ads-1,'',b,rates,{},old.proposed,30),/abaixo/);
