@@ -5,3 +5,6 @@ backfill/*.csv
 backfill/_*.json
 backfill/import_log.txt
 backfill/node_modules/
+
+# Local deployment credentials and project binding
+.vercel/

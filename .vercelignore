@@ -1,0 +1,15 @@
+.git
+.vercel
+node_modules
+**/node_modules
+backfill
+supabase
+console
+console-app/dist
+console-app/.sites-runtime
+console-app/src/production-config.json
+docs/evidencias
+*.zip
+*.tar.gz
+**/.env
+**/.env.*

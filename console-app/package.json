@@ -8,7 +8,8 @@
     "build": "node scripts/build-config.mjs && node scripts/build-overview.mjs && tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node scripts/build-config.mjs && tsx --test src/domain/*.test.ts && node --test scripts/overview-parity.test.mjs",
-    "release": "npm run build && node scripts/release.mjs"
+    "release": "npm run build && node scripts/release.mjs",
+    "build:vercel": "node scripts/build-vercel.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",
