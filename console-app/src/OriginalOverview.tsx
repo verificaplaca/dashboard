@@ -12,11 +12,12 @@ import { enhanceOverviewChart, selectOverviewChartDay } from './overview-chart-e
 import { styleAnalyticalChart } from './analytical-chart-theme';
 import { createOverviewPresentation } from './overview-presentation';
 import { readOnlyOverviewFetch } from './domain/overview';
+import { readOverviewPeriod, validateOverviewPeriod, overviewPresets, type OverviewPeriod } from './domain/overview-period';
 import type { OverviewHomeSnapshot } from './domain/overview-home-snapshot';
 
 export interface DayDetail { date: string; revenue: number; tax: number; ads: number; bureau: number; result: number; example: boolean; }
 export interface OverviewEvent { snapshot?: OverviewHomeSnapshot; loading?: boolean; error?: string; metricDetail?: MetricDetail; dayDetail?: DayDetail; action?: 'rules' | 'export'; ready?: boolean; example?: boolean; period?: string; sections?: Record<string, number>; csv?: string; chartTable?: { title: string; headers: string[]; rows: string[][] }; }
-export interface OverviewHandle { scrollToSection: (section: string) => void; exportIndicators: () => void; clearSelection: () => void; refresh: () => void; }
+export interface OverviewHandle { scrollToSection: (section: string) => void; exportIndicators: () => void; clearSelection: () => void; refresh: () => void; setPeriod: (period:OverviewPeriod) => void; }
 type Model = { body: string; styles: string; calculationScript: string };
 let modelPromise: Promise<Model> | undefined, instance = 0;
 const loadModel = () => modelPromise ||= fetch(`${import.meta.env.BASE_URL}overview/model.json`, {signal: AbortSignal.timeout(30_000)}).then(response => { if (!response.ok) throw new Error('Não foi possível carregar a Visão Geral.'); return response.json(); }).catch(error => { modelPromise = undefined; throw error; });
@@ -29,7 +30,7 @@ export default forwardRef<OverviewHandle, { dataOnly?: boolean; summary?: boolea
   callback.current = onEvent; currentTheme.current = theme;
   const [error, setError] = useState(''), [loading, setLoading] = useState(true), [attempt,setAttempt] = useState(0);
   useGlobalLoading(loading);
-  useImperativeHandle(ref, () => ({ scrollToSection: section => controller.current?.scrollToSection(section), exportIndicators: () => controller.current?.exportIndicators(), clearSelection: () => controller.current?.clearSelection(), refresh: () => { if(controller.current)controller.current.refresh();else setAttempt(n=>n+1); } }), []);
+  useImperativeHandle(ref, () => ({ scrollToSection: section => controller.current?.scrollToSection(section), exportIndicators: () => controller.current?.exportIndicators(), clearSelection: () => controller.current?.clearSelection(), setPeriod: period => controller.current?.setPeriod(period), refresh: () => { if(controller.current)controller.current.refresh();else setAttempt(n=>n+1); } }), []);
   useEffect(() => {
     let active = true; setLoading(true); setError(''); callback.current?.({loading:true});
     Promise.all([loadModel(), import('chart.js/auto'), import('chartjs-plugin-datalabels')]).then(([model, charts, labels]) => {
@@ -164,6 +165,18 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   const functions = [...model.calculationScript.matchAll(/^(?:async )?function (\w+)\(/gm)].map(match => match[1]);
   const quietConsole = Object.fromEntries(['log', 'warn', 'error', 'info'].map(level => [level, (...args: unknown[]) => { if (active) (console as any)[level](...args); }]));
   api = new Function('window', 'document', 'fetch', 'Chart', 'ChartDataLabels', 'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'console', `${model.calculationScript}\nreturn {${functions.join(',')},charts,sparkRefs,readChartSnapshot:()=>({current:filtered,allDays:ALL_DAYS}),readDay:(i)=>{const d=filtered[i];if(!d)return null;return {date:d.dateStr,revenue:d.revenue,tax:d.revenue*(1-netFactor(d.dateStr)),ads:(d.costTotal||0)-(d.costBureau||0),bureau:d.costBureau||0,result:d.netProfit||0,example:!usingRealData}},readHomeSnapshot:()=>({real:usingRealData,totals:totals(),targets:activeTargets(),days:filtered.map(d=>({date:d.dateStr,revenue:d.revenue}))}),readPresentation:()=>({funnel:[filtered.reduce((s,d)=>s+(d.checkouts||0),0),filtered.reduce((s,d)=>s+(d.conv||0),0),filtered.reduce((s,d)=>s+(d.pedidosUpsell!=null?d.pedidosUpsell:Math.round((d.conv||0)*((d.upsellRate||0)/100))),0)],totals:totals(),previous:prevTotals(),dayCount:filtered.length,upsellOrders:usingRealData?filtered.reduce((s,d)=>s+(d.pedidosUpsell||0),0):null,targets:activeTargets(),real:usingRealData,months:new Set(filtered.map(d=>d.dateStr.slice(0,7))).size,month:filtered.at(-1)?.dateStr.slice(0,7)})};`)(scopedWindow, scopedDocument, scopedFetch, ScopedChart, ChartDataLabels, scopedTimeout, clearTimeout, scopedFrame, cancelAnimationFrame, quietConsole);
+  // The frozen renderer assumes a nonempty date range. Keep exact custom
+  // selections (including empty ones) without changing its financial formulas.
+  const applyCustomDate = api.applyCustomDate;
+  api.applyCustomDate = () => {
+    try { applyCustomDate(); } catch(error) { if(api.readChartSnapshot().current.length)throw error; }
+    if(!api.readChartSnapshot().current.length){
+      const from=(root.getElementById('dateFrom') as HTMLInputElement).value,to=(root.getElementById('dateTo') as HTMLInputElement).value;
+      const label=`${from.slice(8,10)}/${from.slice(5,7)} – ${to.slice(8,10)}/${to.slice(5,7)}`;
+      root.getElementById('dateRangeHint')!.textContent=`(${label})`;
+      root.getElementById('chartSub')!.textContent='Sem dados no período';
+    }
+  };
   // Navigation lived in a separate upstream script; select the shell-owned view
   // directly without changing any calculation or loading function.
   root.querySelectorAll<HTMLElement>('.view').forEach(element => element.classList.toggle('is-hidden', element.id !== `view-${view}`));
@@ -267,9 +280,17 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
     const nativeOverlay = root.getElementById('loadingOverlay');
     const finished = event.ready || !nativeOverlay || nativeOverlay.style.opacity === '0';
     const busy = pendingReads > 0 || !finished;
+    if(!busy&&event.ready){
+      const selection=readOverviewPeriod(sessionStorage),days=api.readChartSnapshot().current as {dateStr:string}[];
+      if(selection.preset==='custom'&&days.some(day=>day.dateStr<selection.from!||day.dateStr>selection.to!)){
+        (root.getElementById('dateFrom') as HTMLInputElement).value=selection.from!;
+        (root.getElementById('dateTo') as HTMLInputElement).value=selection.to!;
+        api.applyCustomDate();schedule();return;
+      }
+    }
     host.setAttribute('aria-busy', String(busy));
     reportLoading(busy);
-    const output: OverviewEvent = {...event,...(!busy && event.ready ? {snapshot:api.readHomeSnapshot()} : {})};
+    const output: OverviewEvent = {...event,...(!busy && event.ready ? {snapshot:{...api.readHomeSnapshot(),filter:readOverviewPeriod(sessionStorage)}} : {})};
     const key = JSON.stringify(output); if (key !== previous) { previous = key; emit(output); }
   };
   const schedule = () => { if (!scheduled && active) { scheduled = true; scopedFrame(sync); } };
@@ -285,6 +306,19 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   return {
     setTheme,
     refresh: () => { void api.initDashboard(); },
+    setPeriod: (selection:OverviewPeriod) => {
+      validateOverviewPeriod(selection);
+      if(selection.preset==='custom'){
+        (root.getElementById('dateFrom') as HTMLInputElement).value=selection.from!;
+        (root.getElementById('dateTo') as HTMLInputElement).value=selection.to!;
+        api.applyCustomDate();
+      }else{
+        const currentTarget=[...root.querySelectorAll<HTMLElement>('.date-preset')].find(element=>element.getAttribute('onclick')?.includes("'"+selection.preset+"'"));
+        if(!currentTarget)throw new Error('Filtro indisponível. Atualize o resumo.');
+        api.setPreset(selection.preset,overviewPresets.find(([key])=>key===selection.preset)![1],{currentTarget});
+      }
+      schedule();
+    },
     clearSelection: () => owned.forEach(chart => selectOverviewChartDay(chart, -1)),
     scrollToSection: (section: string) => { const element = root.getElementById(`section-${section}`); if (element) window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - (document.querySelector('.topbar')?.getBoundingClientRect().height || 72) - (document.querySelector('.overview-navigation')?.getBoundingClientRect().height || 0) - 14, behavior: motion.matches ? 'instant' : 'smooth' }); },
     exportIndicators: () => { const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"'; const rows = [...root.querySelectorAll('.kpi-row .kpi-card')].map(card => ['.kpi-label', '.kpi-value', '.kpi-value-secondary', '.kpi-delta', '.kpi-sub'].map(selector => quote(selector === '.kpi-delta' ? card.querySelector(selector)?.getAttribute('data-original-delta') ?? card.querySelector(selector)?.textContent : card.querySelector(selector)?.textContent)).join(';')); emit({ csv: ['Período;' + quote(root.getElementById('dateRangeHint')?.textContent), 'Fonte;' + quote(root.getElementById('footerBar')?.textContent), 'Indicador;Valor;Complemento;Comparativo;Contexto', ...rows].join('\n') }); },

@@ -223,3 +223,7 @@ Loader gooey compartilhado cobre a tela durante leituras e entrada de módulos, 
 ## Indicadores e autorização de metas · 30/10/2026
 
 `overview-home-snapshot` lê diretamente `totals()` e `activeTargets()` do motor preservado. Inicial e Visão Geral compartilham `vp_filter` e incluem hoje no mês atual. Migração 023 aplicada isoladamente: metas/imposto somente por administrador ativo; gerente apenas consulta. Testes SQL remotos passaram com rollback (zero fixtures persistidas, duas memberships reais preservadas). 180 testes frontend/paridade e build aprovados.
+
+## Filtro na inicial e dados de usuários · 30/10/2026
+
+OperationsHome oferece período (presets + custom) via OverviewHandle.setPeriod; ambos os módulos usam vp_filter e o motor original. Ponte protege custom vazio ao aplicar/restaurar. UserManagement permite nome/email/perfil/situação com revisão e senha via diálogo próprio, somente admin. Migração 024: intenção service-only de 2min + trigger no Auth finalizam identidade, console e auditoria na mesma transação, com versão/autoridade rechecadas. Função console-users versão 2 publicada. 184 testes aplicação +11 Edge aprovados, SQL remoto com rollback e E2E de login/email/senha aprovado com contas descartáveis removidas. Nenhuma credencial real foi alterada.

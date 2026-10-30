@@ -9,7 +9,7 @@ Backend ativado no projeto analytics `ftmgmfdqdqxboiktxcoj` em 30/10/2026: migra
 | Gerente | Sim | Não | Não | Não |
 | Administrador ativo | Sim | Sim | Sim | Sim |
 
-Rota real `#/usuarios`, exibida apenas para administradores. Busca por nome, paginação de 50 registros e formulário com nome, email, senha inicial (12–128 caracteres) e perfil. A senha é enviada por HTTPS ao servidor, sem persistência pela aplicação, logs ou auditoria. A criação não envia emails. O administrador deve entregar as credenciais por canal privado. Redefinição de senha por email e convite com aceite não fazem parte desta entrega.
+Rota real `#/usuarios`, exibida apenas para administradores. Busca por nome, paginação de 50 registros e formulário com nome, email, senha inicial (12–128 caracteres) e perfil. A senha é enviada por HTTPS ao servidor, sem persistência pela aplicação, logs ou auditoria. A criação não envia emails. O administrador deve entregar as credenciais por canal privado. O botão Redefinir senha permite ao administrador definir e confirmar uma nova senha de 12–128 caracteres, que substitui a atual imediatamente. A senha deve ser entregue ao usuário por canal privado; o painel não envia email de recuperação. Gerenciar permite editar nome, email de acesso, perfil e situação, com uma etapa de revisão. O novo email passa a valer imediatamente para login. Convites com aceite não fazem parte desta entrega.
 
 ## Autorização
 
@@ -52,3 +52,13 @@ Reverter fonte/release do frontend não deve apagar contas, memberships, tarefas
 ## Metas exclusivas de administradores · 30/10/2026
 
 Migração 023 aplicada isoladamente no servidor. `supabase/tests/targets_administrator_only.sql` validado localmente e no projeto remoto, com rollback de todas as fixtures. Metas e contas reais preservadas. Gerentes consultam mês e histórico sem edição. Metadata de Auth não concede escrita.
+
+## Edição de dados e redefinição de senha · 30/10/2026
+
+Migração 024 e Edge Function `console-users` versão 2 publicadas. A função verifica a identidade do chamador e permite as ações `update` e `reset_password` somente para administradores ativos. O alvo e a versão observada são validados; nome/email são normalizados e campos de autoridade forjados são rejeitados.
+
+A RPC exclusiva do servidor `console_prepare_user_change` cria uma intenção de dois minutos em `console_private.user_changes`, sem senha ou hash. O Admin API oficial altera Auth usando um marcador em app metadata. O trigger `console_finish_user_change` revalida o administrador e a versão sob o mesmo lock das alterações de perfis, sincroniza console/tarefas, audita a ação, consome a intenção e remove o marcador. Tudo ocorre na transação do Auth: falha ou revogação reverte também email/senha, evitando cadastros divergentes. A proteção do último administrador permanece. Falhas retornadas pelo Auth cancelam a intenção; intenções expiradas são eliminadas na próxima preparação.
+
+Auditoria não guarda senha, hash ou marcador. O novo email é confirmado administrativamente; a revisão informa que ele substitui o login atual. A redefinição não tem duração temporária nem força troca no próximo acesso. Sessões seguem o comportamento do Supabase Auth ao alterar a senha.
+
+Validação: 11 testes da Edge Function, testes de validação/cliente na aplicação e `supabase/tests/console_user_details.sql` local/remoto com rollback. Teste completo da função publicada com contas descartáveis confirmou login pelo novo email, rejeição do antigo, troca de senha, rejeição da senha anterior e bloqueio do gerente. Todas as contas descartáveis e suas memberships/auditorias foram removidas; contas reais preservadas.

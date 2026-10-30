@@ -120,3 +120,7 @@ A inicial passa a usar composição React própria, com panorama financeiro, rec
 ## Alinhamento de indicadores e metas · 30/10/2026
 
 A inicial lê o snapshot do motor original da Visão Geral, com os mesmos quatro valores e período salvo, incluindo o dia atual. Migração 023 aplicada no servidor: apenas administrador ativo altera metas/imposto. Gerente consulta em modo de leitura. Validação: 180 testes e build aprovados, autorização também testada no banco remoto com rollback. Detalhes em [Inicial](inicio-resumo.md) e [Usuários](usuarios-painel.md).
+
+## Filtro na inicial e edição de usuários · 30/10/2026
+
+A inicial permite aplicar presets e datas personalizadas compartilhadas com a Visão Geral, sem navegação adicional. Administração de usuários inclui nome/email com revisão e redefinição direta de senha com confirmação. Migração 024 e função console-users versão 2 ativas: mudanças de Auth e cadastro são atômicas, com autorização e versão rechecadas no banco e auditoria sem credenciais. Validação: 184 testes da aplicação, 11 da função, SQL local/remoto e login real usando contas descartáveis removidas ao final.

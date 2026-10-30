@@ -9,6 +9,8 @@ import OriginalOverview, {type OverviewEvent, type OverviewHandle} from './Origi
 import {homeOverviewValues, type OverviewHomeSnapshot} from './domain/overview-home-snapshot';
 import { useGlobalLoading } from './Loading';
 import { readPublic } from './api';
+import { Dialog } from './components';
+import {overviewPresets,validateOverviewPeriod,type OverviewPeriod} from './domain/overview-period';
 import TaskHomeSummary from './TaskHomeSummary';
 import './operations-home.css';
 const money=(value:number|null|undefined)=>value==null?'—':value.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:2});
@@ -33,8 +35,8 @@ export default function OperationsHome(){
  const [source,setSource]=useState<{snapshot:OverviewHomeSnapshot|null;period:string;loading:boolean;error:string}>({snapshot:null,period:'',loading:true,error:''});
  const signals=useHomeSignals(addDays(clock.day,-6),revision);
  const summary=homeOverviewValues(source.snapshot),valid=!!summary;
- const end=source.snapshot?.days.at(-1)?.date||clock.day,month=end.slice(0,7),monthCount=new Set(source.snapshot?.days.map(day=>day.date.slice(0,7))).size,singleMonth=monthCount===1;
- const targets=source.snapshot?.real?source.snapshot.targets:null,revenueGoal=targets?.revenue??null,cacGoal=targets?.cpa??null,budget=targets?.budget??null;
+ const end=source.snapshot?.days.at(-1)?.date||source.snapshot?.filter?.to||clock.day,month=end.slice(0,7),monthCount=new Set(source.snapshot?.days.map(day=>day.date.slice(0,7))).size,singleMonth=monthCount===1;
+ const targets=source.snapshot?.real&&monthCount>0?source.snapshot.targets:null,revenueGoal=targets?.revenue??null,cacGoal=targets?.cpa??null,budget=targets?.budget??null;
  const cac=summary?.cac??null,progress=summary&&singleMonth&&revenueGoal&&revenueGoal>0?summary.sales/revenueGoal*100:null;
  const dispatches=signals.dispatches?dispatchSummary(signals.dispatches):null;
  const days=valid?source.snapshot!.days.filter(row=>row.date>=addDays(end,-6)&&row.date<=end):[],max=Math.max(1,...days.map(row=>row.revenue));
@@ -47,11 +49,12 @@ export default function OperationsHome(){
   if(typeof event.loading==='boolean'&&event.loading!==previous.loading)return {...previous,loading:event.loading};
   return previous;
  });
+ const [periodEditor,setPeriodEditor]=useState(false);
  const refresh=()=>{engine.current?.refresh();setRevision(n=>n+1);};
  const modules=[{path:'/dashboard',title:'Visão Geral',copy:'Indicadores e análises',icon:LayoutDashboard},{path:'/financeiro',title:'Financeiro',copy:'Resultado e despesas',icon:Wallet},{path:'/simulador',title:'Simulador',copy:'Cenários de investimento',icon:Gauge},{path:'/marketing',title:'Campanhas',copy:'Aquisição e mídia',icon:Megaphone},{path:'/metas',title:'Metas',copy:'Objetivos do negócio',icon:Target},{path:'/tracking',title:'Tracking',copy:'Qualidade dos envios',icon:Activity},{path:'/tarefas',title:'Tarefas',copy:'Execução da equipe',icon:CheckCircle2},...(role==='administrator'?[{path:'/usuarios',title:'Usuários',copy:'Perfis e acessos',icon:Users}]:[])];
  return <div className="overview-home">
   <OriginalOverview ref={engine} summary dataOnly onEvent={receiveOverview}/>
-  <header className="oh-heading"><div><span className="oh-eyebrow">CENTRAL DA OPERAÇÃO</span><h1>{greeting(clock.hour)}{name?`, ${name}`:''}.</h1><p>O essencial para acompanhar o negócio e decidir o próximo passo.</p></div><div className="oh-heading-actions"><span className="oh-date"><CalendarDays size={15}/>{now.toLocaleDateString('pt-BR',{day:'numeric',month:'long',timeZone:'America/Sao_Paulo'})}</span><button className="button secondary" disabled={busy} onClick={refresh}><RefreshCw size={15}/>Atualizar resumo</button></div></header>
+  <header className="oh-heading"><div><span className="oh-eyebrow">CENTRAL DA OPERAÇÃO</span><h1>{greeting(clock.hour)}{name?`, ${name}`:''}.</h1><p>O essencial para acompanhar o negócio e decidir o próximo passo.</p></div><div className="oh-heading-actions"><span className="oh-date"><CalendarDays size={15}/>{now.toLocaleDateString('pt-BR',{day:'numeric',month:'long',timeZone:'America/Sao_Paulo'})}</span><button className="button secondary" disabled={busy||!source.snapshot} onClick={()=>setPeriodEditor(true)}><CalendarDays size={15}/>{overviewPresets.find(([key])=>key===source.snapshot?.filter?.preset)?.[1]||'Este mês'}</button><button className="button secondary" disabled={busy} onClick={refresh}><RefreshCw size={15}/>Atualizar resumo</button></div></header>
   <div className="oh-section-line"><h2>Seu negócio, em um olhar</h2><span>Visão Geral · {source.period||'Período atual'}{includesToday?' · inclui hoje':''}</span></div>
   {source.error?<div className="oh-notice" role="alert">{source.error} <button onClick={refresh}>Tentar novamente</button></div>:null}
   <section className="oh-kpis" aria-label="Indicadores essenciais do período">
@@ -63,8 +66,8 @@ export default function OperationsHome(){
    ].map(item=><button className={`oh-kpi ${item.kind}`} key={item.label} onClick={()=>go(item.path)}><span className="oh-kpi-label">{item.label}<item.icon size={18}/></span><strong>{item.value}</strong><span className="oh-kpi-detail">{item.detail}<ArrowUpRight size={14}/></span></button>)}
   </section>
   <div className="oh-financial-grid">
-   <section className="oh-panel oh-revenue"><div className="oh-panel-heading"><div><span className="oh-eyebrow">RITMO DAS VENDAS</span><h2>Como a receita evoluiu</h2></div><button className="oh-link" onClick={()=>go('/dashboard')}>Ver análise<ArrowUpRight size={15}/></button></div><div className="oh-chart-caption"><span><i/>Receita diária</span><small>{days.length||7} {days.length===1?'dia recente':'dias recentes'} do período</small></div>
-    {days.length?<div className="oh-bars" style={{gridTemplateColumns:`repeat(${days.length},minmax(0,1fr))`}} role="img" aria-label={days.map(day=>`${shortDate(day.date)}: ${money(day.revenue)}`).join('; ')}>{days.map(day=><div className="oh-bar-column" key={day.date} title={`${shortDate(day.date)}: ${money(day.revenue)}`}><span className="oh-bar-value">{day.revenue.toLocaleString('pt-BR',{notation:'compact',maximumFractionDigits:1})}</span><div className="oh-bar-track"><div style={{height:`${Math.max(day.revenue>0?3:0,day.revenue/max*100)}%`}}/></div><span className="oh-bar-date">{shortDate(day.date)}</span></div>)}</div>:<div className="oh-unavailable">A evolução aparece após uma leitura válida das fontes.</div>}
+   <section className="oh-panel oh-revenue"><div className="oh-panel-heading"><div><span className="oh-eyebrow">RITMO DAS VENDAS</span><h2>Como a receita evoluiu</h2></div><button className="oh-link" onClick={()=>go('/dashboard')}>Ver análise<ArrowUpRight size={15}/></button></div><div className="oh-chart-caption"><span><i/>Receita diária</span><small>{days.length?`${days.length} ${days.length===1?'dia recente':'dias recentes'} do período`:'Sem dias no período'}</small></div>
+    {days.length?<div className="oh-bars" style={{gridTemplateColumns:`repeat(${days.length},minmax(0,1fr))`}} role="img" aria-label={days.map(day=>`${shortDate(day.date)}: ${money(day.revenue)}`).join('; ')}>{days.map(day=><div className="oh-bar-column" key={day.date} title={`${shortDate(day.date)}: ${money(day.revenue)}`}><span className="oh-bar-value">{day.revenue.toLocaleString('pt-BR',{notation:'compact',maximumFractionDigits:1})}</span><div className="oh-bar-track"><div style={{height:`${Math.max(day.revenue>0?3:0,day.revenue/max*100)}%`}}/></div><span className="oh-bar-date">{shortDate(day.date)}</span></div>)}</div>:<div className="oh-unavailable">{valid?'Sem dados no período selecionado.':'A evolução aparece após uma leitura válida das fontes.'}</div>}
     <div className="oh-chart-footer"><ChartNoAxesCombined size={16}/><span>{includesToday?'Inclui hoje: os valores do dia ainda estão em atualização.':'Mesmo recorte de datas da Visão Geral.'}</span></div>
    </section>
    <section className="oh-panel oh-goal"><div className="oh-panel-heading"><div><span className="oh-eyebrow">OBJETIVO DO MÊS</span><h2>Meta de receita</h2></div><Target size={20}/></div>
@@ -83,6 +86,11 @@ export default function OperationsHome(){
    </section>
   </div>
   <section className="oh-modules"><div className="oh-section-line"><h2>Explore a operação</h2><span>Um caminho direto para cada área</span></div><nav className="oh-module-grid" aria-label="Acessos rápidos da operação">{modules.map(module=><button key={module.path} onClick={()=>go(module.path)}><module.icon size={20}/><span><strong>{module.title}</strong><small>{module.copy}</small></span><ArrowUpRight size={15}/></button>)}</nav></section>
-  <p className="oh-footnote">Indicadores, metas e período vêm do mesmo motor da Visão Geral. Para mudar o recorte, selecione o período naquele módulo e volte à inicial. Tarefas e envios têm os escopos indicados em cada bloco.</p>
+  <p className="oh-footnote">Indicadores, metas e período vêm do mesmo motor da Visão Geral. O filtro de período é compartilhado com a Visão Geral. Tarefas e envios têm os escopos indicados em cada bloco.</p>
+ {periodEditor&&<HomePeriodDialog initial={source.snapshot?.filter??{preset:'month'}} today={clock.day} close={()=>setPeriodEditor(false)} apply={period=>{engine.current?.setPeriod(period);setPeriodEditor(false);}}/>}
  </div>;
+}
+function HomePeriodDialog({initial,today,close,apply}:{initial:OverviewPeriod;today:string;close:()=>void;apply:(period:OverviewPeriod)=>void}){
+ const [preset,setPreset]=useState(initial.preset),[error,setError]=useState('');
+ return <Dialog title="Período do resumo" close={close}><form className="live-form" onSubmit={event=>{event.preventDefault();const values=new FormData(event.currentTarget);try{apply(validateOverviewPeriod({preset,from:String(values.get('from')||''),to:String(values.get('to')||'')}));}catch(reason){setError((reason as Error).message);}}}><div className="form-fields"><p>As datas escolhidas também serão usadas na Visão Geral.</p><label>Período<select value={preset} onChange={event=>setPreset(event.target.value as OverviewPeriod['preset'])}>{overviewPresets.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>{preset==='custom'&&<><label>Data inicial<input name="from" type="date" required defaultValue={initial.from||today.slice(0,7)+'-01'}/></label><label>Data final<input name="to" type="date" required defaultValue={initial.to||today}/></label></>}{error&&<p role="alert">{error}</p>}</div><div className="dialog-footer"><button type="button" className="button secondary" onClick={close}>Cancelar</button><button className="button primary">Aplicar período</button></div></form></Dialog>;
 }

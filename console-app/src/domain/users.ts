@@ -29,3 +29,14 @@ export async function updateConsoleUser(client: SupabaseClient, user: ConsoleUse
  const {error}=await client.rpc('console_update_user',{p_id:user.user_id,p_role:role,p_active:active,p_version:user.version});
  if(error) throw new Error(error.code==='40001'?'O usuário mudou. Atualize a lista antes de salvar.':error.code==='22023'?error.message:'Sem permissão para alterar este usuário. Atualize sua sessão.');
 }
+export type ConsoleUserChange={action:'update';name:string;email:string;role:ConsoleRole;active:boolean}|{action:'reset_password';password:string};
+export async function changeConsoleUser(client:SupabaseClient,user:ConsoleUser,change:ConsoleUserChange){
+ const {data,error}=await client.functions.invoke('console-users',{body:{...change,id:user.user_id,version:user.version}});
+ if(error){
+  let message='Não foi possível confirmar a alteração. Atualize a lista antes de tentar novamente.';
+  if(error.context instanceof Response){try{const body=await error.context.json();if(typeof body.error==='string')message=body.error;}catch{}}
+  throw new Error(message);
+ }
+ if(!data?.user)throw new Error('Resposta inválida. Atualize a lista antes de tentar novamente.');
+ return data.user as ConsoleUser;
+}

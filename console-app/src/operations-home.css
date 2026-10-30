@@ -92,3 +92,5 @@
 
 .overview-home .oh-kpi.partial{background:color-mix(in srgb,var(--surface) 93%,#f3cd76);border-color:color-mix(in srgb,var(--border) 75%,#d3ad58)}
 @media(max-width:380px){.overview-home .oh-kpis,.overview-home .oh-module-grid{grid-template-columns:1fr}}
+
+.overview-home .oh-heading-actions{flex-wrap:wrap;justify-content:flex-end}

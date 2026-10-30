@@ -1,6 +1,8 @@
+import type { OverviewPeriod } from './overview-period';
 /** Values produced by the frozen Overview engine, without a second calculation. */
 export interface OverviewHomeSnapshot {
  real:boolean;
+ filter?:OverviewPeriod;
  totals:{rev:number;netPftOpt:number;conv:number;cac:number;cost:number};
  targets:{revenue:number;cpa:number;budget:number};
  days:{date:string;revenue:number}[];

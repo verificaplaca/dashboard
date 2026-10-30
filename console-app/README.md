@@ -75,3 +75,5 @@ A rota real `#/inicio` usa `OperationsHome.tsx` e `operations-home.css`: quatro 
 ### Inicial e metas
 
 A inicial usa snapshot do motor preservado da Visão Geral: mesmos totais e filtro salvo, incluindo hoje. A apresentação continua própria e o DOM do motor fica inerte/fora da tela. Metas e imposto são editáveis apenas por administradores ativos, com nova checagem no salvamento e RLS da migração 023. Gerentes consultam mês e histórico. Validação SQL: `supabase/tests/targets_administrator_only.sql` (transação revertida).
+
+Filtro da inicial: presets e datas personalizadas usam o mesmo motor e `vp_filter` da Visão Geral. Administração de usuários: edição de nome/email e redefinição de senha (admin-only); requer migração 024 e atualização da função console-users. A integração com Auth é transacional, com auditoria sem credenciais. Testes adicionais: Deno em `supabase/functions/console-users/index.test.ts` e SQL em `supabase/tests/console_user_details.sql`.

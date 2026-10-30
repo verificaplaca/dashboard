@@ -26,3 +26,23 @@ test('access update sends observed version; concurrent change preserves server c
  await assert.rejects(updateConsoleUser(client,member,'manager',false),/mudou/);
  assert.deepEqual(args,{p_id:'target',p_role:'manager',p_active:false,p_version:3});
 });
+
+test('profile/reset validation rejects forged authority and keeps passwords out of profile edits',async()=>{
+ const {validateUserChange}=await import('../../../supabase/functions/console-users/validation');
+ const base={action:'update',id:'90000000-0000-4000-8000-000000000071',version:2,name:' Ana ',email:'ANA@example.com',role:'manager',active:true};
+ assert.deepEqual(validateUserChange(base),{...base,name:'Ana',email:'ana@example.com'});
+ for(const changes of [{actor:'forged'},{id:'other'},{version:0},{version:'2'},{active:'true'},{password:'secret'},{role:'owner'}])assert.throws(()=>validateUserChange({...base,...changes}));
+ const reset={action:'reset_password',id:base.id,version:2,password:'valid password 123'};
+ assert.equal(validateUserChange(reset).action,'reset_password');
+ for(const changes of [{password:'short'},{password:'x'.repeat(129)},{role:'administrator'},{email:'other@example.com'}])assert.throws(()=>validateUserChange({...reset,...changes}));
+});
+test('user edits/reset send target version to server and never report false success',async()=>{
+ const {changeConsoleUser}=await import('./users');
+ let sent:unknown;
+ const member={user_id:'target',version:4} as ConsoleUser;
+ const client={functions:{invoke:async(_name:string,args:unknown)=>{sent=args;return {data:{user:{...member,version:5}},error:null};}}} as unknown as SupabaseClient;
+ await changeConsoleUser(client,member,{action:'reset_password',password:'valid password 123'});
+ assert.deepEqual(sent,{body:{action:'reset_password',password:'valid password 123',id:'target',version:4}});
+ client.functions.invoke=(async()=>({data:null,error:{context:new Response(JSON.stringify({error:'Este email já tem uma conta.'}))}})) as typeof client.functions.invoke;
+ await assert.rejects(changeConsoleUser(client,member,{action:'update',name:'Ana',email:'used@example.com',role:'manager',active:true}),/já tem/);
+});

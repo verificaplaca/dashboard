@@ -10,3 +10,5 @@
 .users-table td small{color:var(--muted);margin-top:5px}
 .users-table .badge.suspended{color:var(--red)}
 @media(max-width:640px){.users-permissions{grid-template-columns:1fr}.users-table{min-width:570px}}
+
+.users-actions{display:flex;gap:8px;flex-wrap:wrap}.users-actions .button{white-space:nowrap}
