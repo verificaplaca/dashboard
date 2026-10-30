@@ -9,6 +9,7 @@ import { buildDre, emptyExpenses, expenseFields, expensePayload, monthPeriod, ty
 import { FinanceConflict, saveExpenseMonth } from './domain/finance-api';
 import { addDays, saoPauloToday } from './domain/simulation';
 import './money.css';
+import './finance-simulator-redesign.css';
 const brl=(n:number|null)=>n===null?'A preencher':n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const date=(s:string)=>s.split('-').reverse().join('/');
 const stamp=(s:string)=>new Date(s).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});

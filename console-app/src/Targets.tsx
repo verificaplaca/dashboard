@@ -31,7 +31,7 @@ export default function Targets() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao salvar. Tente novamente.'); }
     finally { setBusy(false); }
   };
-  return <>
+  return <div className="module-page targets-page">
     <PageHeading eyebrow="GESTÃO DE RESULTADOS" title="Metas mensais" description="Metas e imposto do mesmo banco usado no dashboard atual."><button className="button secondary" disabled={loading || busy} onClick={() => void load()}><RefreshCw size={15} />Atualizar</button>{!user && <button className="button primary" onClick={openLogin}>Entrar para editar</button>}</PageHeading>
     {error && <p role="alert" className="info-note">{error}</p>}
     <Card title="Planejamento do mês" subtitle="Campos vazios herdam o último valor anterior. Sem cadastro, permanecem os padrões do dashboard.">
@@ -43,5 +43,5 @@ export default function Targets() {
     </Card>
     <Card title="Histórico de metas" subtitle={loading ? 'Carregando…' : `${rows.length} meses cadastrados`}><div className="table-scroll"><table><thead><tr><th>Mês</th>{targetFields.map(([key, label]) => <th key={key}>{label}</th>)}<th /></tr></thead><tbody>{rows.slice().reverse().map(row => <tr key={row.month}><td>{row.month.slice(0, 7)}</td>{targetFields.map(([key]) => <td key={key} className="num">{row[key] == null ? 'Herdado' : row[key]!.toLocaleString('pt-BR')}</td>)}<td><button className="text-button" onClick={() => { setMonth(row.month.slice(0, 7)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Abrir mês</button></td></tr>)}</tbody></table></div>{!loading && !rows.length && <p className="info-note">{error ? 'Histórico indisponível.' : 'Nenhuma meta cadastrada. O dashboard usa os valores padrão.'}</p>}</Card>
     {pending && <Dialog title="Salvar metas em produção" close={() => { if (!busy) setPending(null); }}><p className="dialog-description">Mês {pending.month.slice(0, 7)}. Os valores serão usados também no dashboard atual; o imposto altera o cálculo do lucro líquido.</p><dl className="live-review">{targetFields.map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{pending[key] == null ? 'Herdar valor anterior' : pending[key]!.toLocaleString('pt-BR')}</dd></div>)}</dl>{error && <p role="alert">{error}</p>}<div className="dialog-footer"><button className="button secondary" disabled={busy} onClick={() => setPending(null)}>Voltar</button><button className="button primary" disabled={busy} onClick={() => void save()}>{busy ? 'Salvando…' : 'Confirmar alteração'}</button></div></Dialog>}
-  </>;
+  </div>;
 }

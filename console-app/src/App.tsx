@@ -1,3 +1,5 @@
+import './redesign.css';
+import './modules-redesign.css';
 import { observeEntrances } from './motion';
 import { useEffect, useRef, useState } from 'react';
 import { Activity, ArrowUpRight, Bell, BookOpen, ChevronDown, ChevronRight, ChevronsLeft, Command, CreditCard, Crosshair, Wallet, Gauge, Headphones, LayoutDashboard, LogOut, Megaphone, MessageSquare, Moon, PanelLeftClose, Plus, Search, Settings2, Home as HomeIcon, ShieldCheck, Sparkles, Sun, Target, TrendingUp, Users, Workflow, X, CheckCircle2 } from 'lucide-react';
@@ -59,7 +61,7 @@ export default function App() {
   const activeGoals = state.goals.filter(g => g.scope === 'organization');
   const orgGoal = activeGoals[0];
 
-  return <div className={`app-shell ${collapsed ? 'collapsed' : ''} ${mobile ? 'mobile-open' : ''}`}>
+  return <div className={`app-shell module-design demo-design ${collapsed ? 'collapsed' : ''} ${mobile ? 'mobile-open' : ''}`}>
     <button className="skip-link" onClick={() => document.getElementById('main')?.focus()}>Pular para o conteúdo</button>
     {mobile && <button className="sidebar-shade" aria-label="Fechar menu" onClick={() => setMobile(false)} />}
     <aside className="sidebar">

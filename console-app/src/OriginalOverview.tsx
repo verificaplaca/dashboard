@@ -46,6 +46,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   const root = host.shadowRoot || host.attachShadow({ mode: 'open' });
   host.dataset.theme = theme === 'dark' ? 'dark' : '';
   host.dataset.mode = summary ? 'summary' : 'full';
+  host.dataset.view = view;
   const styles = model.styles.replace('.view:not(#view-overview)', `.view:not(#view-${view})`).replace(/:root/g, ':host').replace(/\[data-theme="dark"\]/g, ':host([data-theme="dark"])').replace(/:host:host/g, ':host').replace(/\[data-mode="summary"\]/g, ':host([data-mode="summary"])').replace(/\bhtml\b/g, ':host').replace(/\bbody\b/g, '.native-body');
   root.innerHTML = `<style>${styles}\n:host{display:block;position:relative;min-width:0;font-family:Inter,system-ui,sans-serif} .native-body{margin:0;min-width:0;overflow:visible}:host{overflow:visible} .date-dropdown{z-index:100} .kpi-row:empty::before{content:'Carregando indicadores…';padding:22px;color:var(--text-secondary);font-size:12px} .sidebar,.sidebar-backdrop{display:none!important}</style><div class="native-body">${model.body}</div>`;
   const body = root.querySelector<HTMLElement>('.native-body')!;
@@ -208,7 +209,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   let previous = '';
   const sync = () => {
     scheduled = false; if (!active) return; bindControls(); present(); presentSections(); presentInsights();
-    if (!summary) root.querySelectorAll<HTMLCanvasElement>('#view-overview .card canvas,#view-overview .produto-card canvas').forEach(canvas => {
+    if (!summary) root.querySelectorAll<HTMLCanvasElement>(`#view-${view} .card canvas,#view-${view} .produto-card canvas`).forEach(canvas => {
       canvas.setAttribute('role', 'img');
       const header = canvas.closest('.card,.produto-card')?.querySelector('.product-chart-header,.card-header'); if (!header) return;
       canvas.setAttribute('aria-label', canvas.closest('.produto-card')?.querySelector('.produto-card-label')?.textContent || header.querySelector('.card-title')?.textContent || 'Gráfico de performance');

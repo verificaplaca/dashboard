@@ -13,6 +13,7 @@ import FinancialCards from './FinancialCards';
 import { useCardHistory } from './useCardHistory';
 import { cardRates, resolveCardEdits, type CardEdits } from './domain/card-history';
 import './money.css';
+import './finance-simulator-redesign.css';
 const Advanced=lazy(()=>import('./AdvancedSimulation'));
 const brl=(n:number)=>n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const date=(s:string)=>s.split('-').reverse().join('/');
