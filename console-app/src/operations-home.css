@@ -82,7 +82,7 @@
 .overview-home .oh-module-grid small{display:block;font-size:10px;line-height:1.6;margin-top:4px}
 .overview-home .oh-module-grid>button>svg:last-child{color:var(--muted);width:14px}
 .overview-home .oh-footnote{font-size:10px;line-height:1.8;color:var(--muted);margin:0}
-.overview-home .oh-notice{display:flex;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--border);border-radius:14px;color:var(--red);font-size:12px;line-height:1.7}
+.overview-home .oh-notice{display:flex;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--border);border-radius:14px;color:var(--muted);font-size:12px;line-height:1.7}
 .overview-home .oh-notice button{color:inherit;background:none;border:0;text-decoration:underline;white-space:nowrap}
 .overview-home .oh-unavailable{display:grid;place-items:center;min-height:190px;font-size:12px;color:var(--muted);line-height:1.8}
 @media(min-width:1500px){.overview-home .oh-bars{height:210px}.overview-home .oh-bar-track{height:152px}}

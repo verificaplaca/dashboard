@@ -189,3 +189,5 @@
  .mobile-user-review dt{font-size:12px;color:var(--muted);margin-bottom:6px}
  .mobile-user-review dd{margin:0;overflow-wrap:anywhere;font-size:16px;line-height:1.5}
 }
+
+.overview-unavailable{padding:24px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--muted);font-size:14px;line-height:1.7}.overview-unavailable .button{margin-top:16px}

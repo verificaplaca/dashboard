@@ -1,3 +1,4 @@
+import { overviewReadState, overviewUnavailableMessage } from './domain/overview-publication';
 import { scopeOverviewThemeStyles } from './domain/overview-style-scope';
 import { mobileLayoutQuery } from './lib/responsive';
 import { useGlobalLoading } from './Loading';
@@ -37,14 +38,18 @@ export default forwardRef<OverviewHandle, { dataOnly?: boolean; summary?: boolea
     let active = true; setLoading(true); setError(''); callback.current?.({loading:true});
     Promise.all([loadModel(), import('chart.js/auto'), import('chartjs-plugin-datalabels')]).then(([model, charts, labels]) => {
       if (!active || !host.current) return;
-      controller.current = mountOverview(charts.default, labels.default, host.current, model, summary, currentTheme.current, event => callback.current?.(event), setTheme, view, value => { if(active) { setLoading(value); callback.current?.({loading:value}); } });
+      controller.current = mountOverview(charts.default, labels.default, host.current, model, summary, currentTheme.current, event => {
+        if(!active)return;
+        if(event.error){controller.current?.dispose();controller.current=null;setError(event.error);setLoading(false);}
+        callback.current?.(event);
+      }, setTheme, view, value => { if(active) { setLoading(value); callback.current?.({loading:value}); } });
     }).catch(reason => { if (active) { setError(String(reason.message || reason)); setLoading(false); callback.current?.({error:String(reason.message||reason),loading:false}); } });
     return () => { active = false; controller.current?.dispose(); controller.current = null; };
   }, [summary, view, attempt]);
   useEffect(() => { controller.current?.setTheme(theme); }, [theme]);
   return <div className={`native-overview ${summary ? 'native-summary' : ''}`} aria-hidden={dataOnly||undefined} inert={dataOnly} style={dataOnly?{position:'fixed',left:'-200vw',top:0,width:1200,height:1,overflow:'hidden',visibility:'hidden',pointerEvents:'none'}:undefined}>
-    {error && <p role="alert" className="info-note">{error} Recarregue a página para tentar novamente.</p>}
-    <div ref={host} className="native-overview-host" aria-label={summary ? 'Resumo financeiro das fontes originais' : 'Indicadores e gráficos da Visão Geral'} />
+    {error&&!dataOnly&&<section className="overview-unavailable" role="status"><p>{overviewUnavailableMessage}</p><button type="button" className="button secondary" onClick={()=>setAttempt(n=>n+1)}>Tentar novamente</button></section>}
+    <div ref={host} hidden={!!error} className="native-overview-host" aria-label={summary ? 'Resumo financeiro das fontes originais' : 'Indicadores e gráficos da Visão Geral'} />
   </div>;
 });
 
@@ -262,7 +267,13 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   const presentInsights = createOverviewInsights(root, () => api.readPresentation(), detail => emit({ metricDetail: detail }), summary || view !== 'overview');
   let previous = '';
   const sync = () => {
-    scheduled = false; if (!active) return; bindControls(); present(); presentSections(); presentInsights();
+    scheduled = false; if (!active) return;
+    const sourceReady=root.querySelectorAll('.kpi-row .kpi-value').length===15;
+    const sourceState=overviewReadState({exampleBanner:!!root.getElementById('demoDataBanner'),ready:sourceReady,real:sourceReady&&api.readHomeSnapshot().real,pendingReads});
+    if(sourceState==='unavailable'){
+      reportLoading(false);emit({error:overviewUnavailableMessage,ready:false,loading:false});return;
+    }
+    bindControls(); present(); presentSections(); presentInsights();
     if (!summary) root.querySelectorAll<HTMLCanvasElement>(`#view-${view} .card canvas,#view-${view} .produto-card canvas`).forEach(canvas => {
       canvas.setAttribute('role', 'img');
       const header = canvas.closest('.card,.produto-card')?.querySelector('.product-chart-header,.card-header'); if (!header) return;
@@ -304,7 +315,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
       }
       if (chart && !replayed.has(canvas)) chartObserver.observe(canvas);
     });
-    const event = { ready: root.querySelectorAll('.kpi-row .kpi-value').length === 15, example: !!root.getElementById('demoDataBanner'), period: root.getElementById('dateRangeHint')!.textContent!.trim(), sections: Object.fromEntries([...root.querySelectorAll<HTMLElement>('[id^="section-"]')].filter(el => el.getBoundingClientRect().height).map(el => [el.id.replace('section-', ''), el.getBoundingClientRect().top + window.scrollY])) };
+    const event = { ready: root.querySelectorAll('.kpi-row .kpi-value').length === 15, example: false, period: root.getElementById('dateRangeHint')!.textContent!.trim(), sections: Object.fromEntries([...root.querySelectorAll<HTMLElement>('[id^="section-"]')].filter(el => el.getBoundingClientRect().height).map(el => [el.id.replace('section-', ''), el.getBoundingClientRect().top + window.scrollY])) };
     const nativeOverlay = root.getElementById('loadingOverlay');
     const finished = event.ready || !nativeOverlay || nativeOverlay.style.opacity === '0';
     const busy = pendingReads > 0 || !finished;
@@ -350,6 +361,6 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
     clearSelection: () => owned.forEach(chart => selectOverviewChartDay(chart, -1)),
     scrollToSection: (section: string) => { const element = root.getElementById(`section-${section}`); if (element) window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - (document.querySelector('.topbar')?.getBoundingClientRect().height || 72) - (document.querySelector('.overview-navigation')?.getBoundingClientRect().height || 0) - 14, behavior: motion.matches ? 'instant' : 'smooth' }); },
     exportIndicators: () => { const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"'; const rows = [...root.querySelectorAll('.kpi-row .kpi-card')].map(card => ['.kpi-label', '.kpi-value', '.kpi-value-secondary', '.kpi-delta', '.kpi-sub'].map(selector => quote(selector === '.kpi-delta' ? card.querySelector(selector)?.getAttribute('data-original-delta') ?? card.querySelector(selector)?.textContent : card.querySelector(selector)?.textContent)).join(';')); emit({ csv: ['Período;' + quote(root.getElementById('dateRangeHint')?.textContent), 'Fonte;' + quote(root.getElementById('footerBar')?.textContent), 'Indicador;Valor;Complemento;Comparativo;Contexto', ...rows].join('\n') }); },
-    dispose: () => { active = false; abort.abort(); observer.disconnect(); resize.disconnect(); chartObserver.disconnect(); stopEntrances(); presentSections.dispose?.(); cleanups.forEach(cleanup => cleanup()); timeouts.forEach(clearTimeout); frames.forEach(cancelAnimationFrame); owned.forEach(chart => chart.destroy()); plugins.forEach(plugin => Chart.unregister(plugin)); root.replaceChildren(); },
+    dispose: () => { if(!active)return;active = false; abort.abort(); observer.disconnect(); resize.disconnect(); chartObserver.disconnect(); stopEntrances(); presentSections.dispose?.(); cleanups.forEach(cleanup => cleanup()); timeouts.forEach(clearTimeout); frames.forEach(cancelAnimationFrame); owned.forEach(chart => chart.destroy()); plugins.forEach(plugin => Chart.unregister(plugin)); root.replaceChildren(); },
   };
 }

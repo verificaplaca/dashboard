@@ -23,6 +23,10 @@ Arquitetura, execução, evidências e rollback: `docs/console-producao.md`.
 
 Todos os módulos ativos têm ajustes responsivos em `console-app/src/mobile-ux.css`; a Visão Geral em Shadow DOM recebe `console-app/public/overview/mobile.css`. Menu acessível, cartões operacionais, filtros e diálogos adaptados. Detalhes e validação: `docs/mobile-ux.md`. A revisão ampliada por seção, em 31/10, está em `docs/mobile-ux-auditoria-2026-10-31.md`, incluindo calendário, DRE compacta, resultados do simulador e textos longos nos diálogos. Cálculos e permissões preservados.
 
+## Publicação de dados reais (31/10/2026)
+
+O adaptador da Visão Geral bloqueia fallback sintético antes de publicar indicadores, remove a faixa `demoDataBanner` e permite recriar a leitura após falha. Início limpa snapshots rejeitados. Leituras públicas têm uma repetição limitada para falhas transitórias. Verificação autenticada do painel publicado e validação de falhas: `docs/painel-real-2026-10-31.md`.
+
 ## Repositórios e Pastas
 
 | Pasta | Propósito |

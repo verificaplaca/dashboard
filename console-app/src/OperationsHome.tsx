@@ -1,3 +1,4 @@
+import { overviewUnavailableMessage } from './domain/overview-publication';
 import { useEffect, useRef, useState } from 'react';
 import { Activity, ArrowRight, ArrowUpRight, CalendarDays, ChartNoAxesCombined, CheckCircle2, CircleDollarSign, Gauge, LayoutDashboard, Megaphone, RefreshCw, ShoppingBag, Target, Users, Wallet } from 'lucide-react';
 import { useAuth } from './Auth';
@@ -44,8 +45,8 @@ export default function OperationsHome(){
  const name=typeof user?.user_metadata?.full_name==='string'?user.user_metadata.full_name.trim().split(' ')[0]:'';
  const busy=source.loading||signals.loading;
  const receiveOverview=(event:OverviewEvent)=>setSource(previous=>{
-  if(event.snapshot)return {...previous,snapshot:event.snapshot,period:event.period??previous.period,loading:event.loading??false,error:event.snapshot.real?'':'A Visão Geral está usando dados de exemplo. Atualize para consultar os dados reais.'};
-  if(event.error)return {...previous,error:event.error,loading:false};
+  if(event.snapshot)return {...previous,snapshot:event.snapshot.real?event.snapshot:null,period:event.period??previous.period,loading:event.loading??false,error:event.snapshot.real?'':overviewUnavailableMessage};
+  if(event.error)return {...previous,snapshot:null,error:overviewUnavailableMessage,loading:false};
   if(typeof event.loading==='boolean'&&event.loading!==previous.loading)return {...previous,loading:event.loading};
   return previous;
  });
@@ -56,7 +57,7 @@ export default function OperationsHome(){
   <OriginalOverview ref={engine} summary dataOnly onEvent={receiveOverview}/>
   <header className="oh-heading"><div><span className="oh-eyebrow">CENTRAL DA OPERAÇÃO</span><h1>{greeting(clock.hour)}{name?`, ${name}`:''}.</h1><p>O essencial para acompanhar o negócio e decidir o próximo passo.</p></div><div className="oh-heading-actions"><span className="oh-date"><CalendarDays size={15}/>{now.toLocaleDateString('pt-BR',{day:'numeric',month:'long',timeZone:'America/Sao_Paulo'})}</span><button className="button secondary" disabled={busy||!source.snapshot} onClick={()=>setPeriodEditor(true)}><CalendarDays size={15}/>{overviewPresets.find(([key])=>key===source.snapshot?.filter?.preset)?.[1]||'Este mês'}</button><button className="button secondary" disabled={busy} onClick={refresh}><RefreshCw size={15}/>Atualizar resumo</button></div></header>
   <div className="oh-section-line"><h2>Seu negócio, em um olhar</h2><span>Visão Geral · {source.period||'Período atual'}{includesToday?' · inclui hoje':''}</span></div>
-  {source.error?<div className="oh-notice" role="alert">{source.error} <button onClick={refresh}>Tentar novamente</button></div>:null}
+  {source.error?<div className="oh-notice" role="status">{source.error} <button onClick={refresh}>Tentar novamente</button></div>:null}
   <section className="oh-kpis" aria-label="Indicadores essenciais do período">
    {[
     {label:'Receita Bruta',value:money(summary?.sales),detail:'Pedidos pagos válidos',icon:CircleDollarSign,path:'/dashboard',kind:''},
