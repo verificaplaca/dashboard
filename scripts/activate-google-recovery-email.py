@@ -2,6 +2,7 @@
 """Run locally by the account owner; never put an app password in chat or arguments."""
 import base64
 import getpass
+import hashlib
 import json
 import os
 import smtplib
@@ -34,6 +35,28 @@ def auth_config(token, values=None):
         return json.load(response)
 
 
+def activate(token, password):
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=25, context=ssl.create_default_context()) as smtp:
+        smtp.login(SENDER, password)  # Validate only; no test message is sent.
+    expected = {'smtp_host': 'smtp.gmail.com', 'smtp_port': 465, 'smtp_user': SENDER, 'smtp_pass': password, 'smtp_admin_email': SENDER, 'smtp_sender_name': 'Verifica Placa', 'rate_limit_email_sent': 30}
+    auth_config(token, expected)
+    stored = auth_config(token)
+    public_fields = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_admin_email', 'smtp_sender_name']
+    if any(str(stored.get(field)) != str(expected[field]) for field in public_fields):
+        raise RuntimeError('O Google autenticou, mas a configuração não foi confirmada no projeto Verifica Placa. O envio não foi ativado.')
+    result = subprocess.run(['supabase', 'secrets', 'set', 'CONSOLE_RECOVERY_EMAIL_ENABLED=true', '--project-ref', PROJECT], capture_output=True, text=True)
+    if result.returncode:
+        raise RuntimeError('Google configurado, mas faltou ativar a opção no servidor. Execute novamente ou revise sua sessão do Supabase CLI.')
+    listed = subprocess.run(['supabase', 'secrets', 'list', '--project-ref', PROJECT, '--output', 'json'], capture_output=True, text=True)
+    try:
+        entries = json.loads(listed.stdout) if listed.returncode == 0 else []
+    except (ValueError, TypeError):
+        entries = []
+    expected_digest = hashlib.sha256(b'true').hexdigest()
+    if not any(entry.get('name') == 'CONSOLE_RECOVERY_EMAIL_ENABLED' and entry.get('digest') == expected_digest for entry in entries):
+        raise RuntimeError('Google configurado, mas a ativação não foi confirmada no servidor. Execute novamente ou revise sua sessão do Supabase CLI.')
+
+
 def main():
     print('Ativar emails de recuperação do Verifica Placa pelo Google')
     print('Conta remetente: ' + SENDER)
@@ -45,13 +68,8 @@ def main():
     password = getpass.getpass('Cole a senha de app (a digitação fica oculta): ').replace(' ', '')
     if not password:
         raise RuntimeError('Nenhuma senha foi informada. Nada foi alterado.')
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=25, context=ssl.create_default_context()) as smtp:
-        smtp.login(SENDER, password)  # Validate only; no test message is sent.
-    auth_config(token, {'smtp_host': 'smtp.gmail.com', 'smtp_port': 465, 'smtp_user': SENDER, 'smtp_pass': password, 'smtp_admin_email': SENDER, 'smtp_sender_name': 'Verifica Placa', 'rate_limit_email_sent': 30})
+    activate(token, password)
     password = None
-    result = subprocess.run(['supabase', 'secrets', 'set', 'CONSOLE_RECOVERY_EMAIL_ENABLED=true', '--project-ref', PROJECT], capture_output=True, text=True)
-    if result.returncode:
-        raise RuntimeError('Google configurado, mas faltou ativar a opção no servidor. Execute novamente ou revise sua sessão do Supabase CLI.')
     print('Envio ativado. No painel, use Usuários → Enviar link por email.')
     print('Nenhum email foi enviado durante esta configuração.')
 
