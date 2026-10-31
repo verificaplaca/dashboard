@@ -40,7 +40,7 @@ export default function OperationsHome(){
  const targets=source.snapshot?.real&&monthCount>0?source.snapshot.targets:null,revenueGoal=targets?.revenue??null,cacGoal=targets?.cpa??null,budget=targets?.budget??null;
  const cac=summary?.cac??null,progress=summary&&singleMonth&&revenueGoal&&revenueGoal>0?summary.sales/revenueGoal*100:null;
  const dispatches=signals.dispatches?dispatchSummary(signals.dispatches):null;
- const days=valid?source.snapshot!.days.filter(row=>row.date>=addDays(end,-6)&&row.date<=end):[],max=Math.max(1,...days.map(row=>row.revenue));
+ const days=valid?source.snapshot!.days.filter(row=>row.date>=addDays(end,-6)&&row.date<=end):[],max=Math.max(1,...days.map(row=>row.revenue))*1.2;
  const includesToday=!!source.snapshot?.days.some(day=>day.date===clock.day);
  const name=typeof user?.user_metadata?.full_name==='string'?user.user_metadata.full_name.trim().split(' ')[0]:'';
  const busy=source.loading||signals.loading;

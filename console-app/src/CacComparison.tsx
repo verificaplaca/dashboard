@@ -1,3 +1,4 @@
+import { balancedChartScales } from './domain/chart-scales';
 import { useEffect, useRef, useState } from 'react';
 import type { Chart } from 'chart.js';
 import { LockKeyhole } from 'lucide-react';
@@ -21,7 +22,7 @@ function ComparisonGraph({ rows, gain, days, theme }: { rows: CacComparisonRow[]
     void import('chart.js/auto').then(({ default: ChartJS }) => {
       if (disposed || !canvas.current) return;
       const css = getComputedStyle(document.documentElement), text = css.getPropertyValue('--muted').trim(), border = css.getPropertyValue('--border').trim();
-      chart = new ChartJS(canvas.current, { type: 'bar', data: { labels: rows.map(r => `${money(r.budget)}/dia`), datasets: series.map(s => ({ label: s.label, data: rows.map(r => gain ? r[s.key].delta.profit : r[s.key].scenario.profit), backgroundColor: s.color, borderColor: s.color, borderRadius: 3, maxBarThickness: 28 })) }, options: {
+      chart = new ChartJS(canvas.current, { plugins: [balancedChartScales], type: 'bar', data: { labels: rows.map(r => `${money(r.budget)}/dia`), datasets: series.map(s => ({ label: s.label, data: rows.map(r => gain ? r[s.key].delta.profit : r[s.key].scenario.profit), backgroundColor: s.color, borderColor: s.color, borderRadius: 3, maxBarThickness: 28 })) }, options: {
         responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: item => { const r = rows[item.dataIndex][series[item.datasetIndex].key]; return `${series[item.datasetIndex].label}: ${money(r.scenario.profit)} de lucro total; ${signed(r.delta.profit)} vs. manter`; } } } },
         scales: { x: { grid: { display: false }, ticks: { color: text, font: { size: 10 }, callback: (_, index) => `R$ ${rows[index].budget.toLocaleString('pt-BR')}` }, title: { display: true, text: 'Investimento diário', color: text }, border: { color: border } }, y: { beginAtZero: true, ticks: { color: text, maxTicksLimit: 6, callback: n => `R$ ${Number(n).toLocaleString('pt-BR', { notation: 'compact', maximumFractionDigits: 1 })}` }, title: { display: true, text: `${gain ? 'Ganho sobre manter' : 'Lucro líquido total'} · ${days} dias`, color: text }, grid: { color: c => c.tick.value === 0 ? text : border }, border: { display: false } } },

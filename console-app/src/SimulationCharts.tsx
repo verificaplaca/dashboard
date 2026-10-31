@@ -1,3 +1,4 @@
+import { balancedChartScales } from './domain/chart-scales';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Chart } from 'chart.js';
 import { LockKeyhole, TrendingUp } from 'lucide-react';
@@ -25,7 +26,7 @@ function ProfitChart({ series, labels, dates, mode, title, current, theme }: { s
       }));
       if (mode === 'budget' && current) datasets.push({ label: 'Seu plano atual', data: [current], borderColor: '#4c83ff', backgroundColor: '#4c83ff', borderWidth: 0, borderDash: [], pointRadius: 7, pointHoverRadius: 9, pointHitRadius: 15, tension: 0, fill: false });
       chart = new ChartJS(canvas.current, {
-        type: 'line', data: { datasets }, options: {
+        plugins: [balancedChartScales], type: 'line', data: { datasets }, options: {
           responsive: true, maintainAspectRatio: false, animation: false,
           interaction: { mode: mode === 'budget' ? 'nearest' : 'index', intersect: false },
           plugins: { legend: { display: false }, tooltip: { padding: 12, callbacks: {

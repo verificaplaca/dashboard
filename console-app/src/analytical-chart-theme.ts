@@ -15,17 +15,8 @@ export function styleAnalyticalChart(id: string, config: any) {
     return;
   }
   options.layout = { ...options.layout, padding: { top: 12, right: 8, bottom: 4, left: 0 } };
-  // Give daily results room above peaks and below losses, including comparisons.
-  // Keep the bar chart's zero baseline and let Chart.js choose readable ticks.
-  if ((id === 'profitChart' || id === 'netProfitChart') && options.scales?.y) {
-    options.scales.y.grace = '20%';
-    options.scales.y.beginAtZero = true;
-  }
   for (const [name, scale] of Object.entries<any>(options.scales || {})) {
     if (scale.ticks) scale.ticks.maxTicksLimit = name === 'x' ? 6 : 5;
-  }
-  if ((id === 'profitChart' || id === 'netProfitChart') && options.scales?.y?.ticks) {
-    options.scales.y.ticks.maxTicksLimit = 7;
   }
   for (const series of config.data.datasets) {
     if (series.type === 'line' || config.type === 'line') {
@@ -39,9 +30,9 @@ export function styleAnalyticalChart(id: string, config: any) {
     if (id === 'cacChart' && Array.isArray(series.backgroundColor)) series.backgroundColor = series.backgroundColor.map((color: string) => color.includes('22,163,74') ? palette.positive : color.includes('217,119,6') ? palette.attention : color.includes('220,38,38') ? palette.negative : color);
     if (id === 'upsellChart' && Array.isArray(series.backgroundColor)) series.backgroundColor = series.backgroundColor.map((color: string) => color.includes('124,58,237,.35') ? palette.negative : color.includes('124,58,237,.7') ? palette.positive : color);
   }
-  // A presentation ceiling must not hide an observation above the legacy 40% scale.
+  // Include the target and leave space above rates near the legacy 40% ceiling.
   if (id === 'upsellChart' && Number.isFinite(options.scales?.y?.max)) {
     const max = Math.max(0, ...config.data.datasets.flatMap((series: any) => series.data.filter((value: unknown) => typeof value === 'number' && Number.isFinite(value))));
-    if (max > options.scales.y.max) options.scales.y.max = Math.ceil(max * 1.1 / 10) * 10;
+    options.scales.y.max = Math.max(40, Math.ceil(max * 1.2 / 10) * 10);
   }
 }
