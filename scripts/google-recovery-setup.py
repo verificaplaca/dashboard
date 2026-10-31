@@ -2,7 +2,7 @@
 """One-use loopback-only setup form. The owner enters the credential personally."""
 import html
 import importlib.util
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import secrets
 import threading
@@ -23,8 +23,13 @@ def make_server(token, port=0, activate=None):
     nonce = secrets.token_urlsafe(32)
     operation = activation.activate if activate is None else activate
     state = {'completed': False, 'attempts': 0}
+    operation_lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
+        def setup(self):
+            super().setup()
+            self.connection.settimeout(15)
+
         def log_message(self, *_args):
             pass  # Never log paths, POST bodies or credentials.
 
@@ -60,24 +65,31 @@ def make_server(token, port=0, activate=None):
                 password = values.get('password', [''])[0].replace(' ', '')
                 if not secrets.compare_digest(csrf, nonce) or len(password) != 16 or not password.isascii() or not password.isalpha():
                     raise ValueError()
-            except (ValueError, UnicodeError):
+            except (ValueError, UnicodeError, TimeoutError):
                 self.reply(400, page('Confira a senha de app de 16 letras gerada pelo Google.')); return
-            if state['completed'] or state['attempts'] >= 5:
-                self.reply(409, 'Esta configuração foi encerrada.'); return
-            state['attempts'] += 1
+            if not operation_lock.acquire(blocking=False):
+                self.reply(409, 'Ativação em andamento. Aguarde a confirmação.'); return
             try:
+                if state['completed'] or state['attempts'] >= 5:
+                    self.reply(409, 'Esta configuração foi encerrada.'); return
+                state['attempts'] += 1
                 operation(token, password)
                 state['completed'] = True
                 self.reply(200, page(success=True))
                 print('Envio ativado e verificado no servidor.', flush=True)
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
+            except activation.ActivationError as error:
+                print('SETUP_STAGE_FAILED=' + error.stage, flush=True)
+                self.reply(400, page(str(error)))
             except Exception:
-                self.reply(400, page('Não foi possível ativar. Confira se a senha de app pertence à conta suporte@verificaplaca.com.br.'))
+                print('SETUP_STAGE_FAILED=unexpected', flush=True)
+                self.reply(400, page('Ocorreu uma falha inesperada ao ativar o envio. Informe este aviso para conferirmos o servidor.'))
             finally:
                 password = None
                 values.clear()
+                operation_lock.release()
 
-    server = HTTPServer(('127.0.0.1', port), Handler)
+    server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     return server, nonce
 
 

@@ -50,7 +50,8 @@ class SetupTests(unittest.TestCase):
         self.operation.assert_not_called()
 
     def test_failure_does_not_echo_password_or_internal_error(self):
-        status, body, _ = self.request('POST', 'abcdefghijklmnop')
+        with patch('builtins.print'):
+            status, body, _ = self.request('POST', 'abcdefghijklmnop')
         self.assertEqual(status, 400)
         self.assertNotIn('abcdefghijklmnop', body)
         self.assertNotIn('fixture-secret', body)
@@ -63,6 +64,14 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('Envio ativado', body)
         self.operation.assert_called_once()
+
+    def test_safe_stage_error_is_shown_without_credential_or_raw_exception(self):
+        self.operation.side_effect = setup.activation.ActivationError('server_config', 'O Google validou a senha, mas o servidor recusou a configuração (HTTP 400).')
+        with patch('builtins.print'):
+            status, body, _ = self.request('POST', 'abcdefghijklmnop')
+        self.assertEqual(status, 400)
+        self.assertIn('HTTP 400', body)
+        self.assertNotIn('abcdefghijklmnop', body)
 
 
 if __name__ == '__main__':

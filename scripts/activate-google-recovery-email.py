@@ -9,6 +9,8 @@ import smtplib
 import ssl
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.request
 
 PROJECT = 'ftmgmfdqdqxboiktxcoj'
@@ -35,18 +37,42 @@ def auth_config(token, values=None):
         return json.load(response)
 
 
+class ActivationError(RuntimeError):
+    def __init__(self, stage, message):
+        super().__init__(message)
+        self.stage = stage
+
+
 def activate(token, password):
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=25, context=ssl.create_default_context()) as smtp:
-        smtp.login(SENDER, password)  # Validate only; no test message is sent.
-    expected = {'smtp_host': 'smtp.gmail.com', 'smtp_port': 465, 'smtp_user': SENDER, 'smtp_pass': password, 'smtp_admin_email': SENDER, 'smtp_sender_name': 'Verifica Placa', 'rate_limit_email_sent': 30}
-    auth_config(token, expected)
-    stored = auth_config(token)
-    public_fields = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_admin_email', 'smtp_sender_name']
-    if any(str(stored.get(field)) != str(expected[field]) for field in public_fields):
-        raise RuntimeError('O Google autenticou, mas a configuração não foi confirmada no projeto Verifica Placa. O envio não foi ativado.')
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=25, context=ssl.create_default_context()) as smtp:
+            smtp.login(SENDER, password)  # Validate only; no test message is sent.
+    except smtplib.SMTPAuthenticationError:
+        raise ActivationError('google_login', 'O Google recusou a autenticação. Confira a senha de app e a conta suporte@verificaplaca.com.br.') from None
+    except Exception:
+        raise ActivationError('google_connection', 'Não foi possível concluir a conexão com o Google. Tente novamente em instantes.') from None
+    # The Management API requires smtp_port as a STRING (unlike smtplib).
+    expected = {'smtp_host': 'smtp.gmail.com', 'smtp_port': '465', 'smtp_user': SENDER, 'smtp_pass': password, 'smtp_admin_email': SENDER, 'smtp_sender_name': 'Verifica Placa', 'rate_limit_email_sent': 30}
+    try:
+        auth_config(token, expected)
+        public_fields = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_admin_email', 'smtp_sender_name']
+        for attempt in range(8):
+            stored = auth_config(token)
+            if all(str(stored.get(field)) == str(expected[field]) for field in public_fields):
+                break
+            if attempt < 7:
+                time.sleep(2)
+        else:
+            raise ActivationError('server_persistence', 'O Google validou a senha, mas o servidor ainda não confirmou a configuração. Aguarde e tente novamente.')
+    except urllib.error.HTTPError as error:
+        raise ActivationError('server_config', f'O Google validou a senha, mas houve uma falha ao salvar no servidor (HTTP {error.code}). A senha não precisa ser recriada.') from None
+    except ActivationError:
+        raise
+    except Exception:
+        raise ActivationError('server_connection', 'O Google validou a senha, mas não foi possível concluir a conexão com o servidor. Tente novamente em instantes.') from None
     result = subprocess.run(['supabase', 'secrets', 'set', 'CONSOLE_RECOVERY_EMAIL_ENABLED=true', '--project-ref', PROJECT], capture_output=True, text=True)
     if result.returncode:
-        raise RuntimeError('Google configurado, mas faltou ativar a opção no servidor. Execute novamente ou revise sua sessão do Supabase CLI.')
+        raise ActivationError('server_flag', 'Google configurado, mas faltou ativar a opção no servidor. Execute novamente ou revise sua sessão do Supabase CLI.')
     listed = subprocess.run(['supabase', 'secrets', 'list', '--project-ref', PROJECT, '--output', 'json'], capture_output=True, text=True)
     try:
         entries = json.loads(listed.stdout) if listed.returncode == 0 else []
@@ -54,7 +80,7 @@ def activate(token, password):
         entries = []
     expected_digest = hashlib.sha256(b'true').hexdigest()
     if not any(entry.get('name') == 'CONSOLE_RECOVERY_EMAIL_ENABLED' and entry.get('digest') == expected_digest for entry in entries):
-        raise RuntimeError('Google configurado, mas a ativação não foi confirmada no servidor. Execute novamente ou revise sua sessão do Supabase CLI.')
+        raise ActivationError('server_flag', 'Google configurado, mas a ativação não foi confirmada no servidor. Execute novamente ou revise sua sessão do Supabase CLI.')
 
 
 def main():
