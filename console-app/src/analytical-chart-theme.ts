@@ -20,10 +20,12 @@ export function styleAnalyticalChart(id: string, config: any) {
   if ((id === 'profitChart' || id === 'netProfitChart') && options.scales?.y) {
     options.scales.y.grace = '20%';
     options.scales.y.beginAtZero = true;
-    options.scales.y.bounds = 'data';
   }
   for (const [name, scale] of Object.entries<any>(options.scales || {})) {
     if (scale.ticks) scale.ticks.maxTicksLimit = name === 'x' ? 6 : 5;
+  }
+  if ((id === 'profitChart' || id === 'netProfitChart') && options.scales?.y?.ticks) {
+    options.scales.y.ticks.maxTicksLimit = 7;
   }
   for (const series of config.data.datasets) {
     if (series.type === 'line' || config.type === 'line') {
