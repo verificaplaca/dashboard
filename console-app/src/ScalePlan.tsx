@@ -1,4 +1,6 @@
 import { useGlobalLoading } from './Loading';
+import { paddedChartRange } from './domain/chart-scales';
+import { useCompactChart } from './lib/chart-layout';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Check, ChevronRight, Download, Minus, RefreshCw, Target, Undo2 } from 'lucide-react';
 import { Card } from './components';
@@ -18,10 +20,11 @@ function readState(): { state: ScaleState; error: string } {
   catch { return { state: initialScaleState(), error: 'Não foi possível ler o histórico local. Restaure o registro inicial para recalcular.' }; }
 }
 function ProfitTrend({ snapshot, window, prior }: { snapshot: Snapshot; window: ActualWindow; prior?: number }) {
+  const compact = useCompactChart();
   const rows = dates(window.start, window.end).map(d => ({ date: d, value: actualScaleWindow(snapshot, d, d) })).filter(r => r.value && !r.value.issues.length);
   if (!rows.length) return null;
-  const width = 760, height = 160, left = 55, right = 15, top = 16, bottom = 30;
-  const min = Math.min(0, ...rows.map(r => r.value!.profit), prior || 0), max = Math.max(1, ...rows.map(r => r.value!.profit), prior || 0), span = max - min;
+  const width = compact ? 380 : 760, height = compact ? 200 : 160, left = 55, right = 15, top = 16, bottom = 30;
+  const { min, max } = paddedChartRange([...rows.map(r => r.value!.profit), prior]), span = max - min;
   const y = (v: number) => top + (max - v) / span * (height - top - bottom), x = (i: number) => left + (i + .5) * (width - left - right) / rows.length;
   const bar = Math.min(46, (width - left - right) / rows.length * .55);
   return <figure className="sim-scale-trend"><figcaption>Lucro líquido real por dia <span>Janela de avaliação · perdas preservadas</span></figcaption><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Lucro líquido real: ${rows.map(r => day(r.date) + ': ' + money(r.value!.profit)).join('; ')}`}>

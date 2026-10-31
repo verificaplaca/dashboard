@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { balanceChartScales } from './chart-scales';
+import { balanceChartScales, paddedChartRange } from './chart-scales';
+
+test('SVG histories retain losses, references and finite ranges for flat or missing data', () => {
+  const range = paddedChartRange([-100, 200, null, NaN, 300]);
+  assert.ok(range.min < -100);
+  assert.ok(range.max > 300);
+  assert.deepEqual(paddedChartRange([0, 0, null]), { min: 0, max: 1 });
+  assert.deepEqual(paddedChartRange([]), { min: 0, max: 1 });
+  assert.equal(paddedChartRange([-100]).max, 0);
+  assert.equal(paddedChartRange([100]).min, 0);
+});
 
 test('unbounded financial axes keep zero and reserve space for positive and negative results', () => {
   const options = { scales: { y: { ticks: {} }, x: { ticks: { maxTicksLimit: 10 } } } } as any;
