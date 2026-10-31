@@ -6,6 +6,9 @@
  body:has(#root) .dialog-content,body:has(#root) .drawer-content{min-height:0;overflow-y:auto;overscroll-behavior:contain;scroll-padding-block:12px}
  body:has(#root) .dialog-content:has(>form){overflow:hidden}
  body:has(#root) .dialog-content>form,body:has(#root) .dialog-content>form>.task-fieldset{display:flex;flex-direction:column;min-height:0;max-height:100%}
+ /* Fieldset's anonymous box prevents its children from shrinking as flex items.
+    Keep the HTML disabled behavior while exposing fields/actions to the form. */
+ body:has(#root) .dialog-content>form>.task-fieldset{display:contents}
  body:has(#root) .dialog :is(.form-fields,.money-expense-form,.sc-editor){min-height:0;overflow-y:auto;overscroll-behavior:contain;scroll-padding-block:12px;flex:1 1 auto}
  body:has(#root) :is(.dialog,.drawer) .dialog-heading{flex-shrink:0}
  body:has(#root) :is(.dialog,.drawer) .dialog-footer{flex-shrink:0;position:sticky;bottom:0;background:var(--surface);padding:10px 14px;gap:8px}

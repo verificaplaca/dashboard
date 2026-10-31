@@ -23,7 +23,9 @@ export function installMobileViewport() {
       const style = getComputedStyle(parent);
       if (/(auto|scroll)/.test(style.overflowY) && parent.scrollHeight > parent.clientHeight) {
         const rect = parent.getBoundingClientRect();
-        const delta = fieldScrollDelta(field.getBoundingClientRect(), { top: Math.max(top, rect.top) + 12, bottom: Math.min(top + height, rect.bottom) - 12 });
+        const header = dialog?.querySelector('.dialog-heading')?.getBoundingClientRect();
+        const footer = dialog?.querySelector('.dialog-footer')?.getBoundingClientRect();
+        const delta = fieldScrollDelta(field.getBoundingClientRect(), { top: Math.max(top, rect.top, header?.bottom || 0) + 12, bottom: Math.min(top + height, rect.bottom, footer?.top ?? Infinity) - 12 });
         if (delta) parent.scrollTop += delta;
         return;
       }
