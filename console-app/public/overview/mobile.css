@@ -5,6 +5,7 @@
  .hero-actions .refresh-btn{min-width:44px;width:44px;padding:0}
  .reading-actions{gap:8px 16px;align-items:center}
  select{min-height:44px;box-sizing:border-box;max-width:100%;min-width:0;font-size:16px;line-height:1.4}
+ #dateDD{top:calc(var(--vp-visible-top,0px) + 72px)!important;max-height:calc(var(--vp-visible-height,100dvh) - 84px)!important;overflow-y:auto;scroll-padding-block:12px}
 }
 /* Phone presentation for the preserved analytics engine. */
 @media(max-width:780px),(max-width:1024px) and (max-height:500px){
