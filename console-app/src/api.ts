@@ -7,6 +7,6 @@ export function getAuthClient() {
     auth: { storage: sessionStorage, storageKey: 'vp-production-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
   })).catch(error => { client = undefined; throw error; });
 }
-export async function readPublic<T>(table: 'monthly_targets' | 'conversion_dispatches_public', query: URLSearchParams, signal?: AbortSignal): Promise<T[]> {
+export async function readPublic<T>(table: 'monthly_targets' | 'conversion_dispatches_public' | 'revenue_daily' | 'google_ads_campaign_daily', query: URLSearchParams, signal?: AbortSignal): Promise<T[]> {
   return readPublicRows<T>(`${config.url}/rest/v1/${table}?${query}`,{apikey:config.key,Authorization:`Bearer ${config.key}`},signal);
 }
