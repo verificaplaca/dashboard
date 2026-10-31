@@ -19,6 +19,10 @@ Arquitetura, execução, evidências e rollback: `docs/console-producao.md`.
 
 ---
 
+## UX mobile (30/10/2026)
+
+Todos os módulos ativos têm ajustes responsivos em `console-app/src/mobile-ux.css`; a Visão Geral em Shadow DOM recebe `console-app/public/overview/mobile.css`. Menu acessível, cartões operacionais, filtros e diálogos adaptados. Detalhes e validação: `docs/mobile-ux.md`. Cálculos e permissões preservados.
+
 ## Repositórios e Pastas
 
 | Pasta | Propósito |

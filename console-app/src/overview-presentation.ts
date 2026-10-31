@@ -29,7 +29,7 @@ export function createOverviewPresentation(root: ShadowRoot, read: () => any, su
     actions.appendChild(more);
     const rows = ['kpiRow1', 'kpiRow2', 'kpiRow3'].map(id => root.getElementById(id)!);
     const scroll = document.createElement('div'); scroll.className = 'financial-scroll'; scroll.tabIndex = 0;
-    scroll.setAttribute('role', 'region'); scroll.setAttribute('aria-label', 'Resultados Financeiros: 15 indicadores em cinco colunas. Role para os lados em telas pequenas.');
+    scroll.setAttribute('role', 'region'); scroll.setAttribute('aria-label', 'Resultados financeiros: 15 indicadores do período.');
     const grid = document.createElement('div'); grid.className = 'financial-grid';
     rows[0].before(scroll); scroll.appendChild(grid); rows.forEach(row => grid.appendChild(row));
     const lead = document.createElement('div'); lead.className = 'executive-analysis'; scroll.after(lead);

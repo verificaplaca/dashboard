@@ -16,7 +16,7 @@ import { readOverviewPeriod, validateOverviewPeriod, overviewPresets, type Overv
 import type { OverviewHomeSnapshot } from './domain/overview-home-snapshot';
 
 export interface DayDetail { date: string; revenue: number; tax: number; ads: number; bureau: number; result: number; example: boolean; }
-export interface OverviewEvent { snapshot?: OverviewHomeSnapshot; loading?: boolean; error?: string; metricDetail?: MetricDetail; dayDetail?: DayDetail; action?: 'rules' | 'export'; ready?: boolean; example?: boolean; period?: string; sections?: Record<string, number>; csv?: string; chartTable?: { title: string; headers: string[]; rows: string[][] }; }
+export interface OverviewEvent { snapshot?: OverviewHomeSnapshot; loading?: boolean; error?: string; metricDetail?: MetricDetail; indicatorInfo?: {title:string;description:string}; dayDetail?: DayDetail; action?: 'rules' | 'export'; ready?: boolean; example?: boolean; period?: string; sections?: Record<string, number>; csv?: string; chartTable?: { title: string; headers: string[]; rows: string[][] }; }
 export interface OverviewHandle { scrollToSection: (section: string) => void; exportIndicators: () => void; clearSelection: () => void; refresh: () => void; setPeriod: (period:OverviewPeriod) => void; }
 type Model = { body: string; styles: string; calculationScript: string };
 let modelPromise: Promise<Model> | undefined, instance = 0;
@@ -142,6 +142,12 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
     }
     if (item instanceof HTMLCanvasElement && api.readChartSnapshot && view === 'overview' && !summary) enhanceOverviewChart(item.id, config, { ...api.readChartSnapshot(), compare: comparePeriod, reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches });
     if (item.id === 'revenueChart' && !showRevenue) config.data.datasets.forEach((s: any) => { if (s.label === 'Período anterior') s.hidden = true; });
+    // Dense value labels remain available through the existing table on phones.
+    const labels=config.options.plugins?.datalabels;
+    if(labels&&labels.display!==false&&!item.id.startsWith('ks_')){
+      const display=labels.display;
+      labels.display=(context:unknown)=>matchMedia('(max-width:780px)').matches?false:typeof display==='function'?display(context):display??true;
+    }
     const chart = new Chart(item, config);
     const destroy = chart.destroy.bind(chart); chart.destroy = () => { owned.delete(chart); destroy(); };
     owned.add(chart); return chart;
@@ -185,6 +191,13 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   setTheme(theme);
   const bound = new WeakSet<Element>();
   const bindControls = () => {
+    root.querySelectorAll<HTMLElement>('.table-wrap').forEach(wrapper=>{
+      if(wrapper.hasAttribute('tabindex'))return;
+      wrapper.tabIndex=0;wrapper.setAttribute('role','region');
+      const label=wrapper.closest('.card')?.querySelector('.card-title')?.textContent?.trim()||'Tabela de dados';
+      wrapper.setAttribute('aria-label',label+' · deslize para consultar as colunas');
+      const hint=document.createElement('p');hint.className='mobile-table-hint';hint.textContent='Deslize a tabela para consultar todas as colunas.';hint.setAttribute('aria-hidden','true');wrapper.before(hint);
+    });
     root.querySelectorAll<HTMLElement>('[onclick],[onchange],[oninput]').forEach(element => {
       if (bound.has(element)) return; bound.add(element);
       for (const eventName of ['click', 'change', 'input']) {
@@ -207,6 +220,14 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
     });
   };
   bindControls();
+  listen(root,'click',event=>{
+    if(summary||view!=='overview'||!matchMedia('(max-width:780px)').matches)return;
+    const button=(event.target as Element).closest('.financial-grid .tip-icon');
+    const card=button?.closest('.kpi-card');
+    if(!card)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    emit({indicatorInfo:{title:card.querySelector('.kpi-label')?.textContent?.trim()||'Indicador',description:card.getAttribute('data-tip')||card.getAttribute('data-original-tip')||''}});
+  },true);
   const chartTable = (chart: ChartInstance) => {
     const title = chart.canvas.closest('.card,.produto-card')?.querySelector('.card-title')?.textContent?.trim() || 'Valores do gráfico';
     const visible = chart.data.datasets.map((series, datasetIndex) => ({series, datasetIndex})).filter(({datasetIndex}) => chart.isDatasetVisible(datasetIndex));

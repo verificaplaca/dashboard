@@ -109,8 +109,9 @@ function TaskWorkspace({ userId }: { userId: string }) {
     [summary, setSummary] = useState<TaskSummary>(emptyTaskSummary);
   const [filters, setFilters] = useState<Filters>(initialFilters),
     [query, setQuery] = useState(""),
-    [view, setView] = useState("board"),
+    [view, setView] = useState(()=>matchMedia("(max-width:780px)").matches?"list":"board"),
     [limit, setLimit] = useState(PAGE);
+  const [filtersOpen,setFiltersOpen]=useState(false);
   const [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -324,7 +325,7 @@ function TaskWorkspace({ userId }: { userId: string }) {
     <article
       className={`task-card priority-${task.priority} ${task.archived_at ? "task-archived" : ""}`}
       key={task.id}
-      draggable={!busy && !task.archived_at}
+      draggable={view === 'board' && !busy && !task.archived_at}
       onDragStart={(event) => event.dataTransfer.setData("text/plain", task.id)}
     >
       <div className="task-card-top">
@@ -371,7 +372,7 @@ function TaskWorkspace({ userId }: { userId: string }) {
     </article>
   );
   return (
-    <div className="live-tasks">
+    <div className="live-tasks" data-filters-expanded={filtersOpen}>
       <PageHeading
         eyebrow="EXECUÇÃO DA OPERAÇÃO"
         title="Tarefas"
@@ -464,6 +465,7 @@ function TaskWorkspace({ userId }: { userId: string }) {
         onChange={setQuery}
         placeholder="Buscar pelo título da tarefa…"
       >
+        <button className="button secondary mobile-filter-toggle" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(value=>!value)}>{filtersOpen?'Ocultar filtros':'Filtrar tarefas'}</button>
         <select
           aria-label="Estado das tarefas"
           value={filters.status}
@@ -586,7 +588,8 @@ function TaskWorkspace({ userId }: { userId: string }) {
         </div>
       ) : (
         <Card>
-          <div className="table-scroll">
+          <div className="mobile-records mobile-task-list">{rows.map(taskCard)}</div>
+          <div className="table-scroll desktop-records">
             <table>
               <caption className="sr-only">Tarefas da operação</caption>
               <thead>

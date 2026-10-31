@@ -21,12 +21,14 @@ export default function Dashboard() {
   const overview = useRef<OverviewHandle>(null);
   const [metric, setMetric] = useState<MetricDetail | null>(null);
   const [day, setDay] = useState<DayDetail | null>(null);
+  const [indicatorInfo,setIndicatorInfo]=useState<OverviewEvent['indicatorInfo']|null>(null);
   const [rules, setRules] = useState(false);
   const [chartTable, setChartTable] = useState<{ title: string; headers: string[]; rows: string[][] } | null>(null);
   const handleOverview = (event: OverviewEvent) => {
     if (event.ready) window.dispatchEvent(new CustomEvent('vp-overview-source', { detail: event.example ? 'EXEMPLO · FONTE INDISPONÍVEL' : 'DADOS REAIS' }));
     if (event.action === 'rules') setRules(true);
     if (event.action === 'export') overview.current?.exportIndicators();
+    if(event.indicatorInfo)setIndicatorInfo(event.indicatorInfo);
     if (event.metricDetail) setMetric(event.metricDetail);
     if (event.dayDetail) setDay(event.dayDetail);
     if (event.chartTable) setChartTable(event.chartTable);
@@ -35,6 +37,7 @@ export default function Dashboard() {
   return <div className="original-overview">
     <OriginalOverview ref={overview} onEvent={handleOverview} />
     <p className="overview-source-note"><ShieldCheck size={14} />Leitura das fontes originais. As metas, impostos e comparativos seguem as regras do dashboard atual.</p>
+    {indicatorInfo&&<Dialog title={indicatorInfo.title} close={()=>setIndicatorInfo(null)}><p className="dialog-description" style={{whiteSpace:'pre-line'}}>{indicatorInfo.description}</p><div className="dialog-footer"><button className="button primary" onClick={()=>setIndicatorInfo(null)}>Entendi</button></div></Dialog>}
     {chartTable && <Dialog title={chartTable.title} close={() => setChartTable(null)} wide><p className="dialog-description">As mesmas séries do gráfico em formato de tabela. “—” indica ausência de valor; projeções e metas mantêm suas próprias colunas.</p><div className="table-scroll chart-data-table"><table><caption className="sr-only">Valores de {chartTable.title}</caption><thead><tr>{chartTable.headers.map((header, index) => <th key={index}>{header}</th>)}</tr></thead><tbody>{chartTable.rows.map((row, index) => <tr key={index}>{row.map((cell, column) => <td key={column} className={column ? 'num' : ''}>{cell}</td>)}</tr>)}</tbody></table></div><div className="dialog-footer"><button className="button secondary" onClick={() => { const quote = (value: string) => '"' + String(value).replace(/"/g, '""') + '"'; exportFile('verifica-placa-grafico.csv', [chartTable.headers, ...chartTable.rows].map(row => row.map(quote).join(';')).join('\n')); }}>Exportar valores</button><button className="button primary" onClick={() => setChartTable(null)}>Fechar tabela</button></div></Dialog>}
     {metric && <Dialog title={metric.title} close={() => setMetric(null)} side>
       <p className="detail-eyebrow">ENTENDA O INDICADOR</p>
