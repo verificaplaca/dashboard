@@ -1,7 +1,7 @@
 const palette = { positive: '#a8dc69', negative: '#fb8792', attention: '#edc75f', ink: '#242b39', neutral: '#b6bdc9' };
 const ids = new Set(['profitChart', 'netProfitChart', 'cacChart', 'upsellChart', 'convChart', 'produtoTesteChart', 'produtoAtualChart', 'lostIsShareChart', 'lostIsEvolutionChart']);
 
-/** Change style fields only. Observations, labels, callback formatters and axis origins stay original. */
+/** Change presentation only. Observations, labels and callback formatters stay original. */
 export function styleAnalyticalChart(id: string, config: any) {
   if (!ids.has(id)) return;
   const options = config.options;
@@ -15,6 +15,12 @@ export function styleAnalyticalChart(id: string, config: any) {
     return;
   }
   options.layout = { ...options.layout, padding: { top: 12, right: 8, bottom: 4, left: 0 } };
+  // Give daily results room above peaks and below losses, including comparisons.
+  // Keep the bar chart's zero baseline and let Chart.js choose readable ticks.
+  if ((id === 'profitChart' || id === 'netProfitChart') && options.scales?.y) {
+    options.scales.y.grace = '20%';
+    options.scales.y.beginAtZero = true;
+  }
   for (const [name, scale] of Object.entries<any>(options.scales || {})) {
     if (scale.ticks) scale.ticks.maxTicksLimit = name === 'x' ? 6 : 5;
   }
