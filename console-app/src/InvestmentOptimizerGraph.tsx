@@ -1,3 +1,4 @@
+import { mobileChartTooltips } from './chart-tooltips';
 import { balancedChartScales } from './domain/chart-scales';
 import { useEffect, useRef, useState } from 'react';
 import type { Chart } from 'chart.js';
@@ -21,7 +22,7 @@ export default function OptimizationGraph({ row, settings, learning, theme, gain
         { label: 'Pico sem aprendizado', data: point(row.steady), borderColor: '#4c83ff', backgroundColor: '#4c83ff', borderWidth: 0, pointRadius: learning ? 5 : 9, pointHoverRadius: 10, borderDash: [] },
         { label: row.learning.status === 'keep' ? 'Melhor decisão com aprendizado: manter' : 'Pico com aprendizado', data: point(row.learning), borderColor: '#d99536', backgroundColor: '#d99536', borderWidth: 0, pointRadius: learning ? 9 : 5, pointHoverRadius: 10, borderDash: [] },
       ];
-      chart = new ChartJS(canvas.current, { plugins: [balancedChartScales], type: 'line', data: { datasets }, options: {
+      chart = new ChartJS(canvas.current, { plugins: [balancedChartScales, mobileChartTooltips], type: 'line', data: { datasets }, options: {
         responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'nearest', intersect: false },
         plugins: { legend: { display: false }, tooltip: { callbacks: { title: items => `${money(Number(items[0]?.parsed.x))}/dia`, label: item => `${item.dataset.label}: ${money(Number(item.parsed.y))} ${gain ? 'de lucro adicional' : 'de lucro total'}` } } },
         scales: { x: { type: 'linear', min: settings.minBudget, max: settings.maxBudget, title: { display: true, text: 'Investimento Google Ads por dia (R$)', color: text }, grid: { display: false }, ticks: { color: text, maxTicksLimit: 6, callback: n => `R$ ${compact(Number(n))}` }, border: { color: border } }, y: { beginAtZero: true, title: { display: true, text: `${gain ? 'Ganho de lucro líquido' : 'Lucro líquido total'} em ${settings.days} dias (R$)`, color: text }, ticks: { color: text, maxTicksLimit: 6, callback: n => `R$ ${compact(Number(n))}` }, grid: { color: context => context.tick.value === 0 ? text : border, lineWidth: context => context.tick.value === 0 ? 1.5 : .6 }, border: { display: false } } },

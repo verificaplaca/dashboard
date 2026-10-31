@@ -1,3 +1,4 @@
+import { mobileChartTooltips } from './chart-tooltips';
 import { balancedChartScales } from './domain/chart-scales';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Chart } from 'chart.js';
@@ -19,7 +20,7 @@ function WindowChart({ rows, gain, theme }: { rows: ChartRow[]; gain: boolean; t
     void import('chart.js/auto').then(({ default: ChartJS }) => {
       if (disposed || !canvas.current || !rows.length) return;
       const css = getComputedStyle(document.documentElement), muted = css.getPropertyValue('--muted').trim(), border = css.getPropertyValue('--border').trim();
-      chart = new ChartJS(canvas.current, { plugins: [balancedChartScales], type: 'bar', data: { labels: rows.map(r => r.label), datasets: [
+      chart = new ChartJS(canvas.current, { plugins: [balancedChartScales, mobileChartTooltips], type: 'bar', data: { labels: rows.map(r => r.label), datasets: [
         { label: 'Plano gradual', data: rows.map(r => gain ? r.row.result.delta : r.row.result.scenario.profit), backgroundColor: '#4c83ff', borderRadius: 3, maxBarThickness: 44 },
         { label: 'Direto a R$ 5.000/dia', data: rows.map(r => gain ? r.row.directResult.delta : r.row.directResult.scenario.profit), backgroundColor: '#18b892', borderRadius: 3, maxBarThickness: 44 },
         ...(!gain ? [{ label: 'Manter R$ 2.790/dia', data: rows.map(r => r.row.result.control.profit), backgroundColor: theme === 'dark' ? '#68758a' : '#a0aabe', borderRadius: 3, maxBarThickness: 30 }] : []),

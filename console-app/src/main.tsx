@@ -6,6 +6,7 @@ import './styles.css';
 import { LoadingProvider, LoadingFallback } from './Loading';
 import './layout.css';
 import './live.css';
+import './chart-tooltips.css';
 const Production = lazy(() => import('./Production'));
 const Demo = lazy(() => import('./DemoEntry'));
 const Recovery=lazy(()=>import('./PasswordRecovery'));

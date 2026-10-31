@@ -1,5 +1,11 @@
 .mobile-table-hint{display:none}
 .overview-tools:not([open]) .overview-tools-panel{display:none}
+@media(max-width:780px),(max-width:1024px) and (max-height:500px){
+ .native-body .hero-actions :is(button,a),.native-body .reading-actions button,.native-body .operation-context a{min-height:44px;height:auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;line-height:1.5;white-space:normal}
+ .native-body .hero-actions .refresh-btn{min-width:44px;width:44px;padding:0}
+ .native-body .reading-actions{gap:8px 16px;align-items:center}
+ .native-body select{min-height:44px;box-sizing:border-box;max-width:100%;min-width:0;font-size:16px;line-height:1.4}
+}
 /* Phone presentation for the preserved analytics engine. */
 @media(max-width:780px),(max-width:1024px) and (max-height:500px){
  main, .view, .grid-1-1, .grid-2-1, .card, .executive-analysis, .financial-scroll{min-width:0;max-width:100%}

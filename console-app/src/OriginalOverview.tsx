@@ -1,5 +1,6 @@
 import { overviewReadState, overviewUnavailableMessage } from './domain/overview-publication';
 import { balancedChartScales } from './domain/chart-scales';
+import { mobileChartTooltips } from './chart-tooltips';
 import { scopeOverviewThemeStyles } from './domain/overview-style-scope';
 import { mobileLayoutQuery } from './lib/responsive';
 import { useGlobalLoading } from './Loading';
@@ -156,7 +157,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
       const display=labels.display;
       labels.display=(context:unknown)=>matchMedia(mobileLayoutQuery).matches?false:typeof display==='function'?display(context):display??true;
     }
-    if (!item.id.startsWith('ks_')) (config.plugins ||= []).push(balancedChartScales);
+    if (!item.id.startsWith('ks_')) (config.plugins ||= []).push(balancedChartScales, mobileChartTooltips);
     const chart = new Chart(item, config);
     const destroy = chart.destroy.bind(chart); chart.destroy = () => { owned.delete(chart); destroy(); };
     owned.add(chart); return chart;

@@ -1,3 +1,4 @@
+import { mobileChartTooltips } from './chart-tooltips';
 import { balancedChartScales } from './domain/chart-scales';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Chart } from 'chart.js';
@@ -22,7 +23,7 @@ function GradualGraph({ data, gain, theme }: { data: GradualComparison; gain: bo
       if (disposed || !canvas.current) return;
       const css = getComputedStyle(document.documentElement), muted = css.getPropertyValue('--muted').trim(), border = css.getPropertyValue('--border').trim();
       const rows = data.rows;
-      chart = new ChartJS(canvas.current, { plugins: [balancedChartScales], type: 'bar', data: {
+      chart = new ChartJS(canvas.current, { plugins: [balancedChartScales, mobileChartTooltips], type: 'bar', data: {
         labels: rows.map(r => [r.elasticity === 1 ? 'CAC constante' : 'Elasticidade 0,8', r.withLearning ? 'com aprendizado' : 'sem aprendizado']),
         datasets: [
           { label: 'Plano gradual', data: rows.map(r => gain ? r.result.delta : r.result.scenario.profit), backgroundColor: strategyColors.gradual, borderRadius: 3, maxBarThickness: 32 },
