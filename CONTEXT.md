@@ -235,3 +235,5 @@ OperationsHome oferece período (presets + custom) via OverviewHandle.setPeriod;
 ## Ativação Google pendente de entrada da senha de app
 
 Usuário confirmou que a caixa suporte existe no Gmail e concluiu a criação da senha de app, mas não executou o ativador. Verificação remota: smtp_* vazios e flag CONSOLE_RECOVERY_EMAIL_ENABLED ausente. Ativador agora confirma configuração persistida e digest sha256(true) do flag antes de anunciar sucesso. Novo scripts/google-recovery-setup.py oferece formulário local 127.0.0.1 com caminho aleatório, CSRF/origem, sem logs/eco de senha, encerra após sucesso/15min. Usuário deve inserir a credencial e submeter pessoalmente; não ler senha de app na página Google nem pedir em chat. Oito testes Python aprovados. Envio ainda pendente até submissão do formulário.
+
+Correção da ativação local: usuário recebeu Solicitação inválida. Reproduzido Chrome form POST com Origin:null devido ao header no-referrer. Corrigido para Referrer-Policy:same-origin, sem relaxar CSRF/Host/origem. Probe sem credenciais confirmou Origin real; 8 testes Python passaram. Formulário reiniciado e reaberto, aguardando entrada/submissão pessoal do usuário.

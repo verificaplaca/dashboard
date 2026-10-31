@@ -38,12 +38,14 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(self.server.server_address[0], '127.0.0.1')
         self.assertEqual(headers['Cache-Control'], 'no-store')
+        self.assertEqual(headers['Referrer-Policy'], 'same-origin')
         self.assertIn("frame-ancestors 'none'", headers['Content-Security-Policy'])
         self.assertIn('type="password"', body)
         self.operation.assert_not_called()
 
     def test_cross_origin_and_missing_csrf_cannot_submit_credentials(self):
         self.assertEqual(self.request('POST', 'abcdefghijklmnop', origin='https://example.invalid')[0], 403)
+        self.assertEqual(self.request('POST', 'abcdefghijklmnop', origin='null')[0], 403)
         self.assertEqual(self.request('POST', 'abcdefghijklmnop', csrf='wrong')[0], 400)
         self.operation.assert_not_called()
 

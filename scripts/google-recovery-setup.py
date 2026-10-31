@@ -32,7 +32,8 @@ def make_server(token, port=0, activate=None):
             self.send_response(status)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.send_header('Cache-Control', 'no-store')
-            self.send_header('Referrer-Policy', 'no-referrer')
+            # Same-origin form POSTs need a real Origin; no-referrer makes Chrome send null.
+            self.send_header('Referrer-Policy', 'same-origin')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
             self.end_headers()
