@@ -1,3 +1,5 @@
+import { scopeOverviewThemeStyles } from './domain/overview-style-scope';
+import { mobileLayoutQuery } from './lib/responsive';
 import { useGlobalLoading } from './Loading';
 import { costValue, netMarginPercent } from './domain/overview-series';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -51,7 +53,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   host.dataset.theme = theme === 'dark' ? 'dark' : '';
   host.dataset.mode = summary ? 'summary' : 'full';
   host.dataset.view = view;
-  const styles = model.styles.replace('.view:not(#view-overview)', `.view:not(#view-${view})`).replace(/:root/g, ':host').replace(/\[data-theme="dark"\]/g, ':host([data-theme="dark"])').replace(/:host:host/g, ':host').replace(/\[data-mode="summary"\]/g, ':host([data-mode="summary"])').replace(/\bhtml\b/g, ':host').replace(/\bbody\b/g, '.native-body');
+  const styles = scopeOverviewThemeStyles(model.styles).replace('.view:not(#view-overview)', `.view:not(#view-${view})`).replace(/:root/g, ':host').replace(/:host:host/g, ':host').replace(/\[data-mode="summary"\]/g, ':host([data-mode="summary"])').replace(/\bhtml\b/g, ':host').replace(/\bbody\b/g, '.native-body');
   root.innerHTML = `<style>${styles}\n:host{display:block;position:relative;min-width:0;font-family:Inter,system-ui,sans-serif} .native-body{margin:0;min-width:0;overflow:visible}:host{overflow:visible} .date-dropdown{z-index:100} #loadingOverlay{display:none!important} .sidebar,.sidebar-backdrop{display:none!important}</style><div class="native-body">${model.body}</div>`;
   const body = root.querySelector<HTMLElement>('.native-body')!;
   root.querySelector('header')!.id = 'section-filters';
@@ -146,7 +148,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
     const labels=config.options.plugins?.datalabels;
     if(labels&&labels.display!==false&&!item.id.startsWith('ks_')){
       const display=labels.display;
-      labels.display=(context:unknown)=>matchMedia('(max-width:780px)').matches?false:typeof display==='function'?display(context):display??true;
+      labels.display=(context:unknown)=>matchMedia(mobileLayoutQuery).matches?false:typeof display==='function'?display(context):display??true;
     }
     const chart = new Chart(item, config);
     const destroy = chart.destroy.bind(chart); chart.destroy = () => { owned.delete(chart); destroy(); };
@@ -210,9 +212,14 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
         // the original engine reads that attribute to restore date presets.
         (element as any)[`on${eventName}`] = (event: Event) => {
           invoke.call(element, ...names.map(name => api[name]), event);
-          if (expression === 'toggleDP()' && window.innerWidth <= 600) {
+          if(expression==='toggleDP()')event.stopPropagation();
+          if(element.classList.contains('date-preset')&&expression.includes("'custom'")&&matchMedia(mobileLayoutQuery).matches)root.getElementById('customRange')?.scrollIntoView({block:'nearest'});
+          if (expression === 'toggleDP()' && matchMedia(mobileLayoutQuery).matches) {
             const picker = root.getElementById('dateDD')!;
-            picker.style.maxHeight = Math.max(180, window.innerHeight - picker.getBoundingClientRect().top - 16) + 'px';
+            body.appendChild(picker);
+            const top=window.innerHeight<500?(document.querySelector('.topbar')?.getBoundingClientRect().bottom||64)+8:element.getBoundingClientRect().bottom+6;
+            picker.style.top=top+'px';
+            picker.style.maxHeight=Math.max(120,window.innerHeight-top-16)+'px';
           }
         };
       }
@@ -221,12 +228,12 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   };
   bindControls();
   listen(root,'click',event=>{
-    if(summary||view!=='overview'||!matchMedia('(max-width:780px)').matches)return;
-    const button=(event.target as Element).closest('.financial-grid .tip-icon');
-    const card=button?.closest('.kpi-card');
+    if(summary||view!=='overview'||!matchMedia(mobileLayoutQuery).matches)return;
+    const button=(event.target as Element).closest('.has-tip .tip-icon');
+    const card=button?.closest('.has-tip');
     if(!card)return;
     event.preventDefault();event.stopImmediatePropagation();
-    emit({indicatorInfo:{title:card.querySelector('.kpi-label')?.textContent?.trim()||'Indicador',description:card.getAttribute('data-tip')||card.getAttribute('data-original-tip')||''}});
+    emit({indicatorInfo:{title:card.querySelector('.kpi-label,.gauge-lbl,.card-title')?.textContent?.trim()||'Indicador',description:card.getAttribute('data-tip')||card.getAttribute('data-original-tip')||''}});
   },true);
   const chartTable = (chart: ChartInstance) => {
     const title = chart.canvas.closest('.card,.produto-card')?.querySelector('.card-title')?.textContent?.trim() || 'Valores do gráfico';
@@ -321,7 +328,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   if (noteParent) { const note = document.createElement('p'); note.className = 'chart-context-note'; note.textContent = 'Investimento = Google Ads + bureau. Linhas tracejadas indicam projeções e metas.'; noteParent.appendChild(note); }
   const outside = (event: Event) => { const tools = root.querySelector<HTMLDetailsElement>('.overview-tools'); if (tools?.open && !event.composedPath().includes(tools)) tools.open = false; if (!event.composedPath().includes(host)) { root.getElementById('dateDD')?.classList.remove('open'); root.querySelectorAll('.has-tip.tip-open').forEach(el => el.classList.remove('tip-open')); } };
   listen(document, 'click', outside);
-  listen(document, 'keydown', event => { if ((event as KeyboardEvent).key === 'Escape') { const tools = root.querySelector<HTMLDetailsElement>('.overview-tools'); if (tools?.open) tools.open = false; } });
+  listen(document, 'keydown', event => { if ((event as KeyboardEvent).key === 'Escape') { const tools = root.querySelector<HTMLDetailsElement>('.overview-tools'); if (tools?.open) tools.open = false; const picker=root.getElementById('dateDD');if(picker?.classList.contains('open')){picker.classList.remove('open');root.querySelector<HTMLButtonElement>('.date-picker-btn')?.focus();} } });
 
   const stopEntrances = observeEntrances(root); schedule();
   return {

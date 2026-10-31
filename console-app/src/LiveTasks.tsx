@@ -1,3 +1,4 @@
+import { mobileLayoutQuery } from './lib/responsive';
 import { useGlobalLoading } from './Loading';
 import { useEffect, useRef, useState } from "react";
 import {
@@ -109,7 +110,7 @@ function TaskWorkspace({ userId }: { userId: string }) {
     [summary, setSummary] = useState<TaskSummary>(emptyTaskSummary);
   const [filters, setFilters] = useState<Filters>(initialFilters),
     [query, setQuery] = useState(""),
-    [view, setView] = useState(()=>matchMedia("(max-width:780px)").matches?"list":"board"),
+    [view, setView] = useState(()=>matchMedia(mobileLayoutQuery).matches?"list":"board"),
     [limit, setLimit] = useState(PAGE);
   const [filtersOpen,setFiltersOpen]=useState(false);
   const [loading, setLoading] = useState(true),

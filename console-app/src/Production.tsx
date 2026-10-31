@@ -1,3 +1,4 @@
+import { mobileLayoutQuery } from './lib/responsive';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Activity, ArrowUpRight, CheckCircle2, ChevronsLeft, CreditCard, Crosshair, Wallet, Gauge, Headphones, Home, LayoutDashboard, LogIn, Megaphone, MessageSquare, Moon, PanelLeftClose, Search, Settings2, ShieldCheck, Sparkles, Sun, Target, TrendingUp, Users, Workflow, X } from 'lucide-react';
 import { Avatar, Card, Dialog, Empty, PageHeading } from './components';
@@ -54,10 +55,10 @@ function AccessGate() {
 function Shell() {
   const route = useRoute().split('?')[0], { theme, setTheme } = useUI(), { user, role, openLogin } = useAuth();
   const [collapsed, setCollapsed] = useState(true), [mobile, setMobile] = useState(false), [search, setSearch] = useState(false), [query, setQuery] = useState('');
-  const [smallScreen,setSmallScreen]=useState(()=>matchMedia('(max-width:780px)').matches);
+  const [smallScreen,setSmallScreen]=useState(()=>matchMedia(mobileLayoutQuery).matches);
   const menuRef=useRef<HTMLElement>(null);
   useEffect(()=>{
-    const media=matchMedia('(max-width:780px)');
+    const media=matchMedia(mobileLayoutQuery);
     const closeWide=()=>{setSmallScreen(media.matches);if(!media.matches)setMobile(false);};
     media.addEventListener('change',closeWide);return()=>media.removeEventListener('change',closeWide);
   },[]);
@@ -73,7 +74,19 @@ function Shell() {
     document.addEventListener('keydown',keydown);focusables()[0]?.focus();
     return()=>{document.removeEventListener('keydown',keydown);if(content)content.inert=wasInert??false;release();if(previous?.isConnected)previous.focus({preventScroll:true});};
   },[mobile]);
+  useEffect(()=>{
+    if(!smallScreen)return;
+    const labelTables=()=>document.querySelectorAll<HTMLElement>('.table-scroll').forEach(wrapper=>{
+      if(wrapper.hasAttribute('tabindex'))return;
+      wrapper.tabIndex=0;wrapper.setAttribute('role','region');
+      const title=wrapper.querySelector('caption')?.textContent?.trim()||wrapper.closest('.card')?.querySelector('h2,h3')?.textContent?.trim()||'Tabela de dados';
+      if(!wrapper.hasAttribute('aria-label'))wrapper.setAttribute('aria-label',title+' · deslize para consultar as colunas');
+    });
+    labelTables();const observer=new MutationObserver(labelTables);
+    observer.observe(document.body,{childList:true,subtree:true});return()=>observer.disconnect();
+  },[smallScreen]);
   const allowed = (item: {path:string}) => item.path !== '/usuarios' || role === 'administrator';
+  const searchResults=items.filter(allowed).filter(item=>item.label.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')));
   const current = items.find(item => item.path === route);
   const [overviewSource, setOverviewSource] = useState('CARREGANDO FONTE');
   useEffect(() => {
@@ -83,7 +96,7 @@ function Shell() {
     return () => window.removeEventListener('vp-overview-source', update);
   }, [route]);
   useEffect(() => { setMobile(false); window.scrollTo({ top: 0 }); const main = document.querySelector<HTMLElement>('main'); if (main) return observeEntrances(main); }, [route]);
-  useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSearch(true); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
+  useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setMobile(false); setSearch(true); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
   const name = typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : 'Minha conta';
   return <div className={`app-shell premium-console module-design ${collapsed ? 'collapsed' : ''} ${mobile ? 'mobile-open' : ''}`}>
     <button className="skip-link" onClick={() => document.getElementById('main')?.focus()}>Pular para o conteúdo</button>
@@ -97,7 +110,7 @@ function Shell() {
         <footer className="app-footer"><span><ShieldCheck size={13} />Verifica Placa · Console</span><span>{current?.live ? 'Fontes reais · Supabase existente' : 'Módulo em integração'}</span><a href={demoLink()}>Explorar demonstração<ArrowUpRight size={12} /></a></footer>
       </main>
     </div>
-    {search && <Dialog title="Buscar módulo" close={() => setSearch(false)}><label className="search-field"><Search size={18} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Visão Geral, campanhas, metas…" /></label><div className="search-results">{items.filter(allowed).filter(item => item.label.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))).map(item => <button key={item.path} onClick={() => { go(item.path); setSearch(false); setQuery(''); }}><item.icon size={17} /><span>{item.label}<small>{item.live ? 'Dados reais' : 'Em integração'}</small></span><ArrowUpRight size={15} /></button>)}</div></Dialog>}
+    {search && <Dialog title="Buscar módulo" close={() => setSearch(false)}><label className="search-field"><Search size={18} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Visão Geral, campanhas, metas…" /></label><div className="search-results">{searchResults.map(item => <button key={item.path} onClick={() => { go(item.path); setSearch(false); setQuery(''); }}><item.icon size={17} /><span>{item.label}<small>{item.live ? 'Dados reais' : 'Em integração'}</small></span><ArrowUpRight size={15} /></button>)}{!searchResults.length&&<p className="dialog-description" role="status">Nenhum módulo encontrado. Tente outro nome.</p>}</div></Dialog>}
   </div>;
 }
 function IntegrationStage({ title }: { title: string }) {

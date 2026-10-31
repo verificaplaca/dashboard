@@ -25,3 +25,7 @@ Revisão visual e interações em Chrome com viewport de 390×844, conferências
 A revisão local utiliza dados fictícios com nomes e identificadores longos, diferentes estados de envios e tarefas, sem gravar registros, redefinir senhas ou enviar emails. A simulação de dados permanece fora do repositório e da versão publicada. Testes de domínio e paridade do motor financeiro, build TypeScript/Vite e verificação do artefato de publicação complementam a revisão visual.
 
 A emulação valida disposição e navegação; não substitui testes físicos com teclado virtual e Safari em iPhone.
+
+## Revisão complementar de 31/10/2026
+
+Auditoria ampliada, incluindo subseções e detalhes expandidos, casos de conteúdo longo e falhas. Matriz de cobertura e correções: [auditoria por página e seção](mobile-ux-auditoria-2026-10-31.md).
