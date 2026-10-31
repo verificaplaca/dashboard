@@ -65,4 +65,4 @@ Validação: 11 testes da Edge Function, testes de validação/cliente na aplica
 
 ## Link de redefinição por email
 
-Administradores podem solicitar link ao destinatário cadastrado e ativo. Migração 025 e função atualizada adicionam autorização, controle de reenvio e auditoria. A página `?recovery=1` valida token único em sessão isolada e permite ao usuário escolher sua senha. Remetente escolhido: suporte@verificaplaca.com.br pelo Google Workspace. Envio efetivo bloqueado até o dono autorizar SMTP; nenhuma mensagem real enviada nos testes. Ativação: [Email de recuperação](email-recuperacao.md).
+Administradores podem solicitar link ao destinatário cadastrado e ativo. Migração 025 e função atualizada adicionam autorização, controle de reenvio e auditoria. A página `?recovery=1` valida token único em sessão isolada e permite ao usuário escolher sua senha. Remetente escolhido: suporte@verificaplaca.com.br pelo Google Workspace. Google SMTP ativado. Link de teste enviado ao administrador com autorização e recebido na Inbox, confirmado pelo usuário; senha atual preservada. Ativação: [Email de recuperação](email-recuperacao.md).

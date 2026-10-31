@@ -43,6 +43,20 @@ class ActivationError(RuntimeError):
         self.stage = stage
 
 
+def activation_confirmed(token):
+    stored = auth_config(token)
+    expected = {'smtp_host': 'smtp.gmail.com', 'smtp_port': '465', 'smtp_user': SENDER, 'smtp_admin_email': SENDER, 'smtp_sender_name': 'Verifica Placa'}
+    if any(str(stored.get(field)) != value for field, value in expected.items()):
+        return False
+    listed = subprocess.run(['supabase', 'secrets', 'list', '--project-ref', PROJECT, '--output', 'json'], capture_output=True, text=True)
+    try:
+        entries = json.loads(listed.stdout) if listed.returncode == 0 else []
+    except (ValueError, TypeError):
+        return False
+    expected_digest = hashlib.sha256(b'true').hexdigest()
+    return isinstance(entries, list) and any(entry.get('name') == 'CONSOLE_RECOVERY_EMAIL_ENABLED' and (entry.get('digest') or entry.get('value')) == expected_digest for entry in entries)
+
+
 def activate(token, password):
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=25, context=ssl.create_default_context()) as smtp:
@@ -79,7 +93,7 @@ def activate(token, password):
     except (ValueError, TypeError):
         entries = []
     expected_digest = hashlib.sha256(b'true').hexdigest()
-    if not any(entry.get('name') == 'CONSOLE_RECOVERY_EMAIL_ENABLED' and entry.get('digest') == expected_digest for entry in entries):
+    if not any(entry.get('name') == 'CONSOLE_RECOVERY_EMAIL_ENABLED' and (entry.get('digest') or entry.get('value')) == expected_digest for entry in entries):
         raise ActivationError('server_flag', 'Google configurado, mas a ativação não foi confirmada no servidor. Execute novamente ou revise sua sessão do Supabase CLI.')
 
 
@@ -88,7 +102,9 @@ def main():
     print('Conta remetente: ' + SENDER)
     print('Use uma senha de app dessa conta Google. Não use a senha principal.')
     token = management_token()
-    auth_config(token)  # Verify project access before requesting a credential.
+    if activation_confirmed(token):
+        print('Envio já está ativado e confirmado no servidor. Nenhuma senha precisa ser informada.')
+        return
     if not sys.stdin.isatty():
         raise RuntimeError('Execute em um terminal interativo para manter a senha oculta.')
     password = getpass.getpass('Cole a senha de app (a digitação fica oculta): ').replace(' ', '')

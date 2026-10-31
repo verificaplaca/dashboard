@@ -73,6 +73,11 @@ class SetupTests(unittest.TestCase):
         self.assertIn('HTTP 400', body)
         self.assertNotIn('abcdefghijklmnop', body)
 
+    def test_completed_page_has_no_credential_input(self):
+        body = setup.page(success=True)
+        self.assertIn('Envio ativado', body)
+        self.assertNotIn('type="password"', body)
+
 
 if __name__ == '__main__':
     unittest.main()

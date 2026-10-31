@@ -17,7 +17,7 @@ class ActivationTests(unittest.TestCase):
         expected = {'smtp_host': 'smtp.gmail.com', 'smtp_port': 465, 'smtp_user': activation.SENDER, 'smtp_admin_email': activation.SENDER, 'smtp_sender_name': 'Verifica Placa'}
         smtp = MagicMock()
         api = MagicMock(side_effect=[{}] + [expected if stored is None else stored] * 8)
-        entries = [{'name': 'CONSOLE_RECOVERY_EMAIL_ENABLED', 'digest': hashlib.sha256(b'true').hexdigest()}] if secret_present else []
+        entries = [{'name': 'CONSOLE_RECOVERY_EMAIL_ENABLED', 'value': hashlib.sha256(b'true').hexdigest()}] if secret_present else []
         cli = MagicMock(side_effect=[SimpleNamespace(returncode=0), SimpleNamespace(returncode=0, stdout=json.dumps(entries))])
         return smtp, api, cli
 
@@ -80,6 +80,16 @@ class ActivationTests(unittest.TestCase):
         self.assertEqual(raised.exception.stage, 'google_login')
         self.assertNotIn('fixture-secret', str(raised.exception))
         api.assert_not_called()
+
+    def test_already_enabled_state_uses_actual_cli_value_digest_without_password(self):
+        stored = {'smtp_host': 'smtp.gmail.com', 'smtp_port': '465', 'smtp_user': activation.SENDER, 'smtp_admin_email': activation.SENDER, 'smtp_sender_name': 'Verifica Placa'}
+        for key in ['value', 'digest']:
+            metadata = [{'name': 'CONSOLE_RECOVERY_EMAIL_ENABLED', key: hashlib.sha256(b'true').hexdigest()}]
+            with patch.object(activation, 'auth_config', return_value=stored), patch.object(activation.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=json.dumps(metadata))):
+                self.assertTrue(activation.activation_confirmed('fixture-token'))
+        metadata = [{'name': 'CONSOLE_RECOVERY_EMAIL_ENABLED', 'value': hashlib.sha256(b'false').hexdigest()}]
+        with patch.object(activation, 'auth_config', return_value=stored), patch.object(activation.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=json.dumps(metadata))):
+            self.assertFalse(activation.activation_confirmed('fixture-token'))
 
 
 if __name__ == '__main__':

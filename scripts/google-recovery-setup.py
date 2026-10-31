@@ -19,10 +19,10 @@ def page(message='', success=False):
     return ('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ativar email · Verifica Placa</title><style>body{margin:0;background:#f6f8f6;color:#17231c;font:16px system-ui;min-height:100vh;display:grid;place-items:center}main{background:white;border:1px solid #dce5dd;border-radius:24px;padding:32px;width:min(430px,calc(100vw - 96px))}h1{font-size:26px;font-weight:600}p{line-height:1.6;color:#526059}label{display:block;margin:24px 0 10px}input[type=password]{box-sizing:border-box;width:100%;padding:14px;border:1px solid #8a9e8d;border-radius:10px;font:inherit}button{margin:20px 0;width:100%;background:#223d2b;color:white;border:0;border-radius:12px;padding:14px;font:inherit;cursor:pointer}small{color:#64736a;line-height:1.5;display:block}.error{color:#a42b35}strong{overflow-wrap:anywhere}</style><main><small>VERIFICA PLACA · CONFIGURAÇÃO LOCAL</small><h1>' + ('Envio ativado' if success else 'Ativar envio pelo Google') + '</h1>' + notice + ('<p class="error" role="alert">' + html.escape(message) + '</p>' if message else '') + form + '</main></html>')
 
 
-def make_server(token, port=0, activate=None):
+def make_server(token, port=0, activate=None, already_active=False):
     nonce = secrets.token_urlsafe(32)
     operation = activation.activate if activate is None else activate
-    state = {'completed': False, 'attempts': 0}
+    state = {'completed': already_active, 'attempts': 0}
     operation_lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
@@ -95,8 +95,8 @@ def make_server(token, port=0, activate=None):
 
 if __name__ == '__main__':
     token = activation.management_token()
-    activation.auth_config(token)  # Check project access before opening the form.
-    server, nonce = make_server(token)
+    confirmed = activation.activation_confirmed(token)
+    server, nonce = make_server(token, already_active=confirmed)
     timer = threading.Timer(900, server.shutdown)
     timer.daemon = True
     timer.start()

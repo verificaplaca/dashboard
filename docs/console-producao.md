@@ -127,4 +127,4 @@ A inicial permite aplicar presets e datas personalizadas compartilhadas com a Vi
 
 ## Recuperação por email · 30/10/2026
 
-Ação administrativa de envio de link e página independente de criação de senha. Template/redirect configurados; migração 025 aplicada, signup mantido fechado. Sessão de recuperação isolada, token único/expirado, confirmação de senha e conta ativa. Envio Google pendente de autorização SMTP de suporte@verificaplaca.com.br. 188 testes app +15 Edge aprovados; SQL remoto e Auth real sem mensagens aprovados. [Ativação](email-recuperacao.md).
+Ação administrativa de envio de link e página independente de criação de senha. Template/redirect configurados; migração 025 aplicada, signup mantido fechado. Sessão de recuperação isolada, token único/expirado, confirmação de senha e conta ativa. Envio Google ativo por suporte@verificaplaca.com.br; entrega de teste ao administrador autorizada e confirmada na Inbox. 188 testes app +15 Edge aprovados; SQL remoto e Auth real sem mensagens aprovados. [Ativação](email-recuperacao.md).
