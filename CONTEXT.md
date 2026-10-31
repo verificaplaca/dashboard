@@ -2,6 +2,10 @@
 > Atualizar este arquivo sempre que houver mudanças estruturais no projeto.
 > Usar como contexto inicial em novas conversas para economizar tokens.
 
+## Tracking — proteção de reconciliação · 31/10/2026
+
+Sobreposição real de reconciliação e webhook confirmada em compra repetida no GA4. Reconciliação v7 adia pagamentos por 10min, relê o estado atual e preserva canais já concluídos; dispatch v16 observa confirmações Meta sem mudar payloads ou retries. Onze testes aprovados, código implantado comparado e sete confirmações Meta reais conciliadas sem divergência. A duplicidade entre navegadores e a diferença histórica da Meta continuam pendentes; não declarar validação integral concluída. Falta repositório atual do site (acesso ao Supabase do site retornou403). Evidências, limites e rollback: `docs/tracking-protecao-2026-10-31.md`.
+
 ---
 
 ## Produto

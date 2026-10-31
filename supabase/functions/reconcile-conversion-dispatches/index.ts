@@ -34,6 +34,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { dispatchAll, sha256Hex, type CheckoutConversionData } from '../_shared/conversion-dispatch.ts'
+import { dispatchReconciliationCandidate, needsConversionRepair } from '../_shared/reconciliation-policy.ts'
 
 // 12h: com o cron a cada 2h, cobre 6 execuções de folga e mantém tudo dentro da
 // janela de 24h do Google Ads. Aumentar isso só faz sentido junto com paginação
@@ -56,7 +57,7 @@ Deno.serve(async (_req) => {
   const since = new Date(Date.now() - LOOKBACK_HOURS * 3600_000).toISOString()
 
   try {
-    // 1. Lista checkouts pagos nas últimas 48h no site.
+    // 1. Lista checkouts pagos na janela existente de 12h no site.
     const rpcResp = await fetch(`${bureauUrl}/rest/v1/rpc/list_paid_checkout_ids`, {
       method: 'POST',
       headers: { apikey: bureauKey, Authorization: `Bearer ${bureauKey}`, 'Content-Type': 'application/json' },
@@ -80,10 +81,7 @@ Deno.serve(async (_req) => {
     // sem event_id real ou sem NENHUM identificador hasheado. Reprocessar pela
     // RPC é a única forma de recuperá-la — o retry não faz isso.
     const brokenIds = (existingRows ?? [])
-      .filter(r =>
-        r.event_id === 'unknown' ||
-        (!r.email_sha256 && !r.phone_sha256_e164 && !r.phone_sha256_digits && !r.phone_sha256)
-      )
+      .filter(needsConversionRepair)
       .map(r => r.checkout_id as string)
 
     const missingIds = paidIds.filter(id => !existingIds.has(id))
@@ -106,7 +104,13 @@ Deno.serve(async (_req) => {
         if (!rows.length) throw new Error(`checkout ${checkoutId} não encontrado via RPC`)
         const data = rows[0]
 
-        const result = await dispatchAll(data)
+        const result = await dispatchReconciliationCandidate(data, async () => {
+          const current = await supabase.from('conversion_dispatches')
+            .select('event_id,email_sha256,phone_sha256_e164,phone_sha256_digits,phone_sha256,ga4_status,ga4_error,ads_status,ads_error,meta_status,meta_error')
+            .eq('checkout_id', checkoutId).maybeSingle()
+          return { data: current.data, error: current.error }
+        }, dispatchAll)
+        if (!result) continue
 
         // P2.3 — mesmo padrão do dispatch-conversions: grava só o hash, e o
         // telefone nos dois formatos (migration 015).

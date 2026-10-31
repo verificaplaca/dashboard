@@ -12,6 +12,8 @@
  * (nomes de campo podem ter mudado entre versões da API). Não tratar esse trecho como testado.
  */
 
+import { observeMetaReceipt } from './conversion-receipt.ts'
+
 export interface CheckoutConversionData {
   checkout_id: string
   order_nsu: string
@@ -388,6 +390,7 @@ async function dispatchMeta(data: CheckoutConversionData, eventId: string): Prom
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     )
     if (!resp.ok) return { status: 'failed', error: `Meta CAPI HTTP ${resp.status}: ${await resp.text()}` }
+    await observeMetaReceipt(resp, eventId, data.valor, data.paid_at)
     return { status: 'success' }
   } catch (err) {
     return { status: 'failed', error: err instanceof Error ? err.message : String(err) }
