@@ -38,3 +38,7 @@ Após todas as inscrições terminarem, mantém a janela de assentamento de 160 
 Acessibilidade: progressbar com valor atual e descrição de estimativa; o anúncio de status só muda ao iniciar/concluir, evitando anunciar cada atualização de percentual. Largura limitada à janela no mobile e números tabulares.
 
 Validação: 212 testes de domínio/componentes e 12 de paridade aprovados, build TypeScript/Vite e release aprovados. Novos testes cobrem snapshots estáveis, contagem de inscrições sem duplicação, progresso limitado durante consulta lenta e avanço monotônico com leituras novas/encadeadas. Na prévia local, a camada foi observada iniciando o progresso com fundo bloqueado. A conferência visual final desktop/mobile ficou limitada por indisponibilidade da ferramenta de navegador; não foi declarada uma validação visual completa. Nenhuma alteração em backend, tracking, autenticação ou dados de negócio.
+
+### Ajuste visual solicitado · 02/11/2026
+
+A apresentação mantém exatamente o componente GooeyLoader, as cores e a animação anteriores. O único acréscimo visível é a porcentagem, em tamanho discreto abaixo da animação. Barra de progresso, título e legendas novos foram removidos a pedido do usuário. O controle de progresso estimado, o valor acessível e a saída suave permanecem; o componente animado não foi alterado.
