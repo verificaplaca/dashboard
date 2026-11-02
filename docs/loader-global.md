@@ -42,3 +42,5 @@ Validação: 212 testes de domínio/componentes e 12 de paridade aprovados, buil
 ### Ajuste visual solicitado · 02/11/2026
 
 A apresentação mantém exatamente o componente GooeyLoader, as cores e a animação anteriores. O único acréscimo visível é a porcentagem, em tamanho discreto abaixo da animação. Barra de progresso, título e legendas novos foram removidos a pedido do usuário. O controle de progresso estimado, o valor acessível e a saída suave permanecem; o componente animado não foi alterado.
+
+Ajuste complementar solicitado: o texto visível **“Carregando dados...”** foi restaurado entre a animação original e a porcentagem, mantendo a tipografia anterior. Sem barra de progresso ou legendas adicionais.
