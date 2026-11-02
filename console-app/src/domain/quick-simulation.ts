@@ -22,3 +22,13 @@ export function quickCurve(base:Baseline,targets:TaxRow[],settings:QuickSettings
  const near=best.budget;for(let b=Math.max(0,near-100);b<=Math.min(10000,near+100);b+=10){const p=quickProjection(base,targets,settings,b,.8);if(p.proposed.profit>best.profit+.005)best={budget:b,profit:p.proposed.profit};}
  return {series,best,bounded:best.budget===10000};
 }
+
+/** Manual calculator: spend / chosen CAC. No automatic response or adaptation. */
+export function manualProjection(base:Baseline,targets:TaxRow[],settings:QuickSettings,budget:number){
+ return quickProjection(base,targets,{...settings,learning:false,orderRate:settings.orderRate??base.orders/base.ads},budget,1);
+}
+export function manualCurve(base:Baseline,targets:TaxRow[],settings:QuickSettings){
+ const points=[...new Set([...Array.from({length:101},(_,i)=>i*100),settings.reference])].sort((a,b)=>a-b).map(budget=>({x:budget,y:manualProjection(base,targets,settings,budget).proposed.profit}));
+ // Keep the shared chart's data shape; no recommendation or optimal-budget marker.
+ return {series:[{id:'central' as const,label:'CAC escolhido mantido',elasticity:1 as const,color:'#4c83ff',points}],best:{budget:settings.reference,profit:manualProjection(base,targets,settings,settings.reference).proposed.profit},bounded:false};
+}
