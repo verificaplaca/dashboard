@@ -79,3 +79,11 @@ A inicial usa snapshot do motor preservado da Visão Geral: mesmos totais e filt
 Filtro da inicial: presets e datas personalizadas usam o mesmo motor e `vp_filter` da Visão Geral. Administração de usuários: edição de nome/email e redefinição de senha (admin-only); requer migração 024 e atualização da função console-users. A integração com Auth é transacional, com auditoria sem credenciais. Testes adicionais: Deno em `supabase/functions/console-users/index.test.ts` e SQL em `supabase/tests/console_user_details.sql`.
 
 Recuperação por email: ação administrativa e rota `?recovery=1` com cliente Auth isolado, token único e confirmação de senha. Requer migração025, função atualizada e template/redirect do Supabase. Google configurado e entrega confirmada; envio protegido pelo flag CONSOLE_RECOVERY_EMAIL_ENABLED ativo. Ativador sem segredos em disco: `scripts/activate-google-recovery-email.py`; detalhes em `docs/email-recuperacao.md`.
+
+## Página de login · 02/11/2026
+
+A entrada real usa `src/components/ui/sign-in-page.tsx` e estilos locais em `sign-in-page.css`, com layout de duas colunas e formulário único no celular. A imagem do componente de referência está em `public/images/sign-in-art.png`, servida localmente. O mesmo componente atende o diálogo de reautenticação na variante compacta.
+
+O alias `@/components/ui` já está configurado no TypeScript/Vite e no `components.json`; Tailwind 4 e lucide-react já estão instalados. A navegação existente por hash dispensa react-router-dom e um BrowserRouter adicional. A apresentação é integrada ao `AuthProvider.signIn`, preservando Supabase Auth, membership e sessão limitada à sessão do navegador. Cadastro e recuperação continuam administrados pela equipe: “Esqueceu a senha?” explica como solicitar o link. Login social e persistência entre sessões não são oferecidos por este fluxo.
+
+Validação: build, 208 testes de domínio + 12 de paridade; navegador em 1440×960 e 390×844, sem overflow horizontal no celular. Campos obrigatórios, mostrar/ocultar senha e ajuda conferidos. Envio desabilitado e mensagem de erro conferidos com callback simulado local, removido após a verificação; sem usar credenciais reais nem enviar emails. Prévias locais em `../../output/login-vf/`. Nenhuma publicação realizada nesta etapa.

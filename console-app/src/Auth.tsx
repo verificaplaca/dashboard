@@ -3,9 +3,10 @@ import type { User } from '@supabase/supabase-js';
 import { getAuthClient } from './api';
 import { useUI } from './ui';
 import { Dialog } from './components';
+import { LoginPage } from '@/components/ui/sign-in-page';
 import { readConsoleAccess, type ConsoleRole } from './domain/users';
 type AccessStatus = 'loading' | 'signed-out' | 'ready' | 'denied' | 'error';
-type Auth = { role: ConsoleRole | null; status: AccessStatus; user: User | null; openLogin: () => void; signOut: () => Promise<void>; refresh: () => Promise<void> };
+type Auth = { role: ConsoleRole | null; status: AccessStatus; user: User | null; openLogin: () => void; signOut: () => Promise<void>; refresh: () => Promise<void>; signIn: (email: string, password: string) => Promise<void> };
 const Context = createContext<Auth | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null), [login, setLogin] = useState(false);
@@ -51,22 +52,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) { notify('Não foi possível encerrar a sessão. Tente novamente.'); return; }
     revision.current++; setUser(null); setRole(null); setStatus('signed-out'); notify('Sessão encerrada.');
   };
-  return <Context.Provider value={{ user, role, status, refresh, openLogin: () => { setRequested(true); setLogin(true); }, signOut }}>{children}{login && <Login close={() => setLogin(false)} refresh={refresh} />}</Context.Provider>;
+  const signIn = async (email: string, password: string) => {
+    const client = await getAuthClient();
+    setRequested(true);
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw new Error('Não foi possível entrar. Confira seu email e senha.');
+    await refresh();
+    setLogin(false);
+  };
+  return <Context.Provider value={{ user, role, status, refresh, signIn, openLogin: () => { setRequested(true); setLogin(true); }, signOut }}>{children}{login && <Dialog title="Entrar no Verifica Placa" close={() => setLogin(false)}><LoginPage compact onSignIn={signIn} /></Dialog>}</Context.Provider>;
 }
 export function useOptionalAuth() { return useContext(Context); }
 export function useAuth() { const value = useContext(Context); if (!value) throw new Error('AuthProvider ausente'); return value; }
-function Login({ close, refresh }: { close: () => void; refresh: () => Promise<void> }) {
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
-  return <Dialog title="Entrar no Verifica Placa" close={close}><form className="live-auth-form" onSubmit={async event => {
-    event.preventDefault(); if (busy) return;
-    const form = event.currentTarget, values = new FormData(form);
-    setBusy(true); setError('');
-    try {
-      const client = await getAuthClient();
-      const { error } = await client.auth.signInWithPassword({ email: String(values.get('email')).trim(), password: String(values.get('password')) });
-      if (error) throw new Error('Não foi possível entrar. Confira seu email e senha.');
-      await refresh(); form.reset(); close();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao entrar. Tente novamente.'); }
-    finally { setBusy(false); }
-  }}><div className="form-fields live-form"><p>Entre com sua conta de gerente ou administrador. Novos acessos são criados por um administrador.</p><label>Email<input autoFocus name="email" type="email" autoComplete="username" required /></label><label>Senha<input name="password" type="password" autoComplete="current-password" required /></label>{error && <p role="alert">{error}</p>}</div><div className="dialog-footer"><button type="button" className="button secondary" onClick={close}>Cancelar</button><button className="button primary" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button></div></form></Dialog>;
-}

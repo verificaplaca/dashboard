@@ -128,3 +128,9 @@ A inicial permite aplicar presets e datas personalizadas compartilhadas com a Vi
 ## Recuperação por email · 30/10/2026
 
 Ação administrativa de envio de link e página independente de criação de senha. Template/redirect configurados; migração 025 aplicada, signup mantido fechado. Sessão de recuperação isolada, token único/expirado, confirmação de senha e conta ativa. Envio Google ativo por suporte@verificaplaca.com.br; entrega de teste ao administrador autorizada e confirmada na Inbox. 188 testes app +15 Edge aprovados; SQL remoto e Auth real sem mensagens aprovados. [Ativação](email-recuperacao.md).
+
+## Página de login · 02/11/2026
+
+Entrada do painel redesenhada a partir do componente de referência: imagem local, identidade Verifica Placa, formulário em português e coluna única no celular. Mantém Supabase Auth, membership e sessão no navegador. Recuperação orienta o usuário a solicitar o link ao administrador; sem cadastro público ou login social. Componente reutilizável em `console-app/src/components/ui/sign-in-page.tsx`.
+
+Publicação autorizada pelo usuário. Fonte sincronizada com a main antes do release; 218 testes de domínio e 12 de paridade aprovados, builds Pages e Vercel aprovados. Conferência visual desktop/mobile e estados de envio/erro com simulação local, sem credenciais reais. Frontend apenas, sem alteração de banco ou permissões.

@@ -4,6 +4,7 @@ import { Activity, ArrowUpRight, CheckCircle2, ChevronsLeft, CreditCard, Crossha
 import { Avatar, Card, Dialog, Empty, PageHeading } from './components';
 import { go, useRoute } from './format';
 import { AuthProvider, useAuth } from './Auth';
+import { LoginPage } from '@/components/ui/sign-in-page';
 import { LoadingFallback, useGlobalLoading } from './Loading';
 import { UIProvider, useUI } from './ui';
 import { observeEntrances } from './motion';
@@ -42,13 +43,14 @@ export default function Production() {
   return <UIProvider theme={theme} setTheme={setTheme} notify={notify}><AuthProvider><AccessGate />{toast && <div className="toast" role="status"><CheckCircle2 size={18} /><span>{toast}</span><button aria-label="Fechar aviso" onClick={() => notify('')}><X size={14} /></button></div>}</AuthProvider></UIProvider>;
 }
 function AccessGate() {
-  const {status,openLogin,refresh,signOut,user}=useAuth();
+  const {status,signIn,refresh,signOut,user}=useAuth();
   useGlobalLoading(status==='loading');
   if(status==='ready') return <Shell />;
+  if(status==='signed-out') return <main><LoginPage onSignIn={signIn} /></main>;
   return <main className="access-gate"><Card title="Verifica Placa · Acesso ao painel">
     {status==='loading'?<p role="status">Verificando seu acesso…</p>:<>
     <p role={status==='error'?'alert':undefined}>{status==='denied'?'Sua conta não tem acesso ativo ao painel. Procure um administrador.':status==='error'?'Não foi possível verificar sua permissão. Tente novamente.':'Entre com sua conta para acessar o painel.'}</p>
-    {status==='signed-out'?<button className="button primary" onClick={openLogin}>Entrar no painel</button>:<button className="button primary" onClick={()=>void refresh()}>Verificar novamente</button>}
+    <button className="button primary" onClick={()=>void refresh()}>Verificar novamente</button>
     {user&&<button className="button secondary" onClick={()=>void signOut()}>Sair da conta</button>}</>}
   </Card></main>;
 }
