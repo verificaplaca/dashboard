@@ -1,30 +1,27 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { getAuthClient } from './api';
+import { getAuthClient, getSessionStorage } from './api';
+import { AUTH_STORAGE_KEY } from './lib/auth-storage';
+import { readSessionAccess } from './domain/auth-session';
 import { useUI } from './ui';
 import { Dialog } from './components';
 import { LoginPage } from '@/components/ui/sign-in-page';
-import { readConsoleAccess, type ConsoleRole } from './domain/users';
+import type { ConsoleRole } from './domain/users';
 type AccessStatus = 'loading' | 'signed-out' | 'ready' | 'denied' | 'error';
-type Auth = { role: ConsoleRole | null; status: AccessStatus; user: User | null; openLogin: () => void; signOut: () => Promise<void>; refresh: () => Promise<void>; signIn: (email: string, password: string) => Promise<void> };
+type Auth = { role: ConsoleRole | null; status: AccessStatus; user: User | null; openLogin: () => void; signOut: () => Promise<void>; refresh: () => Promise<void>; signIn: (email: string, password: string, remember: boolean) => Promise<void> };
 const Context = createContext<Auth | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null), [login, setLogin] = useState(false);
-  const [requested, setRequested] = useState(() => { try { return !!sessionStorage.getItem('vp-production-auth'); } catch { return false; } });
+  const [requested, setRequested] = useState(() => { try { return !!getSessionStorage().getItem(AUTH_STORAGE_KEY); } catch { return false; } });
   const [role, setRole] = useState<ConsoleRole | null>(null), [status, setStatus] = useState<AccessStatus>(requested ? 'loading' : 'signed-out');
   const { notify } = useUI();
   const revision = useRef(0);
   const refresh = async () => {
     const request = ++revision.current;
     const client = await getAuthClient();
-    const { data, error } = await client.auth.getUser();
+    const access = await readSessionAccess(client);
     if (request !== revision.current) return;
-    if(error || !data.user) { setUser(null); setRole(null); setStatus('signed-out'); return; }
-    try {
-      const member = await readConsoleAccess(client, data.user.id);
-      if(request !== revision.current) return;
-      setUser(data.user); setRole(member?.active ? member.role : null); setStatus(member?.active ? 'ready' : 'denied');
-    } catch { if(request === revision.current) { setUser(data.user); setRole(null); setStatus('error'); } }
+    setUser(access.user); setRole(access.role); setStatus(access.status);
   };
   useEffect(() => {
     if (!requested) return;
@@ -44,7 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const check = () => { if(document.visibilityState==='visible') void refresh().catch(() => { setRole(null); setStatus('error'); }); };
     const timer=setInterval(check,30_000);
     window.addEventListener('focus',check);
-    return () => { clearInterval(timer); window.removeEventListener('focus',check); };
+    window.addEventListener('online',check);
+    return () => { clearInterval(timer); window.removeEventListener('focus',check); window.removeEventListener('online',check); };
   },[requested]);
   const signOut = async () => {
     const client = await getAuthClient();
@@ -52,8 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) { notify('Não foi possível encerrar a sessão. Tente novamente.'); return; }
     revision.current++; setUser(null); setRole(null); setStatus('signed-out'); notify('Sessão encerrada.');
   };
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, remember: boolean) => {
     const client = await getAuthClient();
+    getSessionStorage().setRemember(remember);
     setRequested(true);
     const { error } = await client.auth.signInWithPassword({ email, password });
     if (error) throw new Error('Não foi possível entrar. Confira seu email e senha.');

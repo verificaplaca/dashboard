@@ -1,9 +1,9 @@
 import { useId, useState, type FormEvent } from 'react';
-import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import './sign-in-page.css';
 
 type LoginPageProps = {
-  onSignIn: (email: string, password: string) => Promise<void>;
+  onSignIn: (email: string, password: string, remember: boolean) => Promise<void>;
   compact?: boolean;
 };
 
@@ -14,6 +14,7 @@ export function LoginPage({ onSignIn, compact = false }: LoginPageProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [help, setHelp] = useState(false);
+  const [remember, setRemember] = useState(true);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -23,7 +24,7 @@ export function LoginPage({ onSignIn, compact = false }: LoginPageProps) {
     setBusy(true);
     setError('');
     try {
-      await onSignIn(String(values.get('email')).trim(), String(values.get('password')));
+      await onSignIn(String(values.get('email')).trim(), String(values.get('password')), remember);
       form.reset();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível entrar. Tente novamente.');
@@ -34,7 +35,7 @@ export function LoginPage({ onSignIn, compact = false }: LoginPageProps) {
 
   return <div className={`vf-sign-in${compact ? ' vf-sign-in--compact' : ''}`}>
     {!compact && <section className="vf-sign-in-art" aria-label="Verifica Placa · Console de gestão">
-      <img className="vf-sign-in-image" src={`${import.meta.env.BASE_URL}images/sign-in-art.png`} alt="" fetchPriority="high" />
+      <img className="vf-sign-in-image" src={`${import.meta.env.BASE_URL}images/sign-in-car.png`} alt="" fetchPriority="high" />
       <div className="vf-sign-in-art-shade" />
       <div className="vf-sign-in-brand vf-sign-in-brand--light"><img src={`${import.meta.env.BASE_URL}verifica-placa-logo.png`} alt="" /><span>Verifica Placa<small>CONSOLE DE GESTÃO</small></span></div>
       <div className="vf-sign-in-story"><span className="vf-sign-in-pill"><span /> SUA OPERAÇÃO, CONECTADA</span><h2>Uma visão clara.<br />Novas possibilidades.</h2><p>Resultados, campanhas e metas.<br />Tudo conectado para a próxima decisão.</p></div>
@@ -47,7 +48,7 @@ export function LoginPage({ onSignIn, compact = false }: LoginPageProps) {
         <form onSubmit={submit} aria-busy={busy} className="vf-sign-in-form">
           <div className="vf-sign-in-field"><label htmlFor={`${id}-email`}>Email</label><input id={`${id}-email`} name="email" type="email" autoComplete="username" placeholder="seu@email.com.br" required disabled={busy} aria-describedby={error ? `${id}-error` : undefined} /></div>
           <div className="vf-sign-in-field"><label htmlFor={`${id}-password`}>Senha</label><div className="vf-sign-in-password"><input id={`${id}-password`} name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Digite sua senha" required disabled={busy} aria-describedby={error ? `${id}-error` : undefined} /><button type="button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword} disabled={busy}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></div>
-          <div className="vf-sign-in-options"><span><LockKeyhole size={13} aria-hidden="true" /> Acesso autorizado</span><button type="button" aria-expanded={help} aria-controls={`${id}-help`} onClick={() => setHelp(value => !value)}>Esqueceu a senha?</button></div>
+          <div className="vf-sign-in-options"><label className="vf-sign-in-remember"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} disabled={busy} /><span>Manter conectado neste dispositivo</span></label><button type="button" aria-expanded={help} aria-controls={`${id}-help`} onClick={() => setHelp(value => !value)}>Esqueceu a senha?</button></div>
           {help && <p id={`${id}-help`} className="vf-sign-in-help" role="status">Peça a um administrador do painel o envio de um link de recuperação para o seu email.</p>}
           {error && <p id={`${id}-error`} className="vf-sign-in-error" role="alert">{error}</p>}
           <button type="submit" className="vf-sign-in-submit" disabled={busy}><span>{busy ? 'Entrando…' : 'Entrar no painel'}</span>{!busy && <ArrowRight size={18} aria-hidden="true" />}</button>

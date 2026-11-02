@@ -12,7 +12,7 @@ O endereço original e `dashboard.html` permanecem disponíveis.
 - Simulador em `#/simulador`, disponível na sidebar real e na busca: decisão com CAC/lucro realizados, comparação gradual/direto até janeiro, otimizador e cenário livre. Fontes agregadas somente leitura, cálculos condicionais e hipóteses editáveis.
 - Campanhas com o painel original nativo, incluindo perdas de participação de impressão.
 - Tracking em leitura da view pública existente, paginado em 50 registros e com janela de 90 dias. Não dispara reenvios ou reconciliação.
-- Login Supabase com a conta existente; identidade verificada pelo servidor, sessão em sessionStorage e renovação pelo SDK. Sem seletor de papéis em produção.
+- Login Supabase com a conta existente; identidade verificada pelo servidor, sessão persistente opcional em localStorage (ou sessionStorage com “Manter conectado” desmarcado) e renovação pelo SDK. Sem seletor de papéis em produção.
 - Metas organizacionais mensais e imposto em `monthly_targets`, com confirmação de valores e controle de concorrência por `updated_at`. Meses novos usam INSERT; não substituem silenciosamente registros concorrentes.
 - Perfil com nome de exibição salvo no Supabase Auth. Metadata não concede permissões.
 - Tarefas reais em `console_tasks`: quadro/lista, busca e filtros no servidor, criação/edição, responsáveis, prioridades, prazos pelo calendário de São Paulo, comentários, histórico, conclusão/reabertura e arquivamento/restauração. Resumo de pendências na inicial.
@@ -134,3 +134,10 @@ Ação administrativa de envio de link e página independente de criação de se
 Entrada do painel redesenhada a partir do componente de referência: imagem local, identidade Verifica Placa, formulário em português e coluna única no celular. Mantém Supabase Auth, membership e sessão no navegador. Recuperação orienta o usuário a solicitar o link ao administrador; sem cadastro público ou login social. Componente reutilizável em `console-app/src/components/ui/sign-in-page.tsx`.
 
 Publicação autorizada pelo usuário. Fonte sincronizada com a main antes do release; 218 testes de domínio e 12 de paridade aprovados, builds Pages e Vercel aprovados. Conferência visual desktop/mobile e estados de envio/erro com simulação local, sem credenciais reais. Frontend apenas, sem alteração de banco ou permissões.
+
+
+## Persistência do login e imagem automotiva · 02/11/2026
+
+Substituída a imagem de realidade virtual por foto gerada de um carro, armazenada localmente. O login oferece “Manter conectado neste dispositivo”, marcado inicialmente; opção salva a sessão do SDK em localStorage e permite restaurá-la em novas abas/reaberturas. Desmarcada, mantém o comportamento de sessão na aba. Logout limpa os dois armazenamentos, e restauração continua dependente de identidade e membership ativa verificadas no servidor. Falhas transitórias de autenticação exibem tentativa de reconexão em vez de solicitar nova senha. Sem alteração de banco, política de expiração ou permissões.
+
+Validação: 238 testes, build Pages/Vercel e teste de fechamento/reabertura no navegador com SDK real e servidor simulado localmente. Imagem e prompt: [registro de geração](login-car-image.md).

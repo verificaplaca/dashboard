@@ -82,8 +82,17 @@ Recuperação por email: ação administrativa e rota `?recovery=1` com cliente 
 
 ## Página de login · 02/11/2026
 
-A entrada real usa `src/components/ui/sign-in-page.tsx` e estilos locais em `sign-in-page.css`, com layout de duas colunas e formulário único no celular. A imagem do componente de referência está em `public/images/sign-in-art.png`, servida localmente. O mesmo componente atende o diálogo de reautenticação na variante compacta.
+A entrada real usa `src/components/ui/sign-in-page.tsx` e estilos locais em `sign-in-page.css`, com layout de duas colunas e formulário único no celular. A imagem automotiva está em `public/images/sign-in-car.png`, servida localmente; substitui a imagem de realidade virtual da referência. O mesmo componente atende o diálogo de reautenticação na variante compacta.
 
-O alias `@/components/ui` já está configurado no TypeScript/Vite e no `components.json`; Tailwind 4 e lucide-react já estão instalados. A navegação existente por hash dispensa react-router-dom e um BrowserRouter adicional. A apresentação é integrada ao `AuthProvider.signIn`, preservando Supabase Auth, membership e sessão limitada à sessão do navegador. Cadastro e recuperação continuam administrados pela equipe: “Esqueceu a senha?” explica como solicitar o link. Login social e persistência entre sessões não são oferecidos por este fluxo.
+O alias `@/components/ui` já está configurado no TypeScript/Vite e no `components.json`; Tailwind 4 e lucide-react já estão instalados. A navegação existente por hash dispensa react-router-dom e um BrowserRouter adicional. A apresentação é integrada ao `AuthProvider.signIn`, preservando Supabase Auth e membership. A opção “Manter conectado neste dispositivo” salva a sessão em localStorage; desmarcada, usa sessionStorage. Cadastro e recuperação continuam administrados pela equipe: “Esqueceu a senha?” explica como solicitar o link. Login social não é oferecido por este fluxo.
 
 Validação: build, 208 testes de domínio + 12 de paridade; navegador em 1440×960 e 390×844, sem overflow horizontal no celular. Campos obrigatórios, mostrar/ocultar senha e ajuda conferidos. Envio desabilitado e mensagem de erro conferidos com callback simulado local, removido após a verificação; sem usar credenciais reais nem enviar emails. Prévias locais em `../../output/login-vf/`. Nenhuma publicação realizada nesta etapa.
+
+
+### Sessão persistente e imagem automotiva
+
+A opção de manter conectado começa marcada e aplica-se ao entrar. Senhas não são armazenadas pela aplicação; o SDK persiste sua sessão/refresh token e faz a renovação automática. A restauração consulta `getUser()` e membership ativa no servidor. Sessões anteriores em sessionStorage continuam válidas na própria aba, sem promoção automática para armazenamento persistente. “Sair” remove a sessão de ambos os armazenamentos. A persistência limita-se à mesma origem/navegador; modo privado, limpeza de dados e revogação no servidor podem exigir nova entrada.
+
+Falha de rede, 5xx ou limite de requisições muda para estado de erro com nova tentativa, sem pedir credenciais como se fosse logout. Sessão ausente, expirada ou revogada continua exigindo autenticação. A retomada da conexão também tenta verificar novamente. Não altera limites de sessão no Supabase nem permissões.
+
+Validação: 226 testes de domínio + 12 de paridade e build. Oito novos testes cobrem persistência, legado, opt-out, renovação, múltiplas abas, logout e verificação de sessão/membership. Teste no navegador com SDK real e respostas locais simuladas confirmou entrada, fechamento/reabertura com restauração, saída e sessão limitada à aba quando desmarcada. Harness removido; sem credenciais reais ou chamadas de Auth ao servidor durante o teste. Layout em 1440×960 e 390×844, sem overflow horizontal no celular. Imagem gerada com imagegen; prompt em `../docs/login-car-image.md`.
