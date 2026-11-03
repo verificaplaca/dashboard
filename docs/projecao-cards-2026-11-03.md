@@ -11,3 +11,7 @@ Validação: 226 testes de domínio e 12 de paridade aprovados, build/release lo
 As barras agora ficam à direita em uma faixa de até 5px por dia (4px de barra e aproximadamente 1px de espaço), limitada à largura disponível do card. Receita, COGS, lucro bruto e lucro líquido comparam a média realizada por dia com a parcela diária das metas mensais dos dias selecionados. Filtros entre meses respeitam a duração e a meta de cada mês; custos usam comparação inversa. A legenda da projeção continua mensal. O tooltip explica os valores e a regra. O lucro bruto passa a exibir o status diário, com a variação anterior preservada no tooltip; a cor do histórico do lucro líquido acompanha o ritmo diário.
 
 Validação da revisão: 228 testes de domínio e 12 de paridade aprovados; release Pages e build Vercel aprovados. Navegador: 15 cards alinhados à direita em desktop e celular, projeções preservadas e nenhum erro de execução ou transbordamento horizontal. Evidências em `output/cards-meta-diaria-2026-11-03/`.
+
+## Hover sobre a meta diária
+
+O próprio indicador Dentro/Fora da meta diária agora tem tooltip nativo com duas linhas: Meta diária e Média realizada no período, em reais. Os valores usam o mesmo resultado do cálculo do status e se atualizam com o filtro; quando a referência diária não está disponível, o tooltip é removido. A descrição também é exposta na identificação acessível do indicador.

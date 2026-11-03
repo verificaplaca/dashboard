@@ -108,6 +108,14 @@ export function createOverviewPresentation(root: ShadowRoot, read: () => any, su
       setText(delta, showDelta ? deltaLabel : ''); delta.setAttribute('data-presented', delta.textContent || '');
       const statusLabel = status.text.replace('✓ Meta mensal atingida', '✓ Meta atingida').replace('Abaixo da meta mensal', '! Fora da meta').replace('✓ Dentro do orçamento mensal', '✓ No orçamento').replace('! Acima do orçamento mensal', '! Fora do orçamento').replace('✓ Referência saudável ≥22%', '✓ Dentro da referência').replace('! Abaixo da referência de 22%', '! Fora da referência').replace('Meta mensal · período cruza meses', 'Meta mensal');
       setText(badge, ['ga', 'gb', 'tr', 'tk', 'cv', 'cpv'].includes(id) ? '' : statusLabel);
+      if (daily?.dailyTarget !== undefined) {
+        const dailyTip = `Meta diária: ${brl(daily.dailyTarget)}\nMédia realizada no período: ${brl(daily.dailyActual!)}`;
+        badge.setAttribute('title', dailyTip);
+        badge.setAttribute('aria-label', `${statusLabel}. ${dailyTip}`);
+      } else {
+        badge.removeAttribute('title');
+        badge.removeAttribute('aria-label');
+      }
       const detail = card.querySelector('.metric-detail')!;
       const meta = id === 'ca' ? 'Teto ' + brl(targets.cpa) : id === 'up' ? 'Meta ' + targets.upsell + '%' : ['r', 'p', 'npo'].includes(id) ? 'Meta ' + brl(target) : id === 'ct' ? 'Orçamento ' + brl(targets.budget) : '';
       const projection = ['r', 'ct', 'p', 'npo'].includes(id) && snapshot.months === 1 && originalSub.startsWith('Proj.:') ? originalSub : '';
