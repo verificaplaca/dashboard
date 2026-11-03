@@ -23,3 +23,16 @@ export function goalProgress(value: number, target: number) {
   if (!Number.isFinite(value) || !Number.isFinite(target) || target <= 0) return null;
   return { percent: value / target * 100, track: Math.max(0, Math.min(100, value / target * 100)), remaining: target - value };
 }
+
+/** Compare the daily average with each selected day's share of its monthly goal. */
+export function dailyTargetStatus(value: number | null, days: { date: string; target: number | null }[], lower = false) {
+  if (value === null || !Number.isFinite(value) || !days.length) return { tone: 'neutral' as MetricTone, text: 'Sem dados' };
+  let expected = 0;
+  for (const day of days) {
+    const date = new Date(day.date + 'T00:00:00Z');
+    if (!Number.isFinite(date.getTime()) || day.target === null || !Number.isFinite(day.target) || day.target < 0) return { tone: 'neutral' as MetricTone, text: 'Meta diária não definida' };
+    expected += day.target / new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  }
+  const met = lower ? value <= expected + .005 : value >= expected - .005;
+  return { tone: (met ? 'positive' : 'negative') as MetricTone, text: met ? '✓ Dentro da meta diária' : '! Fora da meta diária', dailyTarget: expected / days.length, dailyActual: value / days.length };
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { comparisonStatus, goalProgress, resultStatus, targetStatus } from './metric-presentation';
+import { dailyTargetStatus, comparisonStatus, goalProgress, resultStatus, targetStatus } from './metric-presentation';
 
 test('comparison direction respects cost per order without treating all spend growth as loss', () => {
   assert.equal(comparisonStatus(-2, true).tone, 'positive');
@@ -33,4 +33,23 @@ test('goal labels retain losses and overachievement while only the decorative tr
   assert.deepEqual(goalProgress(120, 100), { percent: 120, track: 100, remaining: -20 });
   assert.equal(goalProgress(10, 0), null);
   assert.equal(goalProgress(Infinity, 100), null);
+});
+
+test('monthly goals compare daily pace, not early month totals against the full goal', () => {
+  const days = [1,2,3].map(d => ({date:`2026-11-0${d}`,target:30000}));
+  assert.equal(dailyTargetStatus(3519.88, days).tone, 'positive');
+  assert.equal(dailyTargetStatus(2999, days).text, '! Fora da meta diária');
+  assert.equal(dailyTargetStatus(3000, days).text, '✓ Dentro da meta diária');
+  assert.equal(dailyTargetStatus(-100, days).tone, 'negative');
+  assert.equal(dailyTargetStatus(2999, days, true).tone, 'positive');
+  assert.equal(dailyTargetStatus(3001, days, true).tone, 'negative');
+});
+test('daily pace respects changing monthly goals, leap years, zero goals and missing data', () => {
+  const cross = [{date:'2024-02-29',target:2900},{date:'2024-03-01',target:6200}];
+  assert.equal(dailyTargetStatus(300,cross).dailyTarget,150);
+  assert.equal(dailyTargetStatus(300,cross).tone,'positive');
+  assert.equal(dailyTargetStatus(0,[{date:'2026-11-03',target:0}]).tone,'positive');
+  assert.equal(dailyTargetStatus(0,[{date:'2026-11-03',target:null}]).tone,'neutral');
+  assert.equal(dailyTargetStatus(null,cross).tone,'neutral');
+  assert.equal(dailyTargetStatus(0,[]).tone,'neutral');
 });

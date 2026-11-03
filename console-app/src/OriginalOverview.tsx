@@ -1,3 +1,4 @@
+import { dailyTargetStatus } from './domain/metric-presentation';
 import { overviewReadState, overviewUnavailableMessage } from './domain/overview-publication';
 import { balancedChartScales } from './domain/chart-scales';
 import { mobileChartTooltips } from './chart-tooltips';
@@ -127,20 +128,21 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
     }
     if (item instanceof HTMLCanvasElement && item.id.startsWith('ks_')) {
       const key = item.id.slice(3), totals = api.totals?.(), targets = api.activeTargets?.();
-      const negative = ['p', 'npo'].includes(key) && config.data.datasets[0].borderColor === '#dc2626' || key === 'npo' && totals?.netPftOpt < targets?.netProfit || key === 'tk' && totals?.ticket < api.prevTotals?.()?.ticket || key === 'ca' && totals?.cac > targets?.cpa || key === 'up' && totals?.upsell < targets?.upsell;
+      const negative = ['p', 'npo'].includes(key) && config.data.datasets[0].borderColor === '#dc2626' || key === 'npo' && dailyTargetStatus(totals?.netPftOpt ?? null, (api.readChartSnapshot?.().current || []).map((d: any) => ({date: d.dateStr, target: api.targetFor(d.dateStr).netProfit}))).tone === 'negative' || key === 'tk' && totals?.ticket < api.prevTotals?.()?.ticket || key === 'ca' && totals?.cac > targets?.cpa || key === 'up' && totals?.upsell < targets?.upsell;
       const neutral = ['ct', 'ro', 'ga', 'gb', 'tr'].includes(key);
       if (key === 'eb' && !summary && view === 'overview') {
         const days = api.readChartSnapshot?.().current || [];
         config.data.labels = days.map((d: any) => d.dateStr);
         config.data.datasets[0].data = days.map((d: any) => netMarginPercent(d.revenue, d.netProfit));
       }
+      if (item.parentElement) item.parentElement.style.width = Math.max(1, config.data.labels.length) * 5 + 'px';
       config.options.scales.x = { ...config.options.scales.x, offset: true };
       config.options.layout = { padding: 0, autoPadding: false };
       const values = config.data.datasets[0].data.filter((v: unknown) => typeof v === 'number' && Number.isFinite(v));
       config.options.scales.y = {display:false, min:Math.min(0,...values), max:Math.max(0,...values) || 1, grace:0};
       config.options.elements = {point:{radius:0,hoverRadius:0}};
       config.type = 'bar';
-      config.data.datasets[0] = { ...config.data.datasets[0], backgroundColor: key === 'eb' ? config.data.datasets[0].data.map((v: number | null) => v === null ? 'transparent' : v < 0 ? '#ff8290' : '#a0f644') : negative ? '#ff8290' : neutral ? '#c6c9d1' : '#a0f644', borderColor: 'transparent', borderWidth: 0, borderRadius: 1, maxBarThickness: 6, barPercentage: .62, categoryPercentage: .85 };
+      config.data.datasets[0] = { ...config.data.datasets[0], backgroundColor: key === 'eb' ? config.data.datasets[0].data.map((v: number | null) => v === null ? 'transparent' : v < 0 ? '#ff8290' : '#a0f644') : negative ? '#ff8290' : neutral ? '#c6c9d1' : '#a0f644', borderColor: 'transparent', borderWidth: 0, borderRadius: 1, maxBarThickness: 4, barPercentage: .8, categoryPercentage: 1 };
     }
     if (item instanceof HTMLCanvasElement) styleAnalyticalChart(item.id, config);
     if (!summary && view === 'overview' && ['profitChart', 'netProfitChart', 'revenueChart'].includes(item.id)) {
@@ -180,7 +182,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   new Function('window', 'document', 'Chart', 'location', 'matchMedia', presentationScript)(scopedWindow, scopedDocument, ScopedChart, { search: summary ? '?mode=summary' : '' }, () => presentationMotion);
   const functions = [...model.calculationScript.matchAll(/^(?:async )?function (\w+)\(/gm)].map(match => match[1]);
   const quietConsole = Object.fromEntries(['log', 'warn', 'error', 'info'].map(level => [level, (...args: unknown[]) => { if (active) (console as any)[level](...args); }]));
-  api = new Function('window', 'document', 'fetch', 'Chart', 'ChartDataLabels', 'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'console', `${model.calculationScript}\nreturn {${functions.join(',')},charts,sparkRefs,readChartSnapshot:()=>({current:filtered,allDays:ALL_DAYS}),readDay:(i)=>{const d=filtered[i];if(!d)return null;return {date:d.dateStr,revenue:d.revenue,tax:d.revenue*(1-netFactor(d.dateStr)),ads:(d.costTotal||0)-(d.costBureau||0),bureau:d.costBureau||0,result:d.netProfit||0,example:!usingRealData}},readHomeSnapshot:()=>({real:usingRealData,totals:totals(),targets:activeTargets(),days:filtered.map(d=>({date:d.dateStr,revenue:d.revenue}))}),readPresentation:()=>({funnel:[filtered.reduce((s,d)=>s+(d.checkouts||0),0),filtered.reduce((s,d)=>s+(d.conv||0),0),filtered.reduce((s,d)=>s+(d.pedidosUpsell!=null?d.pedidosUpsell:Math.round((d.conv||0)*((d.upsellRate||0)/100))),0)],totals:totals(),previous:prevTotals(),dayCount:filtered.length,upsellOrders:usingRealData?filtered.reduce((s,d)=>s+(d.pedidosUpsell||0),0):null,targets:activeTargets(),real:usingRealData,months:new Set(filtered.map(d=>d.dateStr.slice(0,7))).size,month:filtered.at(-1)?.dateStr.slice(0,7)})};`)(scopedWindow, scopedDocument, scopedFetch, ScopedChart, ChartDataLabels, scopedTimeout, clearTimeout, scopedFrame, cancelAnimationFrame, quietConsole);
+  api = new Function('window', 'document', 'fetch', 'Chart', 'ChartDataLabels', 'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'console', `${model.calculationScript}\nreturn {${functions.join(',')},charts,sparkRefs,readChartSnapshot:()=>({current:filtered,allDays:ALL_DAYS}),readDay:(i)=>{const d=filtered[i];if(!d)return null;return {date:d.dateStr,revenue:d.revenue,tax:d.revenue*(1-netFactor(d.dateStr)),ads:(d.costTotal||0)-(d.costBureau||0),bureau:d.costBureau||0,result:d.netProfit||0,example:!usingRealData}},readHomeSnapshot:()=>({real:usingRealData,totals:totals(),targets:activeTargets(),days:filtered.map(d=>({date:d.dateStr,revenue:d.revenue}))}),readPresentation:()=>({targetDays:filtered.map(d=>({date:d.dateStr,targets:targetFor(d.dateStr)})),funnel:[filtered.reduce((s,d)=>s+(d.checkouts||0),0),filtered.reduce((s,d)=>s+(d.conv||0),0),filtered.reduce((s,d)=>s+(d.pedidosUpsell!=null?d.pedidosUpsell:Math.round((d.conv||0)*((d.upsellRate||0)/100))),0)],totals:totals(),previous:prevTotals(),dayCount:filtered.length,upsellOrders:usingRealData?filtered.reduce((s,d)=>s+(d.pedidosUpsell||0),0):null,targets:activeTargets(),real:usingRealData,months:new Set(filtered.map(d=>d.dateStr.slice(0,7))).size,month:filtered.at(-1)?.dateStr.slice(0,7)})};`)(scopedWindow, scopedDocument, scopedFetch, ScopedChart, ChartDataLabels, scopedTimeout, clearTimeout, scopedFrame, cancelAnimationFrame, quietConsole);
   // The frozen renderer assumes a nonempty date range. Keep exact custom
   // selections (including empty ones) without changing its financial formulas.
   const applyCustomDate = api.applyCustomDate;

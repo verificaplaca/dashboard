@@ -1,5 +1,5 @@
 import { netMarginPercent } from './domain/overview-series';
-import { goalProgress, resultStatus, targetStatus } from './domain/metric-presentation';
+import { dailyTargetStatus, goalProgress, resultStatus, targetStatus } from './domain/metric-presentation';
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const copy: Record<string, string> = { r: 'Total no período', ct: 'Ads + bureau', p: 'Receita menos COGS', npo: 'Resultado do painel', eb: 'Lucro líquido / receita', ro: 'Receita / (Ads + bureau)', cpv: 'Custo total / pedidos', ca: 'Ads / pedidos', ga: 'Investimento no período', gb: 'Custo no período', m: 'Lucro bruto / receita', cv: 'Pedidos / checkouts', up: 'Pedidos com adicional / pedidos', tr: 'Pedidos pagos', tk: 'Receita / pedidos' };
@@ -77,9 +77,9 @@ export function createOverviewPresentation(root: ShadowRoot, read: () => any, su
       const value = ({ r: t.rev, ct: t.costTotal, p: t.pft, npo: t.netPftOpt, ca: t.cac > 0 ? t.cac : null, up: t.upsell } as Record<string, number | null>)[id];
       const target = ({ r: targets.revenue, ct: targets.budget, p: targets.profit, npo: targets.netProfit, ca: targets.cpa, up: targets.upsell } as Record<string, number>)[id];
       let status = targetStatus(value ?? null, target ?? null, id === 'ca' || id === 'ct');
-      if (['r', 'ct', 'p', 'npo'].includes(id) && snapshot.months !== 1) status = { tone: 'neutral', text: 'Meta mensal · período cruza meses' };
-      else if (['r', 'p', 'npo'].includes(id) && target > 0) status.text = (value! >= target ? '✓ Meta mensal atingida' : 'Abaixo da meta mensal');
-      else if (id === 'ct' && target > 0) status.text = value! <= target ? '✓ Dentro do orçamento mensal' : '! Acima do orçamento mensal';
+      const monthlyKey = ({ r: 'revenue', ct: 'budget', p: 'profit', npo: 'netProfit' } as Record<string, string>)[id];
+      const daily = monthlyKey ? dailyTargetStatus(value ?? null, (snapshot.targetDays || []).map((day: any) => ({ date: day.date, target: day.targets[monthlyKey] ?? null })), id === 'ct') : null;
+      if (daily) status = daily;
       if (id === 'ro') status = { tone: 'neutral', text: 'Meta não definida' };
       if (id === 'eb') status = { tone: t.rev <= 0 ? 'neutral' : t.netPftOpt < 0 ? 'negative' : 'positive', text: t.rev <= 0 ? 'Sem receita no período' : t.netPftOpt < 0 ? 'Resultado negativo' : 'Resultado positivo' };
       if (id === 'up' && !t.conv) status = { tone: 'neutral', text: 'Sem pedidos no período' };
@@ -99,15 +99,15 @@ export function createOverviewPresentation(root: ShadowRoot, read: () => any, su
       const secondary = root.getElementById('kv2_' + id)?.textContent || '';
       const baseTip = card.getAttribute('data-original-tip') ?? card.getAttribute('data-tip') ?? context;
       if (!card.hasAttribute('data-original-tip')) card.setAttribute('data-original-tip', baseTip);
-      const full = [baseTip, result?.text, rawDelta, status.text, originalSub, secondary].filter(Boolean).join('\n');
+      const full = [baseTip, result?.text, rawDelta, status.text, daily?.dailyTarget !== undefined ? `Média diária: ${brl(daily.dailyActual!)} · Meta diária: ${brl(daily.dailyTarget)}. Meta mensal dividida pelos dias de cada mês, ponderada pelos dias selecionados.` : '', originalSub, secondary].filter(Boolean).join('\n');
       card.setAttribute('data-tip', full);
       const shortDelta = rawDelta.replace(/ vs ant\./g, '').replace(/ · .*/, '');
       const cost = ['ct', 'ga', 'gb'].includes(id);
       const deltaLabel = shortDelta ? shortDelta + (cost ? '' : delta.classList.contains('pos') ? ' · melhora' : delta.classList.contains('neg') ? ' · piora' : ' · estável') : '';
-      const showDelta = ['p', 'cpv', 'ca', 'cv', 'tk'].includes(id);
+      const showDelta = ['cpv', 'ca', 'cv', 'tk'].includes(id);
       setText(delta, showDelta ? deltaLabel : ''); delta.setAttribute('data-presented', delta.textContent || '');
       const statusLabel = status.text.replace('✓ Meta mensal atingida', '✓ Meta atingida').replace('Abaixo da meta mensal', '! Fora da meta').replace('✓ Dentro do orçamento mensal', '✓ No orçamento').replace('! Acima do orçamento mensal', '! Fora do orçamento').replace('✓ Referência saudável ≥22%', '✓ Dentro da referência').replace('! Abaixo da referência de 22%', '! Fora da referência').replace('Meta mensal · período cruza meses', 'Meta mensal');
-      setText(badge, ['p', 'ga', 'gb', 'tr', 'tk', 'cv', 'cpv'].includes(id) ? '' : statusLabel);
+      setText(badge, ['ga', 'gb', 'tr', 'tk', 'cv', 'cpv'].includes(id) ? '' : statusLabel);
       const detail = card.querySelector('.metric-detail')!;
       const meta = id === 'ca' ? 'Teto ' + brl(targets.cpa) : id === 'up' ? 'Meta ' + targets.upsell + '%' : ['r', 'p', 'npo'].includes(id) ? 'Meta ' + brl(target) : id === 'ct' ? 'Orçamento ' + brl(targets.budget) : '';
       const projection = ['r', 'ct', 'p', 'npo'].includes(id) && snapshot.months === 1 && originalSub.startsWith('Proj.:') ? originalSub : '';
