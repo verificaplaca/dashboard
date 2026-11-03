@@ -23,7 +23,7 @@ export async function handleRequest(request: Request, admin: SupabaseClient, opt
    try{target=validateRecoveryEmail(parsed);}catch(error){return respond(400,{error:error instanceof Error?error.message:'Formulário inválido.'});}
    const {data:reservation,error:reserveError}=await admin.rpc('console_request_recovery_email',{p_actor:identity.user.id,p_id:target.id,p_version:target.version});
    if(reserveError||!reservation)return respond(reserveError?.code==='42501'?403:reserveError?.code==='P0001'?429:409,{error:reserveError?.code==='P0001'||reserveError?.code==='22023'?reserveError.message:'Atualize a lista antes de enviar o link.'});
-   const {error:sendError}=await admin.auth.resetPasswordForEmail(reservation.email,{redirectTo:'https://verifica-placa-ops.vercel.app/?recovery=1'});
+   const {error:sendError}=await admin.auth.resetPasswordForEmail(reservation.email,{redirectTo:'https://ops.verificaplaca.com.br/?recovery=1'});
    const {error:finishError}=await admin.rpc('console_finish_recovery_email',{p_id:reservation.request_id,p_sent:!sendError});
    if(sendError)return respond(sendError.status===429?429:503,{error:sendError.status===429?'Limite de envio atingido. Aguarde antes de tentar novamente.':'Não foi possível enviar o email. Verifique a configuração de envio do sistema antes de tentar novamente.'});
    if(finishError)return respond(503,{error:'O envio foi solicitado, mas não foi possível confirmar o registro. Aguarde e atualize a lista antes de tentar novamente.'});

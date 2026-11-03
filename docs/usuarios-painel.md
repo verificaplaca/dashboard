@@ -1,6 +1,6 @@
 # Controle de usuários do painel · 30/10/2026
 
-Backend ativado no projeto analytics `ftmgmfdqdqxboiktxcoj` em 30/10/2026: migração 022 aplicada isoladamente, função `console-users` ativa com validação JWT e cadastro público de Auth desativado. A conta preexistente recebeu o perfil administrador. Nenhum usuário real novo foi criado, nenhuma conta real foi suspensa e nenhuma credencial privilegiada foi incluída no frontend. A interface está publicada em https://verifica-placa-ops.vercel.app/#/usuarios pela integração Vercel, a partir do commit `d69e243`. O mesmo release `console/` acompanha a publicação secundária GitHub Pages.
+Backend ativado no projeto analytics `ftmgmfdqdqxboiktxcoj` em 30/10/2026: migração 022 aplicada isoladamente, função `console-users` ativa com validação JWT e cadastro público de Auth desativado. A conta preexistente recebeu o perfil administrador. Nenhum usuário real novo foi criado, nenhuma conta real foi suspensa e nenhuma credencial privilegiada foi incluída no frontend. A interface está publicada em https://ops.verificaplaca.com.br/#/usuarios pela integração Vercel, a partir do commit `d69e243`. O mesmo release `console/` acompanha a publicação secundária GitHub Pages.
 
 ## Perfis
 

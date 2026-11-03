@@ -63,7 +63,7 @@ Deno.test('recovery emails require verified active admin and configured transpor
 Deno.test('email destination comes from authorized database row and redirect is fixed',async()=>{
  const f=emailFixture(),response=await handleRequest(request(recoveryBody),f.client,{recoveryEmailEnabled:true});assert(response.status===200);
  assert(JSON.stringify(f.calls[0].args)===JSON.stringify({p_actor:'verified-admin',p_id:edit.id,p_version:3}));
- assert(JSON.stringify(f.calls[1].args)===JSON.stringify({email:'database-email@example.invalid',options:{redirectTo:'https://verifica-placa-ops.vercel.app/?recovery=1'}}));
+ assert(JSON.stringify(f.calls[1].args)===JSON.stringify({email:'database-email@example.invalid',options:{redirectTo:'https://ops.verificaplaca.com.br/?recovery=1'}}));
  assert((f.calls[2].args as Record<string,unknown>).p_sent===true);
  const output=await response.text();assert(!output.includes('token')&&!output.includes('password')&&!output.includes('reservation'));
 });

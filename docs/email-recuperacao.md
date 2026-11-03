@@ -4,7 +4,7 @@ A ação **Enviar link por email** fica em Usuários, somente para administrador
 
 ## Estado atual
 
-Migração 025 e função atualizada publicadas. Template de recuperação em português, site URL de produção e redirect permitido `https://verifica-placa-ops.vercel.app/?recovery=1` configurados no Supabase. Cadastro público permanece fechado.
+Migração 025 e função atualizada publicadas. Template de recuperação em português, site URL de produção e redirect permitido `https://ops.verificaplaca.com.br/?recovery=1` configurados no Supabase. Cadastro público permanece fechado.
 
 **Envio ativado e entrega confirmada em 30/10/2026.** Google Workspace configurado em smtp.gmail.com:465 com remetente suporte@verificaplaca.com.br. O flag CONSOLE_RECOVERY_EMAIL_ENABLED está habilitado. Um link de teste foi enviado pelo painel para daniel.macedom@gmail.com com autorização explícita; a chegada à caixa de entrada foi verificada no Gmail e confirmada pelo usuário. O SMTP de testes do Supabase não é usado como alternativa silenciosa.
 

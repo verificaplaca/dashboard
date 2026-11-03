@@ -1,5 +1,7 @@
 # Hospedagem ops.verificaplaca.com.br
 
+Endereço principal: https://ops.verificaplaca.com.br/. O endereço verifica-placa-ops.vercel.app redireciona permanentemente (308) ao domínio oficial, preservando caminhos, parâmetros e fragmentos do navegador. Configuração atualizada em 03/11/2026. Os registros de implantação abaixo mantêm o histórico da migração.
+
 Destino solicitado em 30/10/2026: Vercel, projeto `verifica-placa-ops`, repositório `verificaplaca/dashboard`, branch `main`.
 
 ## Configuração
@@ -51,3 +53,23 @@ Adicionar o TXT de verificação sem apagar outros valores TXT em `_vercel`. O T
 
 
 Validação no navegador publicado: Visão Geral carregou os 15 indicadores e as fontes reais; Financeiro carregou receita de R$ 136.412,32 e 8.442 pedidos até 29/10; Simulador carregou os 15 cards e a base histórica até 29/10. Nenhum erro de execução observado. Formulário de login existente abre corretamente; salvamento autenticado não foi executado sem o login do operador. Banco, permissões e integrações existentes preservados.
+
+## Domínio validado · 03/11/2026
+
+Após o desenvolvedor configurar os registros no Cloudflare, CNAME e TXT foram confirmados no DNS público (Cloudflare 1.1.1.1 e Google 8.8.8.8). A ação Refresh em Project Domains concluiu a verificação na Vercel: `ops.verificaplaca.com.br — Valid Configuration — Production`.
+
+HTTPS validado sem ignorar certificados. O HTML do domínio oficial é idêntico ao de produção em verifica-placa-ops.vercel.app. Modelo da Visão Geral, dashboard legado e robots.txt responderam 200. O Chrome abriu o domínio normalmente e exibiu a tela de login existente; é necessário entrar novamente por ser uma origem diferente. Nenhuma sessão foi transferida e nenhum registro do domínio principal ou email foi alterado.
+
+O resolvedor do terminal ainda apresentou cache negativo durante parte da conferência; os testes HTTP nesse período usaram o endereço A publicado pelo DNS, preservando o hostname TLS e a validação do certificado. A abertura normal no Chrome confirmou acesso pelo nome.
+
+Evidências locais: `output/dominio-ops-2026-11-03/vercel-validado.png`, `login-dominio-oficial.png`, `http-validacao.json`.
+
+## Endereço principal e links ativos · 03/11/2026
+
+O domínio Vercel padrão foi alterado em Project Domains para `Redirect to Another Domain → 308 Permanent Redirect → ops.verificaplaca.com.br`. Conferidos HTTP 308 e Location com caminho e query preservados; navegador confirmou também `#/simulador` preservado. Domínio oficial permanece conectado a Production.
+
+Supabase Auth: site_url alterado para `https://ops.verificaplaca.com.br/`; redirect permitido adicionado para `https://ops.verificaplaca.com.br/?recovery=1`. A permissão anterior foi mantida para links de recuperação já emitidos, que agora redirecionam ao domínio oficial. Template usa RedirectTo, sem hostname fixo. SMTP, cadastro e autenticação preservados.
+
+A função console-users passou a gerar recuperação no domínio oficial e foi implantada no projeto ftmgmfdqdqxboiktxcoj. Fonte remota baixada para diretório temporário conferida após a implantação. Quinze testes da função aprovados. Nenhum email foi enviado nem senha alterada na validação. Documentação ativa de produção, usuários, recuperação e CONTEXT atualizada; evidências datadas e URLs históricas permanecem como registros do que foi executado.
+
+Evidência da configuração: `output/dominio-ops-2026-11-03/dominio-principal.png`.
