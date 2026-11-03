@@ -140,7 +140,7 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
       config.options.scales.y = {display:false, min:Math.min(0,...values), max:Math.max(0,...values) || 1, grace:0};
       config.options.elements = {point:{radius:0,hoverRadius:0}};
       config.type = 'bar';
-      config.data.datasets[0] = { ...config.data.datasets[0], backgroundColor: key === 'eb' ? config.data.datasets[0].data.map((v: number | null) => v === null ? 'transparent' : v < 0 ? '#ff8290' : '#a0f644') : negative ? '#ff8290' : neutral ? '#c6c9d1' : '#a0f644', borderColor: 'transparent', borderWidth: 0, borderRadius: 1, barPercentage: .62, categoryPercentage: .85 };
+      config.data.datasets[0] = { ...config.data.datasets[0], backgroundColor: key === 'eb' ? config.data.datasets[0].data.map((v: number | null) => v === null ? 'transparent' : v < 0 ? '#ff8290' : '#a0f644') : negative ? '#ff8290' : neutral ? '#c6c9d1' : '#a0f644', borderColor: 'transparent', borderWidth: 0, borderRadius: 1, maxBarThickness: 6, barPercentage: .62, categoryPercentage: .85 };
     }
     if (item instanceof HTMLCanvasElement) styleAnalyticalChart(item.id, config);
     if (!summary && view === 'overview' && ['profitChart', 'netProfitChart', 'revenueChart'].includes(item.id)) {

@@ -110,7 +110,8 @@ export function createOverviewPresentation(root: ShadowRoot, read: () => any, su
       setText(badge, ['p', 'ga', 'gb', 'tr', 'tk', 'cv', 'cpv'].includes(id) ? '' : statusLabel);
       const detail = card.querySelector('.metric-detail')!;
       const meta = id === 'ca' ? 'Teto ' + brl(targets.cpa) : id === 'up' ? 'Meta ' + targets.upsell + '%' : ['r', 'p', 'npo'].includes(id) ? 'Meta ' + brl(target) : id === 'ct' ? 'Orçamento ' + brl(targets.budget) : '';
-      setText(detail, meta); detail.setAttribute('title', full); detail.setAttribute('aria-label', full);
+      const projection = ['r', 'ct', 'p', 'npo'].includes(id) && snapshot.months === 1 && originalSub.startsWith('Proj.:') ? originalSub : '';
+      setText(detail, projection || meta); detail.setAttribute('title', full); detail.setAttribute('aria-label', full);
       // Uniform miniature bars use the same original observations, without fabricated trends.
       const canvas = root.getElementById('ks_' + id) as HTMLCanvasElement | null;
       if (canvas && canvas.getAttribute('aria-label') !== 'Histórico de ' + card.querySelector('.kpi-label')!.textContent) canvas.setAttribute('aria-label', 'Histórico de ' + card.querySelector('.kpi-label')!.textContent);
