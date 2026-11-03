@@ -53,3 +53,22 @@ test('daily pace respects changing monthly goals, leap years, zero goals and mis
   assert.equal(dailyTargetStatus(null,cross).tone,'neutral');
   assert.equal(dailyTargetStatus(0,[]).tone,'neutral');
 });
+
+test('daily differences show the actual distance from the goal, including costs and zero targets', () => {
+  const days = [{date:'2026-11-01',target:30000},{date:'2026-11-02',target:30000}];
+  const above = dailyTargetStatus(2500,days);
+  assert.equal(above.dailyDifference,250);
+  assert.equal(above.dailyDifferencePct,25);
+  const below = dailyTargetStatus(1500,days);
+  assert.equal(below.dailyDifference,-250);
+  assert.equal(below.dailyDifferencePct,-25);
+  const cost = dailyTargetStatus(2500,days,true);
+  assert.equal(cost.tone,'negative');
+  assert.equal(cost.dailyDifference,250);
+  assert.equal(cost.dailyDifferencePct,25);
+  assert.equal(dailyTargetStatus(2000,days).dailyDifferencePct,0);
+  assert.equal(dailyTargetStatus(100,[{date:'2026-11-01',target:0}]).dailyDifferencePct,null);
+  const cross = dailyTargetStatus(375,[{date:'2024-02-29',target:2900},{date:'2024-03-01',target:6200}]);
+  assert.equal(cross.dailyDifference,37.5);
+  assert.equal(cross.dailyDifferencePct,25);
+});

@@ -15,3 +15,7 @@ Validação da revisão: 228 testes de domínio e 12 de paridade aprovados; rele
 ## Hover sobre a meta diária
 
 O próprio indicador Dentro/Fora da meta diária agora tem tooltip nativo com duas linhas: Meta diária e Média realizada no período, em reais. Os valores usam o mesmo resultado do cálculo do status e se atualizam com o filtro; quando a referência diária não está disponível, o tooltip é removido. A descrição também é exposta na identificação acessível do indicador.
+
+## Diferença no hover da meta diária
+
+O tooltip também informa Acima/Abaixo da meta (ou Na meta), com a diferença absoluta entre a média diária realizada e a meta diária em reais e em percentual da meta. COGS mantém o sentido literal da diferença: gastar mais que o orçamento diário aparece como acima da meta e com status negativo. Meta zero não gera percentual infinito; informa que o percentual não é calculável. Validação: 229 testes de domínio e 12 de paridade, incluindo distância positiva/negativa, empate, custo, meta zero e meses com metas distintas.

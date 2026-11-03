@@ -109,7 +109,10 @@ export function createOverviewPresentation(root: ShadowRoot, read: () => any, su
       const statusLabel = status.text.replace('✓ Meta mensal atingida', '✓ Meta atingida').replace('Abaixo da meta mensal', '! Fora da meta').replace('✓ Dentro do orçamento mensal', '✓ No orçamento').replace('! Acima do orçamento mensal', '! Fora do orçamento').replace('✓ Referência saudável ≥22%', '✓ Dentro da referência').replace('! Abaixo da referência de 22%', '! Fora da referência').replace('Meta mensal · período cruza meses', 'Meta mensal');
       setText(badge, ['ga', 'gb', 'tr', 'tk', 'cv', 'cpv'].includes(id) ? '' : statusLabel);
       if (daily?.dailyTarget !== undefined) {
-        const dailyTip = `Meta diária: ${brl(daily.dailyTarget)}\nMédia realizada no período: ${brl(daily.dailyActual!)}`;
+        const difference = daily.dailyDifference!;
+        const direction = Math.abs(difference) < .005 ? 'Na meta' : difference > 0 ? 'Acima da meta' : 'Abaixo da meta';
+        const percent = daily.dailyDifferencePct === null ? 'percentual não calculável com meta zero' : Math.abs(daily.dailyDifferencePct!).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+        const dailyTip = `Meta diária: ${brl(daily.dailyTarget)}\nMédia realizada no período: ${brl(daily.dailyActual!)}\n${direction}: ${brl(Math.abs(difference))} (${percent})`;
         badge.setAttribute('title', dailyTip);
         badge.setAttribute('aria-label', `${statusLabel}. ${dailyTip}`);
       } else {

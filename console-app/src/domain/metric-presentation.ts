@@ -34,5 +34,5 @@ export function dailyTargetStatus(value: number | null, days: { date: string; ta
     expected += day.target / new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
   }
   const met = lower ? value <= expected + .005 : value >= expected - .005;
-  return { tone: (met ? 'positive' : 'negative') as MetricTone, text: met ? '✓ Dentro da meta diária' : '! Fora da meta diária', dailyTarget: expected / days.length, dailyActual: value / days.length };
+  return { tone: (met ? 'positive' : 'negative') as MetricTone, text: met ? '✓ Dentro da meta diária' : '! Fora da meta diária', dailyTarget: expected / days.length, dailyActual: value / days.length, dailyDifference: (value - expected) / days.length, dailyDifferencePct: expected > 0 ? (value - expected) / expected * 100 : null };
 }
