@@ -64,11 +64,9 @@ export function createOverviewPresentation(root: ShadowRoot, read: () => any, su
         card.setAttribute('data-original-tip', formula);
         root.getElementById('kv_eb')!.setAttribute('data-tone', margin === null ? 'neutral' : margin < 0 ? 'negative' : 'positive');
       }
-      if (!card.querySelector('.metric-context')) {
-        const label = document.createElement('div'); label.className = 'metric-context'; label.textContent = context;
-        root.getElementById('kv_' + id)!.after(label);
+      if (!card.querySelector('.metric-states')) {
         const states = document.createElement('div'); states.className = 'metric-states';
-        label.after(states);
+        root.getElementById('kv_' + id)!.after(states);
         const delta = root.getElementById('kd_' + id)!, badge = root.getElementById('kb_' + id)!;
         states.append(delta, badge);
         const detail = document.createElement('span'); detail.className = 'metric-detail'; detail.tabIndex = 0; card.appendChild(detail);

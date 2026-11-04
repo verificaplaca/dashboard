@@ -19,3 +19,9 @@ O próprio indicador Dentro/Fora da meta diária agora tem tooltip nativo com du
 ## Diferença no hover da meta diária
 
 O tooltip também informa Acima/Abaixo da meta (ou Na meta), com a diferença absoluta entre a média diária realizada e a meta diária em reais e em percentual da meta. COGS mantém o sentido literal da diferença: gastar mais que o orçamento diário aparece como acima da meta e com status negativo. Meta zero não gera percentual infinito; informa que o percentual não é calculável. Validação: 229 testes de domínio e 12 de paridade, incluindo distância positiva/negativa, empate, custo, meta zero e meses com metas distintas.
+
+## Remoção dos subtítulos dos cards
+
+Retirados os textos explicativos curtos abaixo dos valores na Visão Geral e no Simulador (ex.: Ads + bureau). As explicações continuam nos tooltips/diálogos existentes. A grade foi compactada para eliminar a linha vazia: cards desktop da Visão Geral com 144px e do Simulador com 149px. Valores, projeções, metas e comparativos preservados.
+
+Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Navegador conferiu 15 cards sem subtítulos em cada tela, os 15 controles explicativos e a abertura da explicação do lucro bruto no Simulador. Visão Geral e Simulador sem transbordamento global em 390px após estabilização do layout. Evidências locais em `output/cards-sem-subtitulo-2026-11-03/`.
