@@ -27,6 +27,28 @@ test('inserts a new month without upserting over someone else’s newly created 
   await saveTarget(client, row); assert.ok(calls.some(call => call[0] === 'insert')); assert.ok(!calls.some(call => call[0] === 'update'));
 });
 
-test('manager or inactive administrator never submits a target mutation',async()=>{
- for(const [role,active] of [['manager',true],['administrator',false]] as const){const {client,calls}=fake(true,[],false,role,active);await assert.rejects(saveTarget(client,targetPayload('2026-10',{})),/Somente administradores/);assert.ok(!calls.some(call=>call[0]==='insert'||call[0]==='update'));}
+test('active managers can insert targets and update a version while leaving tax untouched',async()=>{
+ const row=targetPayload('2026-10',{revenue_target:'15000',tax_pct:'99'});
+ for(const previous of [undefined,{...row,tax_pct:8,updated_at:'observed-version'}]){
+  const {client,calls}=fake(true,[{month:row.month}],false,'manager');
+  await saveTarget(client,row,previous);
+  const mutation=calls.find(call=>call[0]===(previous?'update':'insert'))!;
+  assert.equal((mutation[1] as Record<string,unknown>).revenue_target,15000);
+  assert.equal(Object.hasOwn(mutation[1] as object,'tax_pct'),false);
+  if(previous)assert.ok(calls.some(call=>call[0]==='eq'&&call[1]==='updated_at'&&call[2]==='observed-version'));
+ }
+});
+test('inactive administrators, inactive managers and unknown profiles never submit a target mutation',async()=>{
+ for(const [role,active] of [['manager',false],['administrator',false],['unsupported',true]] as const){
+  const {client,calls}=fake(true,[],false,role,active);
+  await assert.rejects(saveTarget(client,targetPayload('2026-10',{})),/administradores e gerentes ativos/);
+  assert.ok(!calls.some(call=>call[0]==='insert'||call[0]==='update'));
+ }
+});
+test('administrators retain tax editing and managers cannot overwrite a stale month',async()=>{
+ const row=targetPayload('2026-10',{tax_pct:'9'}),admin=fake(true,[{month:row.month}]);
+ await saveTarget(admin.client,row);
+ assert.equal((admin.calls.find(call=>call[0]==='insert')![1] as typeof row).tax_pct,9);
+ const manager=fake(true,[],false,'manager');
+ await assert.rejects(saveTarget(manager.client,row,{...row,updated_at:'stale'}),/não foi salva/);
 });

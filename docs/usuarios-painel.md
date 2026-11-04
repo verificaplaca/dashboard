@@ -4,10 +4,10 @@ Backend ativado no projeto analytics `ftmgmfdqdqxboiktxcoj` em 30/10/2026: migra
 
 ## Perfis
 
-| Perfil | Consultar painel e metas | Alterar metas e imposto | Criar usuários | Gerenciar perfis e acesso |
-|---|---|---|---|---|
-| Gerente | Sim | Não | Não | Não |
-| Administrador ativo | Sim | Sim | Sim | Sim |
+| Perfil | Consultar painel e metas | Alterar metas | Alterar imposto | Criar usuários | Gerenciar perfis e acesso |
+|---|---|---|---|---|---|
+| Gerente ativo | Sim | Sim | Não | Não | Não |
+| Administrador ativo | Sim | Sim | Sim | Sim | Sim |
 
 Rota real `#/usuarios`, exibida apenas para administradores. Busca por nome, paginação de 50 registros e formulário com nome, email, senha inicial (12–128 caracteres) e perfil. A senha é enviada por HTTPS ao servidor, sem persistência pela aplicação, logs ou auditoria. A criação não envia emails. O administrador deve entregar as credenciais por canal privado. O botão Redefinir senha permite ao administrador definir e confirmar uma nova senha de 12–128 caracteres, que substitui a atual imediatamente. A senha deve ser entregue ao usuário por canal privado; o envio de link de recuperação também foi implementado, mas depende da ativação do remetente Google descrita em `email-recuperacao.md`. Gerenciar permite editar nome, email de acesso, perfil e situação, com uma etapa de revisão. O novo email passa a valer imediatamente para login. Convites com aceite não fazem parte desta entrega.
 
@@ -19,7 +19,7 @@ A Edge Function verifica o JWT pelo Auth e consulta o perfil do chamador antes d
 
 Alterações de perfil/situação passam pela RPC autenticada `console_update_user`, com versão observada e auditoria. Um lock transacional serializa alterações e protege o último administrador ativo, inclusive contra alterações concorrentes. O usuário não pode escrever diretamente na tabela ou apagar a auditoria. Não existe exclusão definitiva pela interface.
 
-Memberships do console sincronizam as memberships preexistentes de tarefas. Ambos os perfis têm o acesso operacional de gestor. Suspensão revoga também tarefas e despesas privadas. A migração 022 passou a exigir membership ativa para escrita em metas; a migração 023 restringe INSERT, UPDATE e DELETE a administradores ativos. Gerentes mantêm leitura. O salvamento verifica novamente identidade e perfil no banco, além dos campos bloqueados e botão de salvar ausente para gerentes. Acesso privado não depende somente da ocultação dos botões.
+Memberships do console sincronizam as memberships preexistentes de tarefas. Ambos os perfis têm o acesso operacional de gestor. Suspensão revoga também tarefas e despesas privadas. A migração 022 passou a exigir membership ativa para escrita em metas; a migração 023 restringe INSERT, UPDATE e DELETE a administradores ativos. A migração 026 permite INSERT e UPDATE de metas a gerentes ativos. O imposto e a exclusão de meses continuam exclusivos de administradores; o servidor bloqueia também alterações do imposto ou movimentação de mês por gerentes, mesmo fora da interface. O salvamento verifica novamente identidade e perfil no banco e preserva o controle de concorrência. Acesso privado não depende somente da ocultação dos botões.
 
 **Limite de escopo:** os agregados financeiros e endpoints de leitura que já eram públicos continuam públicos, assim como `dashboard.html` e a demonstração isolada `?demo=1`. O login protege a entrada do novo console; não transforma o dashboard legado nem suas fontes públicas em dados confidenciais. Uma privatização integral dessas fontes exigiria migrar os consumidores existentes para consultas autenticadas.
 
@@ -66,3 +66,7 @@ Validação: 11 testes da Edge Function, testes de validação/cliente na aplica
 ## Link de redefinição por email
 
 Administradores podem solicitar link ao destinatário cadastrado e ativo. Migração 025 e função atualizada adicionam autorização, controle de reenvio e auditoria. A página `?recovery=1` valida token único em sessão isolada e permite ao usuário escolher sua senha. Remetente escolhido: suporte@verificaplaca.com.br pelo Google Workspace. Google SMTP ativado. Link de teste enviado ao administrador com autorização e recebido na Inbox, confirmado pelo usuário; senha atual preservada. Ativação: [Email de recuperação](email-recuperacao.md).
+
+## Metas por gerentes · 04/11/2026
+
+Gerentes ativos podem editar CAC, upsell, orçamento Ads, receita, lucro bruto e lucro líquido em Metas mensais, com revisão antes de salvar. Imposto permanece desabilitado para gerentes e é omitido de suas escritas; a migração 026 protege o mesmo limite no banco. A exclusão de meses continua reservada a administradores. Testes de autorização em `supabase/tests/targets_manager_edit.sql` executam criação e atualização por gerente, proteção do imposto, bloqueio de exclusão por gerente e bloqueios de contas suspensas, sem membership e anônimas, com rollback das fixtures.

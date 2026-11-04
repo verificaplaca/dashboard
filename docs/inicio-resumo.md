@@ -14,7 +14,7 @@ Os até sete dias mais recentes do filtro formam o gráfico. A meta é mensal: p
 
 Tarefas obedecem à conta autenticada. Tracking consulta os últimos 50 envios em sete dias de calendário e explicita essa amostra. Falha tem prioridade sobre pendência e status desconhecido fica a conferir; `skipped` não é confirmação de entrega. Os atalhos mantêm suas permissões; Usuários aparece apenas para administradores.
 
-Metas podem ser consultadas por gerentes. Somente administradores ativos podem alterá-las, inclusive o imposto. A interface, o salvamento e as políticas do banco verificam essa regra (migração 023).
+Administradores e gerentes ativos podem consultar e alterar as metas da empresa (migração 026). A alteração do imposto e a exclusão de meses permanecem exclusivas dos administradores. Interface, salvamento e políticas do banco verificam esses limites.
 
 ## Validação
 
