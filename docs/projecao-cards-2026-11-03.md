@@ -37,3 +37,9 @@ Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Ver
 Cards do Simulador ajustados para 144px no desktop, padding de 14px × 18px e linhas internas de 18/34/18/22/16px, mantendo intervalo de 16px entre cards. Minigráfico na quarta linha e indicação de editável/calculado no rodapé, seguindo as posições da Visão Geral. Em telas pequenas, altura mínima de 173px e espaçamentos de 12/10/8px conforme o breakpoint, com crescimento conforme o conteúdo.
 
 Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Medidas conferidas no navegador no desktop e em 390px; mesma altura mínima, padding e intervalos da Visão Geral. Evidências em `output/simulador-espacamento-2026-11-03/`.
+
+## Cores das barras do Simulador
+
+Aplicados os tons exatos da Visão Geral: verde #a0f644, cinza #c6c9d1 e rosa #ff8290. COGS, ROAS, Ads, Bureau e Transações usam cinza; os demais indicadores usam verde. Perdas e piora de CAC, upsell ou ticket em relação ao controle do cenário usam rosa. Dias históricos negativos preservam sinalização rosa. O status parcial do lucro continua indicado no texto, sem introduzir uma quarta cor nas barras.
+
+Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Cores computadas dos 15 cards conferidas no navegador; CAC simulado em R$20 confirmou o rosa em CAC e lucro negativo, e cenário foi restaurado ao final. Evidência em `output/simulador-cores-2026-11-03/`.
