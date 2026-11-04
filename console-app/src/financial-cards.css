@@ -8,8 +8,8 @@
 .simulation-financials{--sc-blue:#a9b8c8;--sc-green:#a8dc69;--sc-red:#fb8792;--sc-amber:#c4c8ce;--sc-purple:#b9b0cf;margin:28px 0}
 .sc-heading{margin-bottom:14px}.sc-heading h2{font-size:22px;font-weight:400;letter-spacing:-.4px;text-transform:none}
 .sc-scroll{max-width:100%;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain;padding:0 0 4px}
-.sc-grid{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:149px;gap:16px;min-width:1100px}
-.sc-grid .sc-card{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:18px 34px 18px 17px 20px;gap:2px;height:149px;min-height:149px;max-height:149px;box-sizing:border-box;padding:17px 18px;border:0;border-radius:20px;background:var(--surface);box-shadow:none;overflow:hidden}
+.sc-grid{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:144px;gap:16px;min-width:1100px}
+.sc-grid .sc-card{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:18px 34px 18px 22px 16px;gap:2px;height:144px;min-height:144px;max-height:144px;box-sizing:border-box;padding:14px 18px;border:0;border-radius:20px;background:var(--surface);box-shadow:none;overflow:hidden}
 .sc-grid .sc-card:last-child:nth-child(odd){grid-column:auto}
 .sc-top{grid-row:1;margin:0;min-height:0;line-height:18px;padding-right:16px}.sc-top h3{font-size:13px;font-weight:400;line-height:18px;color:var(--text)}
 .sc-icon{position:absolute;top:14px;right:12px;width:22px;height:22px;min-width:22px;border:0;border-radius:50%;color:var(--muted)}
@@ -18,6 +18,17 @@
 
 .sc-delta{grid-row:3;justify-self:start;align-self:center;min-height:0;max-width:100%;font-size:8.5px;line-height:13px;height:16px;padding:1px 5px;box-sizing:border-box;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2);color:var(--muted)}
 .sc-delta.positive{color:var(--green);background:color-mix(in srgb,var(--green) 10%,var(--surface))}.sc-delta.negative{color:var(--red);background:color-mix(in srgb,var(--red) 10%,var(--surface))}
-.sc-state{grid-row:4;margin:0;font-size:10px;line-height:17px;color:var(--muted)}
-.sc-spark{grid-row:5;width:auto;max-width:100%;height:22px;margin:0;align-self:end;justify-self:end}.sc-accent{display:none}
+.sc-state{grid-row:5;margin:0;font-size:10px;line-height:17px;color:var(--muted)}
+.sc-spark{grid-row:4;width:auto;max-width:100%;height:22px;margin:0;align-self:end;justify-self:end}.sc-accent{display:none}
 .sc-card:hover{box-shadow:none}.sc-icon:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+/* Same compact spacing and responsive card rhythm as the overview. */
+@media(max-width:780px),(max-width:1024px) and (max-height:500px){
+ .sc-grid{grid-auto-rows:auto;gap:12px}
+ .sc-grid .sc-card{height:auto;min-height:173px;max-height:none;padding:16px;grid-template-rows:36px 32px auto 22px auto;gap:3px}
+ .sc-top{padding-right:32px}
+ .sc-delta{height:auto;min-height:28px;line-height:1.4;font-size:10.5px;white-space:normal;align-self:start}
+ .sc-state{font-size:10px;line-height:1.5}
+}
+@media(max-width:600px){.sc-grid{gap:10px}.sc-grid .sc-card{padding:14px 12px}}
+@media(max-width:359px){.sc-grid{gap:8px}.sc-grid .sc-card{padding-inline:10px}}

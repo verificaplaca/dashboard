@@ -31,3 +31,9 @@ Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Ver
 Minigráficos do Simulador passam a ocupar uma faixa proporcional à quantidade de dias, alinhada à direita, limitada à largura disponível. Barra de 4px, intervalo aproximado de 1px e altura de 22px, seguindo a Visão Geral. Mantidos histórico, sinais negativos, lacunas e cores existentes.
 
 Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Navegador verificou alinhamento dos 15 cards e períodos de 14 dias (70px) e 7 dias (35px). Evidência em `output/simulador-barras-2026-11-03/`.
+
+## Altura e espaçamento do Simulador iguais à Visão Geral
+
+Cards do Simulador ajustados para 144px no desktop, padding de 14px × 18px e linhas internas de 18/34/18/22/16px, mantendo intervalo de 16px entre cards. Minigráfico na quarta linha e indicação de editável/calculado no rodapé, seguindo as posições da Visão Geral. Em telas pequenas, altura mínima de 173px e espaçamentos de 12/10/8px conforme o breakpoint, com crescimento conforme o conteúdo.
+
+Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Medidas conferidas no navegador no desktop e em 390px; mesma altura mínima, padding e intervalos da Visão Geral. Evidências em `output/simulador-espacamento-2026-11-03/`.
