@@ -43,3 +43,9 @@ Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Ver
 Aplicados os tons exatos da Visão Geral: verde #a0f644, cinza #c6c9d1 e rosa #ff8290. COGS, ROAS, Ads, Bureau e Transações usam cinza; os demais indicadores usam verde. Perdas e piora de CAC, upsell ou ticket em relação ao controle do cenário usam rosa. Dias históricos negativos preservam sinalização rosa. O status parcial do lucro continua indicado no texto, sem introduzir uma quarta cor nas barras.
 
 Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Cores computadas dos 15 cards conferidas no navegador; CAC simulado em R$20 confirmou o rosa em CAC e lucro negativo, e cenário foi restaurado ao final. Evidência em `output/simulador-cores-2026-11-03/`.
+
+## Cores dos valores do Simulador
+
+Lucro bruto e líquido usam a mesma classificação de resultado da Visão Geral: positivo verde #07872d, negativo vermelho e zero neutro. Margem líquida segue verde para valor não negativo e vermelho para negativo; indisponibilidade permanece neutra. Demais valores usam a cor padrão da Visão Geral por tema (#111827 no claro e #edf2fa no escuro). Negativos usam #d92a3c no claro e #ff9ca8 no escuro. Removidas regras anteriores que pintavam apenas o lucro líquido ou substituíam a cor do resultado parcial; o aviso textual de resultado parcial continua disponível.
+
+Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Cores computadas dos 15 valores verificadas. Cenário temporário com CAC R$20 confirmou lucro negativo e tons corretos nos temas claro e escuro; cenário e tema restaurados ao final. Evidências em `output/simulador-valores-cores-2026-11-03/`.

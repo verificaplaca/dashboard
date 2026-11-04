@@ -52,8 +52,6 @@
 .premium-console .sc-state,.premium-console .sc-context-tag { font-size:10px; }
 .premium-console .sc-accent { display:none; }
 .premium-console .sc-card.sc-focus { outline:1px solid var(--border); background:var(--surface); }
-.premium-console .sc-focus .sc-value { color:var(--green); }
-.premium-console .sc-value.sc-negative { color:var(--red); }
 .premium-console .sc-icon { border:0; border-radius:50%; }
 .premium-console .app-footer { border-color:var(--border); font-size:10px; }
 [data-theme=dark] .premium-console .nav-item.active { background:#294931; color:#d7fbb5; }
@@ -98,7 +96,6 @@
 .premium-console .sc-delta.positive { color:var(--green); background:#e2ffd4; }
 .premium-console .sc-delta.negative { color:var(--red); background:#ffe5e8; }
 .premium-console .sc-delta.neutral { color:var(--muted); background:var(--surface2); }
-.premium-console .sc-partial .sc-value:not(.sc-negative) { color:var(--muted); }
 .premium-console .sc-heading h2 { font-size:20px; text-transform:none; font-weight:450; letter-spacing:-.4px; }
 .premium-console .money-heading h1 { font-weight:450; }
 .premium-console .money-summary { background:var(--surface); padding:26px; gap:28px; border:0; margin-bottom:32px; }
