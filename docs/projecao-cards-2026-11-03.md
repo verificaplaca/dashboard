@@ -49,3 +49,11 @@ Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Ver
 Lucro bruto e líquido usam a mesma classificação de resultado da Visão Geral: positivo verde #07872d, negativo vermelho e zero neutro. Margem líquida segue verde para valor não negativo e vermelho para negativo; indisponibilidade permanece neutra. Demais valores usam a cor padrão da Visão Geral por tema (#111827 no claro e #edf2fa no escuro). Negativos usam #d92a3c no claro e #ff9ca8 no escuro. Removidas regras anteriores que pintavam apenas o lucro líquido ou substituíam a cor do resultado parcial; o aviso textual de resultado parcial continua disponível.
 
 Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Cores computadas dos 15 valores verificadas. Cenário temporário com CAC R$20 confirmou lucro negativo e tons corretos nos temas claro e escuro; cenário e tema restaurados ao final. Evidências em `output/simulador-valores-cores-2026-11-03/`.
+
+## Padronização completa da tipografia e do visual dos cards
+
+Removida a camada antiga de estilos de cards em redesign.css e mobile-ux.css, que ainda mudava tamanhos, pesos, espaçamentos, bordas e grade apenas no shell de produção. O módulo agora aplica o mesmo padrão da Visão Geral em todos os shells: família de fonte, título de 13px/400, valor responsivo com peso 400 e linha 34px, indicador de 8,5px/400, rodapé de 10px/400, bordas, raios, paleta dos indicadores e controles de informação. A edição preserva o lápis; informações usam i com o mesmo contorno da referência.
+
+No celular, fontes e grade seguem os mesmos breakpoints da Visão Geral (três colunas, duas até 600px), com áreas de toque de 44px. Layout, cores dos valores, barras e altura permanecem no padrão já estabelecido.
+
+Validação: comparação das propriedades computadas de família, tamanho, peso, altura de linha e espaçamento das letras confirmou igualdade para títulos, valores, indicadores, rodapés e ícones no desktop e em 390px. Editor de CAC abriu e fechou corretamente; nenhuma hipótese alterada. 229 testes de domínio e 12 de paridade aprovados, release Pages e build Vercel concluídos. Evidências em `output/simulador-tipografia-2026-11-03/`, incluindo comparacao.json.

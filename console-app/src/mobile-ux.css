@@ -49,11 +49,6 @@
  .premium-console.module-design .quick-inline-controls>label{max-width:100%}
  .premium-console.module-design .quick-chart-heading h2{font-size:20px}
  .premium-console.module-design .quick-chart>div:has(>canvas){max-width:100%}
- .premium-console.module-design .simulation-financials .sc-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:auto;overflow:visible;min-width:0}
- .premium-console.module-design .simulation-financials .sc-card{min-width:0;max-width:none}
- .premium-console.module-design .simulation-financials .sc-card:last-child:nth-child(odd){grid-column:1/-1}
- .premium-console.module-design .sc-value{font-size:clamp(18px,5vw,25px);overflow-wrap:anywhere}
- .premium-console.module-design .sc-label{font-size:12px;line-height:1.5}
  .premium-console.module-design .money-summary{padding:18px;gap:18px}
  .premium-console.module-design .money-dre table{table-layout:fixed;width:100%}
  .premium-console.module-design .money-dre thead th:first-child{width:52%}
@@ -150,7 +145,6 @@
  .premium-console.module-design .overview-home .oh-kpis{gap:8px}
  .premium-console.module-design .overview-home .oh-kpi{padding:14px 10px}
  .premium-console.module-design .overview-home .oh-kpi>strong{font-size:19px}
- .premium-console.module-design .simulation-financials .sc-grid{grid-template-columns:1fr}
  .premium-console.module-design .money-dre thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
  .premium-console.module-design .money-dre tbody tr{display:grid;grid-template-columns:1fr;border-bottom:1px solid var(--border);padding:14px 0}
  .premium-console.module-design .money-dre tbody :is(th,td){display:block;width:auto;border:0;padding:4px 8px;text-align:left}
@@ -198,8 +192,6 @@
  .premium-console.module-design .main-content :is(.button,.text-button){height:auto;padding-block:10px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
  .premium-console.module-design .main-content :is(.button,.text-button)>svg{flex-shrink:0}
  .premium-console.module-design .main-content select{min-height:44px;height:auto;font-size:16px;line-height:1.4;max-width:100%;min-width:0}
- .premium-console.module-design .main-content .sc-icon{width:44px;height:44px;min-width:44px;min-height:44px;flex-shrink:0;display:grid;place-items:center}
- .premium-console.module-design .main-content .sc-top{align-items:center;gap:8px;min-height:44px}
  .premium-console.module-design .main-content .segment-control{height:auto;min-height:52px}
  .premium-console.module-design .main-content .segment-control button{min-width:44px;height:44px;min-height:44px}
  .premium-console.module-design .main-content .tabs button{min-height:44px;white-space:nowrap}
