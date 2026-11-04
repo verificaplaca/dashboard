@@ -25,3 +25,9 @@ O tooltip também informa Acima/Abaixo da meta (ou Na meta), com a diferença ab
 Retirados os textos explicativos curtos abaixo dos valores na Visão Geral e no Simulador (ex.: Ads + bureau). As explicações continuam nos tooltips/diálogos existentes. A grade foi compactada para eliminar a linha vazia: cards desktop da Visão Geral com 144px e do Simulador com 149px. Valores, projeções, metas e comparativos preservados.
 
 Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Navegador conferiu 15 cards sem subtítulos em cada tela, os 15 controles explicativos e a abertura da explicação do lucro bruto no Simulador. Visão Geral e Simulador sem transbordamento global em 390px após estabilização do layout. Evidências locais em `output/cards-sem-subtitulo-2026-11-03/`.
+
+## Barras do Simulador no padrão da Visão Geral
+
+Minigráficos do Simulador passam a ocupar uma faixa proporcional à quantidade de dias, alinhada à direita, limitada à largura disponível. Barra de 4px, intervalo aproximado de 1px e altura de 22px, seguindo a Visão Geral. Mantidos histórico, sinais negativos, lacunas e cores existentes.
+
+Validação: 229 testes de domínio e 12 de paridade aprovados; builds Pages/Vercel concluídos. Navegador verificou alinhamento dos 15 cards e períodos de 14 dias (70px) e 7 dias (35px). Evidência em `output/simulador-barras-2026-11-03/`.

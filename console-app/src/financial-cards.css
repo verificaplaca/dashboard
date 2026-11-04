@@ -19,5 +19,5 @@
 .sc-delta{grid-row:3;justify-self:start;align-self:center;min-height:0;max-width:100%;font-size:8.5px;line-height:13px;height:16px;padding:1px 5px;box-sizing:border-box;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2);color:var(--muted)}
 .sc-delta.positive{color:var(--green);background:color-mix(in srgb,var(--green) 10%,var(--surface))}.sc-delta.negative{color:var(--red);background:color-mix(in srgb,var(--red) 10%,var(--surface))}
 .sc-state{grid-row:4;margin:0;font-size:10px;line-height:17px;color:var(--muted)}
-.sc-spark{grid-row:5;width:calc(100% + 18px);height:26px;margin:0;align-self:end}.sc-accent{display:none}
+.sc-spark{grid-row:5;width:auto;max-width:100%;height:22px;margin:0;align-self:end;justify-self:end}.sc-accent{display:none}
 .sc-card:hover{box-shadow:none}.sc-icon:focus-visible{outline:2px solid var(--green);outline-offset:2px}

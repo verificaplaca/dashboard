@@ -28,7 +28,8 @@ const cardOrder:CardId[]=['r','ct','p','npo','ro','cpv','ca','ga','gb','tk','m',
 definitions.sort((a,b)=>cardOrder.indexOf(a.id)-cardOrder.indexOf(b.id));
 function Spark({values,color,label}:{values:(number|null)[];color:string;label:string}){
  const finite=values.filter((n):n is number=>n!==null&&Number.isFinite(n));if(!finite.length)return <div className="sc-spark sc-no-spark">Histórico indisponível</div>;
- const low=Math.min(0,...finite),high=Math.max(0,...finite),span=high-low||1,step=200/Math.max(1,values.length);return <svg className="sc-spark" viewBox="0 0 200 34" preserveAspectRatio="none" role="img" aria-label={`Histórico real de ${label}; não é uma previsão.`}>{values.map((n,i)=>{if(n===null)return null;const y=30-(n-low)/span*28;const base=30-(0-low)/span*28;return <rect key={i} x={i/Math.max(1,values.length-1)*(200-step*.65)} y={Math.min(y,base)} width={step*.65} height={Math.max(1,Math.abs(base-y))} rx=".5" fill={`var(--sc-${n<0?'red':color})`}/>;})}</svg>;
+ const low=Math.min(0,...finite),high=Math.max(0,...finite),span=high-low||1,width=Math.max(1,values.length)*5;
+ return <svg className="sc-spark" style={{width}} viewBox={`0 0 ${width} 22`} preserveAspectRatio="none" role="img" aria-label={`Histórico real de ${label}; não é uma previsão.`}>{values.map((n,i)=>{if(n===null)return null;const y=21-(n-low)/span*20;const base=21-(0-low)/span*20;return <rect key={i} x={i*5+.5} y={Math.min(y,base)} width={4} height={Math.max(1,Math.abs(base-y))} rx=".5" fill={`var(--sc-${n<0?'red':color})`}/>;})}</svg>;
 }
 type Props={base:Baseline;source:Snapshot;history:CardHistory|null;rates:CardRates;start:string;end:string;days:number;current:Projection;proposed:Projection;edits:CardEdits;complete:boolean;onApply:(change:{edits:CardEdits;budget?:number})=>void};
 export default function FinancialCards(props:Props){
