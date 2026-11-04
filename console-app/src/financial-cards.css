@@ -61,6 +61,7 @@
  .simulation-financials .sc-delta{max-width:100%;height:auto;min-height:16px;font-size:10.5px;line-height:1.4;white-space:normal}
  .simulation-financials .sc-state{font-size:10px;line-height:1.5;white-space:normal;overflow:visible}
  .simulation-financials .sc-icon{transform:none;width:44px;height:44px;min-width:44px;min-height:44px;top:0;right:0;font-size:12px;display:grid;place-items:center;border:0;background:transparent}
+ .premium-console.module-design .main-content .simulation-financials .sc-icon{line-height:18px}
  .simulation-financials .sc-icon::before{content:"";position:absolute;width:24px;height:24px;border:1px solid currentColor;border-radius:50%}
  .simulation-financials .sc-card:last-child:nth-child(odd){grid-column:auto}
 }
