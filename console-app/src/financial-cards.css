@@ -7,8 +7,8 @@
 /* Mirrors the approved overview financial-grid: five columns, three equal rows. */
 .simulation-financials{--sc-blue:#c6c9d1;--sc-green:#a0f644;--sc-red:#ff8290;--sc-amber:#c6c9d1;--sc-purple:#c6c9d1;--sc-neutral:#c6c9d1;margin:28px 0}
 .sc-heading{margin-bottom:14px}.sc-heading h2{font-size:22px;font-weight:400;letter-spacing:-.4px;text-transform:none}
-.sc-scroll{max-width:100%;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain;padding:0 0 4px}
-.sc-grid{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:144px;gap:16px;min-width:1100px}
+.sc-scroll{max-width:100%;overflow:visible;padding:0 0 4px}
+.sc-grid{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:144px;gap:16px;min-width:0}
 .sc-grid .sc-card{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:18px 34px 18px 22px 16px;gap:2px;height:144px;min-height:144px;max-height:144px;box-sizing:border-box;padding:14px 18px;border:0;border-radius:20px;background:var(--surface);box-shadow:none;overflow:hidden}
 .sc-grid .sc-card:last-child:nth-child(odd){grid-column:auto}
 .sc-top{grid-row:1;margin:0;min-height:0;line-height:18px;padding-right:16px}.sc-top h3{font-size:13px;font-weight:400;line-height:18px;color:var(--text)}
@@ -67,3 +67,5 @@
 }
 @media(max-width:600px){.simulation-financials .sc-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.simulation-financials .sc-top{padding-right:30px}.simulation-financials .sc-value{font-size:clamp(18px,5.1vw,23px)}}
 @media(max-width:359px){.simulation-financials .sc-grid{gap:8px}.simulation-financials .sc-value{font-size:17px}.simulation-financials .sc-top h3{font-size:11px}}
+
+@media(min-width:781px) and (max-width:1250px){.simulation-financials .sc-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
