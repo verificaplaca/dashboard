@@ -5,19 +5,77 @@
   "buildCommand": "npm run build:vercel --prefix console-app",
   "outputDirectory": "console-app/dist",
   "redirects": [
-    { "source": "/console", "destination": "/", "permanent": false },
-    { "source": "/console/", "destination": "/", "permanent": false },
-    { "source": "/dashboard/console", "destination": "/", "permanent": false },
-    { "source": "/dashboard/console/", "destination": "/", "permanent": false }
+    {
+      "source": "/console",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/console/",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/dashboard/console",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/dashboard/console/",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/dashboard.html",
+      "destination": "/#/dashboard",
+      "permanent": true
+    },
+    {
+      "source": "/google-ads-cac.html",
+      "destination": "/#/marketing",
+      "permanent": true
+    },
+    {
+      "source": "/tracking-gateway.html",
+      "destination": "/#/tracking",
+      "permanent": true
+    },
+    {
+      "source": "/overview",
+      "destination": "/#/dashboard",
+      "permanent": true
+    },
+    {
+      "source": "/overview/",
+      "destination": "/#/dashboard",
+      "permanent": true
+    },
+    {
+      "source": "/overview/index.html",
+      "destination": "/#/dashboard",
+      "permanent": true
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     }
   ]
