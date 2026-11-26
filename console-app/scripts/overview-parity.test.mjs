@@ -217,7 +217,8 @@ test('the dedicated same-document reader permits source GET requests without cha
   const controller = new AbortController();
   const headers = { Range: '0-999' };
   assert.equal((await read(principal, { headers }, controller.signal)).ok, true);
-  assert.equal(calls[0][0], principal);
+  const cached = principal.replace('/revenue_daily', '/console_revenue_daily');
+  assert.equal(calls[0][0], cached);
   assert.equal(calls[0][1].headers, headers, 'Pagination/authentication headers retain their identity');
   assert.equal(calls[0][1].signal, controller.signal, 'Unmount cancellation reaches the original fetch');
   const siteURL = new URL(site);
@@ -225,7 +226,8 @@ test('the dedicated same-document reader permits source GET requests without cha
   assert.equal(calls[1][0], siteURL);
   const request = new Request(principal, { headers: { Range: '1000-1999' } });
   assert.equal((await read(request)).ok, true);
-  assert.equal(calls[2][0], request, 'Request objects preserve their own headers/options');
+  assert.equal(calls[2][0].url, cached);
+  assert.equal(calls[2][0].headers.get('Range'), '1000-1999');
   const successfulReads = calls.length;
   for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']) await assert.rejects(() => read(principal, { method }), /somente leitura/);
   await assert.rejects(() => read(new Request(principal, { method: 'POST', body: '{}' })), /somente leitura/);

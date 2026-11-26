@@ -88,17 +88,22 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   } };
   const scopedTimeout = (callback: () => void, delay = 0) => { const timer = window.setTimeout(() => { timeouts.delete(timer); if (active) callback(); }, delay); timeouts.add(timer); return timer; };
   const scopedFrame = (callback: FrameRequestCallback) => { const frame = requestAnimationFrame(time => { frames.delete(frame); if (active) callback(time); }); frames.add(frame); return frame; };
-  let pendingReads = 0;
-  const scopedFetch = async (input: RequestInfo | URL, options: RequestInit = {}) => {
-    pendingReads++; reportLoading(true);
-    try {
-      const response = await readOnlyOverviewFetch(input, options, AbortSignal.any([abort.signal, AbortSignal.timeout(30_000)]));
-      // A response's headers may arrive long before its data. Keep the lease
-      // through the body transfer without changing the original response.
-      await response.clone().arrayBuffer();
-      return response;
-    } finally { pendingReads--; schedule(); }
+  let initialization: Promise<void> | undefined;
+  // The original script initializes itself and also exposes keyboard/button
+  // refreshes. All entry points share the same run, including its retry delays.
+  const initialize = (run: () => Promise<void>) => {
+    if (!active) return Promise.resolve();
+    if (initialization) return initialization;
+    host.setAttribute('aria-busy', 'true');
+    reportLoading(true);
+    initialization = Promise.resolve().then(run).finally(() => {
+      initialization = undefined;
+      schedule();
+    });
+    return initialization;
   };
+  const scopedFetch = (input: RequestInfo | URL, options: RequestInit = {}) =>
+    readOnlyOverviewFetch(input, options, AbortSignal.any([abort.signal, AbortSignal.timeout(30_000)]));
   const plugins: any[] = [];
   function ScopedChart(item: any, config: any) {
     if (!active) throw new DOMException('Visão encerrada', 'AbortError');
@@ -182,7 +187,8 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   new Function('window', 'document', 'Chart', 'location', 'matchMedia', presentationScript)(scopedWindow, scopedDocument, ScopedChart, { search: summary ? '?mode=summary' : '' }, () => presentationMotion);
   const functions = [...model.calculationScript.matchAll(/^(?:async )?function (\w+)\(/gm)].map(match => match[1]);
   const quietConsole = Object.fromEntries(['log', 'warn', 'error', 'info'].map(level => [level, (...args: unknown[]) => { if (active) (console as any)[level](...args); }]));
-  api = new Function('window', 'document', 'fetch', 'Chart', 'ChartDataLabels', 'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'console', `${model.calculationScript}\nreturn {${functions.join(',')},charts,sparkRefs,readChartSnapshot:()=>({current:filtered,allDays:ALL_DAYS}),readDay:(i)=>{const d=filtered[i];if(!d)return null;return {date:d.dateStr,revenue:d.revenue,tax:d.revenue*(1-netFactor(d.dateStr)),ads:(d.costTotal||0)-(d.costBureau||0),bureau:d.costBureau||0,result:d.netProfit||0,example:!usingRealData}},readHomeSnapshot:()=>({real:usingRealData,totals:totals(),targets:activeTargets(),days:filtered.map(d=>({date:d.dateStr,revenue:d.revenue}))}),readPresentation:()=>({targetDays:filtered.map(d=>({date:d.dateStr,targets:targetFor(d.dateStr)})),funnel:[filtered.reduce((s,d)=>s+(d.checkouts||0),0),filtered.reduce((s,d)=>s+(d.conv||0),0),filtered.reduce((s,d)=>s+(d.pedidosUpsell!=null?d.pedidosUpsell:Math.round((d.conv||0)*((d.upsellRate||0)/100))),0)],totals:totals(),previous:prevTotals(),dayCount:filtered.length,upsellOrders:usingRealData?filtered.reduce((s,d)=>s+(d.pedidosUpsell||0),0):null,targets:activeTargets(),real:usingRealData,months:new Set(filtered.map(d=>d.dateStr.slice(0,7))).size,month:filtered.at(-1)?.dateStr.slice(0,7)})};`)(scopedWindow, scopedDocument, scopedFetch, ScopedChart, ChartDataLabels, scopedTimeout, clearTimeout, scopedFrame, cancelAnimationFrame, quietConsole);
+  const engineScript = `const originalInit = initDashboard; initDashboard = () => initialize(originalInit);\n${model.calculationScript}`;
+  api = new Function('window', 'document', 'fetch', 'Chart', 'ChartDataLabels', 'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'console', 'initialize', `${engineScript}\nreturn {${functions.join(',')},charts,sparkRefs,readChartSnapshot:()=>({current:filtered,allDays:ALL_DAYS}),readDay:(i)=>{const d=filtered[i];if(!d)return null;return {date:d.dateStr,revenue:d.revenue,tax:d.revenue*(1-netFactor(d.dateStr)),ads:(d.costTotal||0)-(d.costBureau||0),bureau:d.costBureau||0,result:d.netProfit||0,example:!usingRealData}},readHomeSnapshot:()=>({real:usingRealData,totals:totals(),targets:activeTargets(),days:filtered.map(d=>({date:d.dateStr,revenue:d.revenue}))}),readPresentation:()=>({targetDays:filtered.map(d=>({date:d.dateStr,targets:targetFor(d.dateStr)})),funnel:[filtered.reduce((s,d)=>s+(d.checkouts||0),0),filtered.reduce((s,d)=>s+(d.conv||0),0),filtered.reduce((s,d)=>s+(d.pedidosUpsell!=null?d.pedidosUpsell:Math.round((d.conv||0)*((d.upsellRate||0)/100))),0)],totals:totals(),previous:prevTotals(),dayCount:filtered.length,upsellOrders:usingRealData?filtered.reduce((s,d)=>s+(d.pedidosUpsell||0),0):null,targets:activeTargets(),real:usingRealData,months:new Set(filtered.map(d=>d.dateStr.slice(0,7))).size,month:filtered.at(-1)?.dateStr.slice(0,7)})};`)(scopedWindow, scopedDocument, scopedFetch, ScopedChart, ChartDataLabels, scopedTimeout, clearTimeout, scopedFrame, cancelAnimationFrame, quietConsole, initialize);
   // The frozen renderer assumes a nonempty date range. Keep exact custom
   // selections (including empty ones) without changing its financial formulas.
   const applyCustomDate = api.applyCustomDate;
@@ -273,9 +279,10 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
   let previous = '';
   const sync = () => {
     scheduled = false; if (!active) return;
+    if (initialization) return;
     const sourceReady=root.querySelectorAll('.kpi-row .kpi-value').length===15;
-    const sourceState=overviewReadState({exampleBanner:!!root.getElementById('demoDataBanner'),ready:sourceReady,real:sourceReady&&api.readHomeSnapshot().real,pendingReads});
-    if(sourceState==='unavailable'){
+    const sourceState=overviewReadState({exampleBanner:!!root.getElementById('demoDataBanner'),ready:sourceReady,real:sourceReady&&api.readHomeSnapshot().real,pendingReads:0});
+    if(sourceState!=='ready'){
       reportLoading(false);emit({error:overviewUnavailableMessage,ready:false,loading:false});return;
     }
     bindControls(); present(); presentSections(); presentInsights();
@@ -321,20 +328,15 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
       if (chart && !replayed.has(canvas)) chartObserver.observe(canvas);
     });
     const event = { ready: root.querySelectorAll('.kpi-row .kpi-value').length === 15, example: false, period: root.getElementById('dateRangeHint')!.textContent!.trim(), sections: Object.fromEntries([...root.querySelectorAll<HTMLElement>('[id^="section-"]')].filter(el => el.getBoundingClientRect().height).map(el => [el.id.replace('section-', ''), el.getBoundingClientRect().top + window.scrollY])) };
-    const nativeOverlay = root.getElementById('loadingOverlay');
-    const finished = event.ready || !nativeOverlay || nativeOverlay.style.opacity === '0';
-    const busy = pendingReads > 0 || !finished;
-    if(!busy&&event.ready){
-      const selection=readOverviewPeriod(sessionStorage),days=api.readChartSnapshot().current as {dateStr:string}[];
-      if(selection.preset==='custom'&&days.some(day=>day.dateStr<selection.from!||day.dateStr>selection.to!)){
-        (root.getElementById('dateFrom') as HTMLInputElement).value=selection.from!;
-        (root.getElementById('dateTo') as HTMLInputElement).value=selection.to!;
-        api.applyCustomDate();schedule();return;
-      }
+    const selection=readOverviewPeriod(sessionStorage),days=api.readChartSnapshot().current as {dateStr:string}[];
+    if(selection.preset==='custom'&&days.some(day=>day.dateStr<selection.from!||day.dateStr>selection.to!)){
+      (root.getElementById('dateFrom') as HTMLInputElement).value=selection.from!;
+      (root.getElementById('dateTo') as HTMLInputElement).value=selection.to!;
+      api.applyCustomDate();schedule();return;
     }
-    host.setAttribute('aria-busy', String(busy));
-    reportLoading(busy);
-    const output: OverviewEvent = {...event,...(!busy && event.ready ? {snapshot:{...api.readHomeSnapshot(),filter:readOverviewPeriod(sessionStorage)}} : {})};
+    host.setAttribute('aria-busy', 'false');
+    reportLoading(false);
+    const output: OverviewEvent = {...event,snapshot:{...api.readHomeSnapshot(),filter:readOverviewPeriod(sessionStorage)}};
     const key = JSON.stringify(output); if (key !== previous) { previous = key; emit(output); }
   };
   const schedule = () => { if (!scheduled && active) { scheduled = true; scopedFrame(sync); } };

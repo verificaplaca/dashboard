@@ -13,5 +13,5 @@ export function getAuthClient() {
   })).catch(error => { client = undefined; throw error; });
 }
 export async function readPublic<T>(table: 'monthly_targets' | 'conversion_dispatches_public' | 'revenue_daily' | 'google_ads_campaign_daily', query: URLSearchParams, signal?: AbortSignal): Promise<T[]> {
-  return readPublicRows<T>(`${config.url}/rest/v1/${table}?${query}`,{apikey:config.key,Authorization:`Bearer ${config.key}`},signal);
+  return readPublicRows<T>(`${config.url}/rest/v1/${table === 'revenue_daily' ? 'console_revenue_daily' : table}?${query}`,{apikey:config.key,Authorization:`Bearer ${config.key}`},signal);
 }

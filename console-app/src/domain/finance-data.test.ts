@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadFinanceData } from './finance-data';
 Object.defineProperty(globalThis,'location',{value:{href:'http://localhost/'},configurable:true});
-const fixture=(table:string)=>({revenue_daily:[{date:'2026-09-01',revenue:'100',paid_orders:10}],bureau_daily:[{date:'2026-09-01',custo_bureau:'20'}],google_ads_campaign_daily:[{date:'2026-09-01',campaign_id:'1',cost_micros:'30000000'}],monthly_targets:[{month:'2026-09-01',tax_pct:8}],refunds_daily:[{date:'2026-09-01',refund_count:'1',refund_value:'15'}]}[table]??[]);
+const fixture=(table:string)=>({console_revenue_daily:[{date:'2026-09-01',revenue:'100',paid_orders:10}],bureau_daily:[{date:'2026-09-01',custo_bureau:'20'}],google_ads_campaign_daily:[{date:'2026-09-01',campaign_id:'1',cost_micros:'30000000'}],monthly_targets:[{month:'2026-09-01',tax_pct:8}],refunds_daily:[{date:'2026-09-01',refund_count:'1',refund_value:'15'}]}[table]??[]);
 test('DRE reads the original sources and informative refunds using only GET',async t=>{
  const seen=new Set<string>();t.mock.method(globalThis,'fetch',async(input,init)=>{const table=new URL(String(input)).pathname.split('/').at(-1)!;seen.add(table);assert.equal(init?.method??'GET','GET');return new Response(JSON.stringify(fixture(table)));});
  const data=await loadFinanceData('2026-09-01','2026-09-01');assert.equal(seen.size,5);assert.deepEqual(data.refunds,[{date:'2026-09-01',refund_count:1,refund_value:15}]);assert.equal(data.refundWarning,'');assert.equal(data.revenue[0].revenue,100);

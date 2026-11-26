@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadSimulationData } from './simulation-data';
 Object.defineProperty(globalThis, 'location', { value: { href: 'http://localhost/' }, configurable: true });
-const valid = (table: string) => table === 'revenue_daily' ? [{ date: '2026-09-01', revenue: '100', paid_orders: 10 }] : table === 'bureau_daily' ? [{ date: '2026-09-01', custo_bureau: '20' }] : table === 'monthly_targets' ? [{ month: '2026-09-01', tax_pct: null }] : [{ date: '2026-09-01', campaign_id: '1', cost_micros: '30000000' }];
+const valid = (table: string) => table === 'console_revenue_daily' ? [{ date: '2026-09-01', revenue: '100', paid_orders: 10 }] : table === 'bureau_daily' ? [{ date: '2026-09-01', custo_bureau: '20' }] : table === 'monthly_targets' ? [{ month: '2026-09-01', tax_pct: null }] : [{ date: '2026-09-01', campaign_id: '1', cost_micros: '30000000' }];
 test('loader pages Ads and uses only GET to original dashboard sources', async t => {
   let calls = 0;
   t.mock.method(globalThis, 'fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
