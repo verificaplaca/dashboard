@@ -1,3 +1,5 @@
+import { toFont } from 'chart.js/helpers';
+
 /** Presentation-only chart comparisons. Missing calendar days stay missing. */
 export interface OverviewDay {
   dateStr: string;
@@ -61,6 +63,8 @@ export function enhanceOverviewChart(id: string, config: any, snapshot: ChartSna
         if (!chart.isDatasetVisible(0)) return;
         const ctx = chart.ctx as CanvasRenderingContext2D;
         ctx.save();
+        const font = toFont(chart.options.plugins.datalabels.font);
+        ctx.font = font.string;
         ctx.fillStyle = '#202a24';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -71,15 +75,10 @@ export function enhanceOverviewChart(id: string, config: any, snapshot: ChartSna
           const top = Math.max(chart.chartArea.top, Math.min(bar.y, bar.base));
           const bottom = Math.min(chart.chartArea.bottom, Math.max(bar.y, bar.base));
           const height = bottom - top;
-          ctx.font = '600 12px system-ui, sans-serif';
-          const textWidth = ctx.measureText(label).width;
-          const sizeFor = (width: number, height: number) =>
-            Math.floor(Math.min(12, height - 2, 12 * (width - 3) / textWidth));
-          const horizontalSize = sizeFor(bar.width, height);
-          const horizontal = horizontalSize >= 9;
-          const size = horizontal ? horizontalSize : sizeFor(height, bar.width);
-          if (size < 9) return;
-          ctx.font = `600 ${size}px system-ui, sans-serif`;
+          const textWidth = ctx.measureText(label).width + 3;
+          const textHeight = font.size + 2;
+          const horizontal = bar.width >= textWidth && height >= textHeight;
+          if (!horizontal && (bar.width < textHeight || height < textWidth)) return;
           ctx.save();
           ctx.translate(bar.x, (top + bottom) / 2);
           if (!horizontal) ctx.rotate(-Math.PI / 2);
