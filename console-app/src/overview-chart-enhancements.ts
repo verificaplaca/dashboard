@@ -1,6 +1,7 @@
 /** Presentation-only chart comparisons. Missing calendar days stay missing. */
 export interface OverviewDay {
   dateStr: string;
+  conv?: number; // Paid orders from revenue_daily.
   revenue?: number;
   costTotal?: number;
   profit?: number;
@@ -46,6 +47,49 @@ export function enhanceOverviewChart(id: string, config: any, snapshot: ChartSna
   const options = config.options ||= {};
   options.animation = snapshot.reducedMotion ? false : { ...(typeof options.animation === 'object' ? options.animation : {}), duration: 240 };
   options.transitions = { ...options.transitions, active: { animation: { duration: snapshot.reducedMotion ? 0 : 140 } } };
+  if (id === 'netProfitChart') {
+    const sales = snapshot.current.map(day => day.conv);
+    const tooltip = (options.plugins ||= {}).tooltip ||= {};
+    const callbacks = tooltip.callbacks ||= {};
+    callbacks.afterLabel = (item: { datasetIndex: number; dataIndex: number }) => {
+      const count = sales[item.dataIndex];
+      return item.datasetIndex === 0 && finite(count) ? `Vendas do dia: ${count.toLocaleString('pt-BR')}` : '';
+    };
+    (config.plugins ||= []).push({
+      id: 'net-profit-sales',
+      afterDatasetsDraw(chart: any) {
+        if (!chart.isDatasetVisible(0)) return;
+        const ctx = chart.ctx as CanvasRenderingContext2D;
+        ctx.save();
+        ctx.fillStyle = '#202a24';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        chart.getDatasetMeta(0).data.forEach((bar: any, index: number) => {
+          const count = sales[index];
+          if (!finite(count)) return;
+          const label = count.toLocaleString('pt-BR');
+          const top = Math.max(chart.chartArea.top, Math.min(bar.y, bar.base));
+          const bottom = Math.min(chart.chartArea.bottom, Math.max(bar.y, bar.base));
+          const height = bottom - top;
+          ctx.font = '600 12px system-ui, sans-serif';
+          const textWidth = ctx.measureText(label).width;
+          const sizeFor = (width: number, height: number) =>
+            Math.floor(Math.min(12, height - 2, 12 * (width - 3) / textWidth));
+          const horizontalSize = sizeFor(bar.width, height);
+          const horizontal = horizontalSize >= 9;
+          const size = horizontal ? horizontalSize : sizeFor(height, bar.width);
+          if (size < 9) return;
+          ctx.font = `600 ${size}px system-ui, sans-serif`;
+          ctx.save();
+          ctx.translate(bar.x, (top + bottom) / 2);
+          if (!horizontal) ctx.rotate(-Math.PI / 2);
+          ctx.fillText(label, 0, 0);
+          ctx.restore();
+        });
+        ctx.restore();
+      },
+    });
+  }
   const field = fields[id];
   if (field && snapshot.compare) {
     const comparison = comparisonSeries(snapshot.current, snapshot.allDays, field, config.data.labels?.length);

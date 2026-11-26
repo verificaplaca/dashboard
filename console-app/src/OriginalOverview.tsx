@@ -261,6 +261,11 @@ function mountOverview(Chart: typeof import('chart.js').Chart, ChartDataLabels: 
       const text = formatter ? String(formatter({ raw: value, dataset: series, datasetIndex, dataIndex: index, label, formattedValue: String(value) })).trim() : Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
       const prefix = `${series.label || ''}:`; return text.startsWith(prefix) ? text.slice(prefix.length).trim() : text;
     })]);
+    if (chart.canvas.id === 'netProfitChart') {
+      headers.push('Vendas do dia');
+      const days = api.readChartSnapshot().current;
+      rows.forEach((row, index) => row.push(days[index]?.conv?.toLocaleString('pt-BR') ?? '—'));
+    }
     emit({ chartTable: { title, headers, rows } });
   };
   const replayed = new WeakSet<HTMLCanvasElement>();

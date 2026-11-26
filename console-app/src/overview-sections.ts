@@ -121,6 +121,11 @@ export function createOverviewSections(root: ShadowRoot, read: () => any, summar
     if (id === 'profitChart' || id === 'netProfitChart') {
       const legend = document.createElement('div'); legend.className = 'result-legend';
       legend.innerHTML = '<span><i class="positive-dot"></i>Positivo</span><span><i class="negative-dot"></i>Negativo</span><span><i class="mean-dot"></i>Média tracejada</span>';
+      if (id === 'netProfitChart') {
+        const sales = document.createElement('span');
+        sales.textContent = 'Dentro das barras: vendas do dia';
+        legend.append(sales);
+      }
       main.after(legend);
     }
   }
